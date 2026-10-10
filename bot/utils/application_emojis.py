@@ -18,8 +18,8 @@ LOG = logging.getLogger("cloudtix.emojis")
 BOT_DIR = Path(__file__).resolve().parents[1]
 ASSETS = BOT_DIR / "assets/emojis/cloudtix"
 MANIFEST = json.loads((ASSETS / "emojis.json").read_text(encoding="utf-8"))
-# Later packs take precedence for native bot aliases. The dashboard retains
-# the white pack; additional collections opt out via dashboard_visible=false.
+# Later packs take precedence for native bot aliases. Only the utility pack
+# is offered in the dashboard; other collections remain available to the bot.
 for relative_manifest in ("discord-color/emojis.json", "discord-utility/emojis.json"):
     pack_path = ASSETS / relative_manifest
     if pack_path.exists():

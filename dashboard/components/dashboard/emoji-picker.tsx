@@ -8,13 +8,12 @@
  * gerade steht -- nicht am Ende. Wer mitten im Satz eines braucht,
  * müsste es sonst von Hand dorthin schieben.
  *
- * Der Bot liefert den vollständigen CloudTIX-Katalog, echte Discord-Codes
- * und weitere aktive Bot-Emojis. Vorschauen ohne Discord-ID werden angezeigt,
+ * Der Bot liefert den Katalog der farbigen Utility-Emojis mit echten
+ * Discord-Codes. Vorschauen ohne Discord-ID werden angezeigt,
  * können aber erst nach dem Upload eingefügt werden.
  */
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { usePathname } from "next/navigation";
 import { Loader2, RefreshCw, Search, Smile, X } from "lucide-react";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
@@ -29,7 +28,7 @@ export interface BotEmoji {
   raw: string | null;
   group: string;
   url: string;
-  source?: "cloudtix" | "legacy";
+  source?: "cloudtix";
 }
 
 /**
@@ -72,8 +71,6 @@ export function EmojiPicker({
   const [emojis, setEmojis] = useState<BotEmoji[]>([]);
   const [query, setQuery] = useState("");
   const [reload, setReload] = useState(0);
-  const pathname = usePathname();
-  const guildId = pathname.match(/\/dashboard\/guild\/(\d{15,22})/)?.[1] || "";
   // Warum das Feld per Portal an `document.body` haengt
   // ---------------------------------------------------
   // Mehrere Bausteine eroeffnen einen eigenen Stapelkontext:
@@ -113,25 +110,11 @@ export function EmojiPicker({
     setLoading(true);
     setError("");
     setEmojis([]);
-    // Refresh when opened so newly uploaded IDs and a changed server appear.
-    // Loading/error state is not a dependency: failures must not retry in a loop.
-    Promise.all([
-      api.getBotEmojis(),
-      guildId
-        ? api.getGuildEmojis(guildId).catch(() => ({ emojis: [] }))
-        : Promise.resolve({ emojis: [] }),
-    ])
-      .then(([botAnswer, guildAnswer]) => {
-        if (cancelled) return;
-        const botEmojis: BotEmoji[] = botAnswer?.emojis ?? [];
-        const serverEmojis: BotEmoji[] = guildAnswer?.emojis ?? [];
-        const seen = new Set(
-          botEmojis.map((entry) => entry.raw).filter(Boolean),
-        );
-        setEmojis([
-          ...botEmojis,
-          ...serverEmojis.filter((entry) => entry.raw && !seen.has(entry.raw)),
-        ]);
+    // Reload on opening to pick up newly uploaded application IDs.
+    api
+      .getBotEmojis()
+      .then((answer) => {
+        if (!cancelled) setEmojis(answer?.emojis ?? []);
       })
       .catch((err: any) => {
         if (!cancelled)
@@ -143,7 +126,7 @@ export function EmojiPicker({
     return () => {
       cancelled = true;
     };
-  }, [open, guildId, reload]);
+  }, [open, reload]);
 
   // Especially on mobile, the search input otherwise keeps the software
   // keyboard focus when the user taps back into the rich-text field.

@@ -471,60 +471,8 @@ async def fetch(
 # Die Emoji-Auswahl
 # --------------------------------------------------------------------- #
 #
-# The CloudTIX manifest supplies every bundled preview; the synchronized
-# application cache supplies real Discord codes. Other bot emojis come from
-# the active constants, including runtime overlays and compatibility aliases.
-
-# Wie die Emoji-Namen auf Gruppen verteilt werden.
-#
-# Reine Sortierhilfe fuers Dashboard, damit nicht alle Kacheln in einer
-# Reihe stehen. Ein Emoji faellt in die erste Gruppe, deren Muster
-# passt; was uebrig bleibt, landet unter "Sonstige" -- deshalb kann
-# diese Liste nie etwas verschlucken.
-_EMOJI_GROUPS: list[tuple[str, tuple[str, ...]]] = [
-    ("Zustand", ("ONLINE", "OFFLINE", "IDLE", "DND", "STREAM", "ENABLE",
-                 "DISABLE", "TICK", "CROSS", "DENIED", "WARNING", "INFO",
-                 "LOADING", "SUCCESS", "ERROR")),
-    ("Moderation", ("BAN", "KICK", "MUTE", "UNMUTE", "TIMEOUT", "LOCK",
-                    "UNLOCK", "SHIELD", "SAFE", "MOD", "ADMIN", "STAFF",
-                    "RULE", "REPORT", "WARN")),
-    ("Team & Rollen", ("OWNER", "U_ADMIN", "MEMBER", "USER", "ROLE",
-                       "PARTNER", "BOOST", "VIP", "CROWN", "BADGE",
-                       "HUNTER", "SUPPORTER", "MODERATOR", "DEVELOPER")),
-    ("Kanäle", ("CHANNEL", "VOICE", "STAGE", "FORUM", "THREAD", "CATEGORY",
-                "ANNOUNCE", "NEWS", "TEXT")),
-    ("Tickets & Hilfe", ("TICKET", "SUPPORT", "HELP", "QUESTION", "MAIL",
-                         "INBOX")),
-    ("Musik & Medien", ("MUSIC", "PLAY", "PAUSE", "SKIP", "STOP", "VOLUME",
-                        "CAST", "IMAGE", "VIDEO")),
-    ("Werkzeuge", ("SETTINGS", "TOOL", "WRENCH", "GEAR", "CODE", "BUG",
-                   "DATABASE", "SERVER", "CLOUD", "LINK", "SEARCH",
-                   "DELETE", "EDIT", "ADD", "REMOVE")),
-    ("Auszeichnungen", ("STAR", "TROPHY", "GEM", "SPARKLE", "FIRE", "HEART",
-                        "GIFT", "PARTY", "LEVEL", "XP", "HYPESQUAD",
-                        "PREMIUM", "KING", "TADA", "CROWN")),
-    ("Navigation", ("NEXT", "PREVIOUS", "FORWARD", "REWIND", "ARROW",
-                    "SHUFFLE", "INDEX", "HOME", "PIN", "MENTION",
-                    "PLUS", "NEW", "BROWSER")),
-    ("Geräte & Technik", ("MOBILE", "PC", "WIFI", "CONNECTION", "SYSTEM",
-                          "SYS", "COMMAND", "GLOBAL", "BOT", "TIME",
-                          "TIMER", "UPTIME", "THUNDER")),
-    ("Spaß", ("GAMES", "MINECRAFT", "RACECAR", "PANDA", "CUTE", "BLOB",
-              "EMOTE", "MINGLE", "GIF", "HANDSHAKE", "PEOPLE", "HUMAN",
-              "SEED", "SWORD", "HEERIYE")),
-]
-
-
-def _emoji_group(name: str) -> str:
-    """Zu welcher Gruppe ein Emoji-Name gehoert."""
-
-    upper = name.upper()
-    for label, needles in _EMOJI_GROUPS:
-        for needle in needles:
-            if needle in upper:
-                return label
-    return "Sonstige"
-
+# Only the dashboard-enabled CloudTIX pack is offered for bot messages.
+# Cached application IDs supply the insertable Discord codes.
 
 @router.get("/{guild_id}/emojis", summary="Custom emojis available on this server")
 async def guild_emojis(guild_id: int, bot: "universitybot" = Depends(get_bot)):
@@ -548,20 +496,15 @@ async def guild_emojis(guild_id: int, bot: "universitybot" = Depends(get_bot)):
 
 @router.get("/emojis", summary="Die eigenen Emojis des Bots")
 async def emojis(bot: "universitybot" = Depends(get_bot)):
-    """Bundled CloudTIX previews, real application IDs, and active legacy emojis.
+    """Utility previews and real application IDs, without retired bot emojis.
 
-    Reading literal assignments from the syntax tree misses the application
-    pack and returns obsolete IDs for constants replaced at import time.
-    Pending assets are visible but cannot be inserted until Discord assigns an ID.
+    Pending assets remain visible until Discord assigns an insertable ID.
     """
     import re as _re
-    from utils import emoji as active_emojis
     from utils.application_emojis import catalog
 
     application_id = bot.application_id or (bot.user.id if bot.user else None)
-    full_pack = catalog(application_id, dashboard_only=False)
-    pack = [entry for entry in full_pack["emojis"] if entry.get("dashboard_visible", True)]
-    excluded = [entry for entry in full_pack["emojis"] if not entry.get("dashboard_visible", True)]
+    pack = catalog(application_id)["emojis"]
     category_labels = {
         "Security": "Sicherheit",
         "Support": "Support",
@@ -570,12 +513,6 @@ async def emojis(bot: "universitybot" = Depends(get_bot)):
         "UI": "Oberfläche",
     }
     pattern = _re.compile(r"^<(a?):([A-Za-z0-9_]+):(\d+)>$")
-    # Discord-only symbols also exist as CT_* runtime constants. Exclude both
-    # their codes and names so the legacy scan cannot bring them back, even
-    # when the on-disk ID cache has been removed while the bot is running.
-    seen: set[str] = {entry["discord_code"] for entry in excluded if entry["discord_code"]}
-    hidden_keys = {key for entry in excluded
-                   for key in [f"CT_{entry['key'].upper()}", *entry["constants"]]}
     items: list[dict] = []
 
     # All bundled assets appear even when an upload is still missing. The
@@ -583,8 +520,6 @@ async def emojis(bot: "universitybot" = Depends(get_bot)):
     for entry in pack:
         raw = entry["discord_code"]
         match = pattern.fullmatch(raw) if raw else None
-        if raw:
-            seen.add(raw)
         items.append({
             "key": f"CT_{entry['key'].upper()}",
             "name": entry["name"],
@@ -596,27 +531,6 @@ async def emojis(bot: "universitybot" = Depends(get_bot)):
             "source": "cloudtix",
         })
 
-    remaining: list[dict] = []
-    for key, raw in vars(active_emojis).items():
-        if key in hidden_keys or not isinstance(raw, str):
-            continue
-        match = pattern.fullmatch(raw)
-        if match is None or raw in seen:
-            continue
-        seen.add(raw)
-        remaining.append({
-            "key": key,
-            "name": match.group(2),
-            "id": match.group(3),
-            "animated": bool(match.group(1)),
-            "raw": raw,
-            "group": _emoji_group(key),
-            "url": (f"https://cdn.discordapp.com/emojis/{match.group(3)}."
-                    f"{'gif' if match.group(1) else 'png'}?size=48"),
-            "source": "legacy",
-        })
-    remaining.sort(key=lambda entry: (entry["group"] == "Sonstige", entry["group"], entry["key"]))
-    items.extend(remaining)
     groups = list(dict.fromkeys(entry["group"] for entry in items))
     return {"emojis": items, "groups": groups, "count": len(items),
             "cloudtix_count": len(pack),

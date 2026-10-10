@@ -166,15 +166,22 @@ def main():
                 "key": key, "name": f"ct_{key}_{digest[:6]}", "category": category,
                 "file": f"discord-utility/{target.name}", "animated": False,
                 "width": 128, "height": 128, "bytes": len(data), "sha256": digest,
-                "fallback": fallback, "constants": aliases.split(), "dashboard_visible": False,
+                "fallback": fallback, "constants": aliases.split(), "dashboard_visible": True,
                 "provider": "CloudTIX Utility", "glyph_provider": "Lucide 0.468.0",
                 "color": color, "source_url": f"https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/{vector}.svg",
             })
         browser.close()
-    (OUT / "emojis.json").write_text(json.dumps({
+    manifest = {
         "schema_version": 1, "brand": "CloudTIX", "provider": "CloudTIX Utility",
         "license_file": "LICENSE.lucide.txt", "emojis": entries,
-    }, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    }
+    manifest_text = json.dumps(manifest, indent=2, ensure_ascii=False) + "\n"
+    (OUT / "emojis.json").write_text(manifest_text, encoding="utf-8")
+    public = ROOT / "dashboard/public/emojis/cloudtix"
+    (public / "discord-utility").mkdir(parents=True, exist_ok=True)
+    for entry in entries:
+        shutil.copyfile(ASSETS / entry["file"], public / entry["file"])
+    (public / "emojis.json").write_text(manifest_text, encoding="utf-8")
     readme = f'''# CloudTIX Utility Emojis
 
 {len(entries)} neue Utility-Emojis im Stil farbiger Discord-Badges: stark gerundete
@@ -183,7 +190,7 @@ Kacheln, kräftige Farben, weicher Verlauf und große weiße Symbole. Transparen
 Lucide-Glyphen; die Lizenz steht in [LICENSE.lucide.txt](LICENSE.lucide.txt).
 
 Für Bot-Nachrichten in Discord, automatisch beim Start als Application Emojis
-hochgeladen. Die Dashboard-Auswahl enthält weiterhin die weißen Symbole.
+hochgeladen. Die Dashboard-Auswahl verwendet dieses farbige Set.
 Dieses Set wird zuletzt geladen und liefert die Standard-Bot-Symbole für
 Bestätigung, Fehler, Tickets, Premium, Musik und weitere Aktionen.
 
@@ -206,7 +213,7 @@ gelöscht. Vektorquellen stehen unter `sources/`, regenerierbar mit
     for entry in entries:
         readme += f"| {entry['key']} | {entry['color']} | {entry['category']} | [PNG]({Path(entry['file']).name}) | `EMOJIS[\"{entry['key']}\"]` |\n"
     (OUT / "README.md").write_text(readme, encoding="utf-8")
-    print(f"Exported {len(entries)} transparent 128×128 utility tiles; largest: {max(e['bytes'] for e in entries)} bytes. Discord-only.")
+    print(f"Exported {len(entries)} transparent 128×128 utility tiles; largest: {max(e['bytes'] for e in entries)} bytes. Bot and dashboard.")
 
 
 if __name__ == "__main__":

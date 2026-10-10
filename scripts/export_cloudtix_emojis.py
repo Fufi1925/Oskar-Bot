@@ -240,14 +240,14 @@ def main():
             entries.append({"key": key, "name": f"ct_{key}_{digest[:6]}", "category": category,
                             "file": target.name, "animated": animated, "width": 128, "height": 128,
                             "bytes": len(data), "sha256": digest, "fallback": fallback,
+                            "dashboard_visible": False,
                             "constants": constants.split(), "source_url": f"{BASE}/icons/{vector}.svg",
                             "preview_url": f"https://cloudtix.up.railway.app/emojis/cloudtix/{target.name}"})
             shutil.copyfile(target, PUBLIC / target.name)
         browser.close()
     manifest = {"schema_version": 1, "brand": "CloudTIX", "provider": "Lucide",
                 "provider_version": VERSION, "license_file": "LICENSE.lucide.txt", "emojis": entries}
-    for directory in (OUT, PUBLIC):
-        (directory / "emojis.json").write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + "\n")
+    (OUT / "emojis.json").write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + "\n")
     update_overview(entries)
     print(f"Exported {len(entries)} transparent 128×128 assets; largest: {max(e['bytes'] for e in entries)} bytes.")
 

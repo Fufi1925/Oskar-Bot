@@ -20,7 +20,8 @@
         "SHIELD"
       ],
       "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/shield.svg",
-      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/shield.png"
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/shield.png",
+      "dashboard_visible": false
     },
     {
       "key": "anti_nuke",
@@ -37,7 +38,8 @@
         "ANTI_NUKE"
       ],
       "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/shield-alert.svg",
-      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/anti_nuke.png"
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/anti_nuke.png",
+      "dashboard_visible": false
     },
     {
       "key": "automod",
@@ -54,7 +56,8 @@
         "AUTOMOD"
       ],
       "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/shield-check.svg",
-      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/automod.png"
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/automod.png",
+      "dashboard_visible": false
     },
     {
       "key": "jail",
@@ -72,7 +75,8 @@
         "LOCK"
       ],
       "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/lock-keyhole.svg",
-      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/jail.png"
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/jail.png",
+      "dashboard_visible": false
     },
     {
       "key": "ticket",
@@ -89,7 +93,8 @@
         "TICKET"
       ],
       "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/ticket.svg",
-      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/ticket.png"
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/ticket.png",
+      "dashboard_visible": false
     },
     {
       "key": "verification",
@@ -107,7 +112,8 @@
         "ZSAFE"
       ],
       "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/badge-check.svg",
-      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/verification.png"
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/verification.png",
+      "dashboard_visible": false
     },
     {
       "key": "applications",
@@ -124,7 +130,8 @@
         "APPLICATIONS"
       ],
       "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/clipboard-list.svg",
-      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/applications.png"
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/applications.png",
+      "dashboard_visible": false
     },
     {
       "key": "level",
@@ -141,7 +148,8 @@
         "LEVEL_UP"
       ],
       "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/chart-no-axes-column-increasing.svg",
-      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/level.png"
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/level.png",
+      "dashboard_visible": false
     },
     {
       "key": "rank",
@@ -158,7 +166,8 @@
         "RANK"
       ],
       "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/trophy.svg",
-      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/rank.png"
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/rank.png",
+      "dashboard_visible": false
     },
     {
       "key": "giveaway",
@@ -178,7 +187,8 @@
         "CELEBRATE"
       ],
       "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/gift.svg",
-      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/giveaway.png"
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/giveaway.png",
+      "dashboard_visible": false
     },
     {
       "key": "welcome",
@@ -195,7 +205,8 @@
         "WELCOME"
       ],
       "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/hand.svg",
-      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/welcome.png"
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/welcome.png",
+      "dashboard_visible": false
     },
     {
       "key": "play",
@@ -212,7 +223,8 @@
         "ZPLAY"
       ],
       "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/play.svg",
-      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/play.png"
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/play.png",
+      "dashboard_visible": false
     },
     {
       "key": "pause",
@@ -231,7 +243,8 @@
         "ZPAUSE"
       ],
       "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/pause.svg",
-      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/pause.png"
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/pause.png",
+      "dashboard_visible": false
     },
     {
       "key": "headphones",
@@ -250,7 +263,8 @@
         "MUSIC_ALT1"
       ],
       "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/headphones.svg",
-      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/headphones.png"
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/headphones.png",
+      "dashboard_visible": false
     },
     {
       "key": "volume",
@@ -268,7 +282,8 @@
         "ZUNMUTE"
       ],
       "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/volume-2.svg",
-      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/volume.png"
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/volume.png",
+      "dashboard_visible": false
     },
     {
       "key": "checkmark",
@@ -289,7 +304,8 @@
         "ENABLE"
       ],
       "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/check.svg",
-      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/checkmark.png"
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/checkmark.png",
+      "dashboard_visible": false
     },
     {
       "key": "cross",
@@ -312,7 +328,8 @@
         "DISABLE"
       ],
       "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/x.svg",
-      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/cross.png"
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/cross.png",
+      "dashboard_visible": false
     },
     {
       "key": "arrow",
@@ -331,7 +348,8 @@
         "ARROW_RIGHT"
       ],
       "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/arrow-right.svg",
-      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/arrow.png"
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/arrow.png",
+      "dashboard_visible": false
     },
     {
       "key": "info",
@@ -348,7 +366,8 @@
         "INFO"
       ],
       "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/info.svg",
-      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/info.png"
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/info.png",
+      "dashboard_visible": false
     },
     {
       "key": "warning",
@@ -369,7 +388,8 @@
         "ICONS_WARNING_ALT1"
       ],
       "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/triangle-alert.svg",
-      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/warning.png"
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/warning.png",
+      "dashboard_visible": false
     },
     {
       "key": "loading",
@@ -388,7 +408,8 @@
         "LOADINGRED"
       ],
       "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/loader-circle.svg",
-      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/loading.gif"
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/loading.gif",
+      "dashboard_visible": false
     },
     {
       "key": "back",
@@ -406,7 +427,8 @@
         "ARROW_LEFT"
       ],
       "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/arrow-left.svg",
-      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/back.png"
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/back.png",
+      "dashboard_visible": false
     },
     {
       "key": "stop",
@@ -424,7 +446,8 @@
         "STOP_BUTTON"
       ],
       "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/square.svg",
-      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/stop.png"
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/stop.png",
+      "dashboard_visible": false
     },
     {
       "key": "skip",
@@ -444,7 +467,8 @@
         "FORWARD"
       ],
       "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/skip-forward.svg",
-      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/skip.png"
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/skip.png",
+      "dashboard_visible": false
     },
     {
       "key": "previous",
@@ -461,7 +485,8 @@
         "PREVIOUS"
       ],
       "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/skip-back.svg",
-      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/previous.png"
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/previous.png",
+      "dashboard_visible": false
     },
     {
       "key": "settings",
@@ -478,7 +503,8 @@
         "ZSETTINGS"
       ],
       "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/settings.svg",
-      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/settings.png"
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/settings.png",
+      "dashboard_visible": false
     },
     {
       "key": "members",
@@ -497,7 +523,8 @@
         "ZHUMAN"
       ],
       "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/users.svg",
-      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/members.png"
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/members.png",
+      "dashboard_visible": false
     },
     {
       "key": "message",
@@ -514,7 +541,8 @@
         "MESSAGE"
       ],
       "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/messages-square.svg",
-      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/message.png"
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/message.png",
+      "dashboard_visible": false
     },
     {
       "key": "refresh",
@@ -532,7 +560,8 @@
         "ICONLOAD"
       ],
       "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/rotate-cw.svg",
-      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/refresh.png"
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/refresh.png",
+      "dashboard_visible": false
     },
     {
       "key": "plus",
@@ -550,7 +579,8 @@
         "ICONS_PLUS"
       ],
       "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/plus.svg",
-      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/plus.png"
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/plus.png",
+      "dashboard_visible": false
     },
     {
       "key": "delete",
@@ -568,7 +598,8 @@
         "DELETE_ALT1"
       ],
       "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/trash-2.svg",
-      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/delete.png"
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/delete.png",
+      "dashboard_visible": false
     },
     {
       "key": "mute",
@@ -586,7 +617,8 @@
         "ZMUTE"
       ],
       "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/volume-x.svg",
-      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/mute.png"
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/mute.png",
+      "dashboard_visible": false
     },
     {
       "key": "unlock",
@@ -603,7 +635,8 @@
         "UNLOCK"
       ],
       "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/lock-keyhole-open.svg",
-      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/unlock.png"
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/unlock.png",
+      "dashboard_visible": false
     },
     {
       "key": "star",
@@ -622,7 +655,8 @@
         "STAR_ALT2"
       ],
       "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/star.svg",
-      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/star.png"
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/star.png",
+      "dashboard_visible": false
     },
     {
       "key": "cloud",
@@ -639,7 +673,8 @@
         "ZCLOUD"
       ],
       "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/cloud.svg",
-      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/cloud.png"
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/cloud.png",
+      "dashboard_visible": false
     },
     {
       "key": "ban",
@@ -657,7 +692,8 @@
         "universitybotHAMMER"
       ],
       "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/gavel.svg",
-      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/ban.png"
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/ban.png",
+      "dashboard_visible": false
     },
     {
       "key": "kick",
@@ -674,7 +710,8 @@
         "KICK"
       ],
       "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/user-round-minus.svg",
-      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/kick.png"
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/kick.png",
+      "dashboard_visible": false
     },
     {
       "key": "timeout",
@@ -692,7 +729,8 @@
         "TIMER_ALT1"
       ],
       "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/timer.svg",
-      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/timeout.png"
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/timeout.png",
+      "dashboard_visible": false
     },
     {
       "key": "warn",
@@ -709,7 +747,8 @@
         "WARN"
       ],
       "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/shield-x.svg",
-      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/warn.png"
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/warn.png",
+      "dashboard_visible": false
     },
     {
       "key": "audit_log",
@@ -726,7 +765,8 @@
         "AUDIT_LOG"
       ],
       "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/scroll-text.svg",
-      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/audit_log.png"
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/audit_log.png",
+      "dashboard_visible": false
     },
     {
       "key": "permissions",
@@ -743,7 +783,8 @@
         "PERMISSIONS"
       ],
       "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/key-round.svg",
-      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/permissions.png"
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/permissions.png",
+      "dashboard_visible": false
     },
     {
       "key": "firewall",
@@ -760,7 +801,8 @@
         "FIREWALL"
       ],
       "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/brick-wall.svg",
-      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/firewall.png"
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/firewall.png",
+      "dashboard_visible": false
     },
     {
       "key": "quarantine",
@@ -777,7 +819,8 @@
         "QUARANTINE"
       ],
       "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/shield-off.svg",
-      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/quarantine.png"
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/quarantine.png",
+      "dashboard_visible": false
     },
     {
       "key": "scan",
@@ -794,7 +837,8 @@
         "SCAN"
       ],
       "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/scan-line.svg",
-      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/scan.png"
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/scan.png",
+      "dashboard_visible": false
     },
     {
       "key": "fingerprint",
@@ -811,7 +855,8 @@
         "FINGERPRINT"
       ],
       "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/fingerprint.svg",
-      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/fingerprint.png"
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/fingerprint.png",
+      "dashboard_visible": false
     },
     {
       "key": "password",
@@ -828,7 +873,8 @@
         "PASSWORD"
       ],
       "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/key-square.svg",
-      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/password.png"
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/password.png",
+      "dashboard_visible": false
     },
     {
       "key": "incognito",
@@ -845,7 +891,8 @@
         "INCOGNITO"
       ],
       "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/eye-off.svg",
-      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/incognito.png"
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/incognito.png",
+      "dashboard_visible": false
     },
     {
       "key": "lockdown",
@@ -862,7 +909,8 @@
         "LOCKDOWN"
       ],
       "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/door-closed.svg",
-      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/lockdown.png"
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/lockdown.png",
+      "dashboard_visible": false
     },
     {
       "key": "protection",
@@ -879,7 +927,8 @@
         "PROTECTION"
       ],
       "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/shield-plus.svg",
-      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/protection.png"
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/protection.png",
+      "dashboard_visible": false
     },
     {
       "key": "report",
@@ -896,7 +945,8 @@
         "REPORT"
       ],
       "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/flag.svg",
-      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/report.png"
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/report.png",
+      "dashboard_visible": false
     },
     {
       "key": "ticket_open",
@@ -913,7 +963,8 @@
         "TICKET_OPEN"
       ],
       "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/ticket-plus.svg",
-      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/ticket_open.png"
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/ticket_open.png",
+      "dashboard_visible": false
     },
     {
       "key": "ticket_close",
@@ -930,7 +981,8 @@
         "TICKET_CLOSE"
       ],
       "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/ticket-x.svg",
-      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/ticket_close.png"
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/ticket_close.png",
+      "dashboard_visible": false
     },
     {
       "key": "ticket_claim",
@@ -947,7 +999,8 @@
         "TICKET_CLAIM"
       ],
       "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/ticket-check.svg",
-      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/ticket_claim.png"
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/ticket_claim.png",
+      "dashboard_visible": false
     },
     {
       "key": "transcript",
@@ -964,7 +1017,8 @@
         "TRANSCRIPT"
       ],
       "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/file-text.svg",
-      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/transcript.png"
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/transcript.png",
+      "dashboard_visible": false
     },
     {
       "key": "support",
@@ -981,7 +1035,8 @@
         "SUPPORT"
       ],
       "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/life-buoy.svg",
-      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/support.png"
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/support.png",
+      "dashboard_visible": false
     },
     {
       "key": "faq",
@@ -998,7 +1053,8 @@
         "FAQ"
       ],
       "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/circle-help.svg",
-      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/faq.png"
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/faq.png",
+      "dashboard_visible": false
     },
     {
       "key": "mail",
@@ -1015,7 +1071,8 @@
         "MAIL"
       ],
       "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/mail.svg",
-      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/mail.png"
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/mail.png",
+      "dashboard_visible": false
     },
     {
       "key": "inbox",
@@ -1032,7 +1089,8 @@
         "INBOX"
       ],
       "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/inbox.svg",
-      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/inbox.png"
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/inbox.png",
+      "dashboard_visible": false
     },
     {
       "key": "form",
@@ -1049,7 +1107,8 @@
         "FORM"
       ],
       "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/notebook-pen.svg",
-      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/form.png"
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/form.png",
+      "dashboard_visible": false
     },
     {
       "key": "accept",
@@ -1066,7 +1125,8 @@
         "ACCEPT"
       ],
       "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/circle-check.svg",
-      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/accept.png"
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/accept.png",
+      "dashboard_visible": false
     },
     {
       "key": "reject",
@@ -1083,7 +1143,8 @@
         "REJECT"
       ],
       "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/circle-x.svg",
-      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/reject.png"
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/reject.png",
+      "dashboard_visible": false
     },
     {
       "key": "feedback",
@@ -1100,7 +1161,8 @@
         "FEEDBACK"
       ],
       "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/message-square-heart.svg",
-      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/feedback.png"
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/feedback.png",
+      "dashboard_visible": false
     },
     {
       "key": "boost",
@@ -1117,7 +1179,8 @@
         "ZROCKET"
       ],
       "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/rocket.svg",
-      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/boost.png"
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/boost.png",
+      "dashboard_visible": false
     },
     {
       "key": "birthday",
@@ -1134,7 +1197,8 @@
         "BIRTHDAY"
       ],
       "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/cake.svg",
-      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/birthday.png"
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/birthday.png",
+      "dashboard_visible": false
     },
     {
       "key": "event",
@@ -1151,7 +1215,8 @@
         "EVENT"
       ],
       "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/calendar-days.svg",
-      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/event.png"
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/event.png",
+      "dashboard_visible": false
     },
     {
       "key": "announcement",
@@ -1168,7 +1233,8 @@
         "ANNOUNCEMENT"
       ],
       "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/megaphone.svg",
-      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/announcement.png"
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/announcement.png",
+      "dashboard_visible": false
     },
     {
       "key": "invite",
@@ -1185,7 +1251,8 @@
         "INVITE"
       ],
       "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/user-round-plus.svg",
-      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/invite.png"
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/invite.png",
+      "dashboard_visible": false
     },
     {
       "key": "leave",
@@ -1202,7 +1269,8 @@
         "LEAVE"
       ],
       "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/log-out.svg",
-      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/leave.png"
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/leave.png",
+      "dashboard_visible": false
     },
     {
       "key": "role",
@@ -1219,7 +1287,8 @@
         "ROLE"
       ],
       "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/contact-round.svg",
-      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/role.png"
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/role.png",
+      "dashboard_visible": false
     },
     {
       "key": "leaderboard",
@@ -1236,7 +1305,8 @@
         "LEADERBOARD"
       ],
       "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/medal.svg",
-      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/leaderboard.png"
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/leaderboard.png",
+      "dashboard_visible": false
     },
     {
       "key": "xp",
@@ -1254,7 +1324,8 @@
         "SPARKLE"
       ],
       "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/sparkles.svg",
-      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/xp.png"
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/xp.png",
+      "dashboard_visible": false
     },
     {
       "key": "poll",
@@ -1271,7 +1342,8 @@
         "POLL"
       ],
       "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/chart-pie.svg",
-      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/poll.png"
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/poll.png",
+      "dashboard_visible": false
     },
     {
       "key": "counting",
@@ -1288,7 +1360,8 @@
         "ZCOUNTING"
       ],
       "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/binary.svg",
-      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/counting.png"
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/counting.png",
+      "dashboard_visible": false
     },
     {
       "key": "heart",
@@ -1308,7 +1381,8 @@
         "REDHEART"
       ],
       "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/heart.svg",
-      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/heart.png"
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/heart.png",
+      "dashboard_visible": false
     },
     {
       "key": "game",
@@ -1327,7 +1401,8 @@
         "MINECRAFT"
       ],
       "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/gamepad-2.svg",
-      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/game.png"
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/game.png",
+      "dashboard_visible": false
     },
     {
       "key": "crown",
@@ -1346,7 +1421,8 @@
         "BLACKCROWN"
       ],
       "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/crown.svg",
-      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/crown.png"
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/crown.png",
+      "dashboard_visible": false
     },
     {
       "key": "premium",
@@ -1363,7 +1439,8 @@
         "PREMIUM"
       ],
       "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/gem.svg",
-      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/premium.png"
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/premium.png",
+      "dashboard_visible": false
     },
     {
       "key": "shuffle",
@@ -1380,7 +1457,8 @@
         "SHUFFLE"
       ],
       "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/shuffle.svg",
-      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/shuffle.png"
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/shuffle.png",
+      "dashboard_visible": false
     },
     {
       "key": "repeat",
@@ -1397,7 +1475,8 @@
         "REPEAT"
       ],
       "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/repeat.svg",
-      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/repeat.png"
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/repeat.png",
+      "dashboard_visible": false
     },
     {
       "key": "repeat_one",
@@ -1414,7 +1493,8 @@
         "REPEAT_ONE"
       ],
       "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/repeat-1.svg",
-      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/repeat_one.png"
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/repeat_one.png",
+      "dashboard_visible": false
     },
     {
       "key": "queue",
@@ -1431,7 +1511,8 @@
         "QUEUE"
       ],
       "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/list-music.svg",
-      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/queue.png"
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/queue.png",
+      "dashboard_visible": false
     },
     {
       "key": "playlist",
@@ -1448,7 +1529,8 @@
         "PLAYLIST"
       ],
       "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/library-big.svg",
-      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/playlist.png"
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/playlist.png",
+      "dashboard_visible": false
     },
     {
       "key": "note",
@@ -1465,7 +1547,8 @@
         "MUSIC_NOTE"
       ],
       "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/music.svg",
-      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/note.png"
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/note.png",
+      "dashboard_visible": false
     },
     {
       "key": "microphone",
@@ -1482,7 +1565,8 @@
         "MICROPHONE"
       ],
       "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/mic.svg",
-      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/microphone.png"
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/microphone.png",
+      "dashboard_visible": false
     },
     {
       "key": "microphone_off",
@@ -1499,7 +1583,8 @@
         "MICROPHONE_OFF"
       ],
       "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/mic-off.svg",
-      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/microphone_off.png"
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/microphone_off.png",
+      "dashboard_visible": false
     },
     {
       "key": "voice",
@@ -1516,7 +1601,8 @@
         "VOICE"
       ],
       "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/radio.svg",
-      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/voice.png"
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/voice.png",
+      "dashboard_visible": false
     },
     {
       "key": "equalizer",
@@ -1533,7 +1619,8 @@
         "EQUALIZER"
       ],
       "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/audio-lines.svg",
-      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/equalizer.png"
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/equalizer.png",
+      "dashboard_visible": false
     },
     {
       "key": "seek_forward",
@@ -1550,7 +1637,8 @@
         "SEEK_FORWARD"
       ],
       "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/fast-forward.svg",
-      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/seek_forward.png"
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/seek_forward.png",
+      "dashboard_visible": false
     },
     {
       "key": "rewind",
@@ -1568,7 +1656,8 @@
         "REWIND_ALT1"
       ],
       "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/rewind.svg",
-      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/rewind.png"
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/rewind.png",
+      "dashboard_visible": false
     },
     {
       "key": "home",
@@ -1585,7 +1674,8 @@
         "HOME"
       ],
       "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/house.svg",
-      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/home.png"
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/home.png",
+      "dashboard_visible": false
     },
     {
       "key": "dashboard",
@@ -1602,7 +1692,8 @@
         "DASHBOARD"
       ],
       "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/panels-top-left.svg",
-      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/dashboard.png"
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/dashboard.png",
+      "dashboard_visible": false
     },
     {
       "key": "channel",
@@ -1620,7 +1711,8 @@
         "ICONS_CHANNEL"
       ],
       "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/hash.svg",
-      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/channel.png"
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/channel.png",
+      "dashboard_visible": false
     },
     {
       "key": "search",
@@ -1637,7 +1729,8 @@
         "universitybot_SEARCH"
       ],
       "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/search.svg",
-      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/search.png"
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/search.png",
+      "dashboard_visible": false
     },
     {
       "key": "edit",
@@ -1654,7 +1747,8 @@
         "EDIT"
       ],
       "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/pencil.svg",
-      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/edit.png"
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/edit.png",
+      "dashboard_visible": false
     },
     {
       "key": "save",
@@ -1671,7 +1765,8 @@
         "SAVE"
       ],
       "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/save.svg",
-      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/save.png"
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/save.png",
+      "dashboard_visible": false
     },
     {
       "key": "copy",
@@ -1688,7 +1783,8 @@
         "COPY"
       ],
       "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/copy.svg",
-      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/copy.png"
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/copy.png",
+      "dashboard_visible": false
     },
     {
       "key": "download",
@@ -1705,7 +1801,8 @@
         "DOWNLOAD"
       ],
       "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/download.svg",
-      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/download.png"
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/download.png",
+      "dashboard_visible": false
     },
     {
       "key": "upload",
@@ -1722,7 +1819,8 @@
         "UPLOAD"
       ],
       "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/upload.svg",
-      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/upload.png"
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/upload.png",
+      "dashboard_visible": false
     },
     {
       "key": "link",
@@ -1740,7 +1838,8 @@
         "universitybotLINKS"
       ],
       "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/link.svg",
-      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/link.png"
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/link.png",
+      "dashboard_visible": false
     },
     {
       "key": "external_link",
@@ -1757,7 +1856,8 @@
         "EXTERNAL_LINK"
       ],
       "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/external-link.svg",
-      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/external_link.png"
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/external_link.png",
+      "dashboard_visible": false
     },
     {
       "key": "arrow_up",
@@ -1774,7 +1874,8 @@
         "ARROW_UP"
       ],
       "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/arrow-up.svg",
-      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/arrow_up.png"
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/arrow_up.png",
+      "dashboard_visible": false
     },
     {
       "key": "arrow_down",
@@ -1791,7 +1892,8 @@
         "ARROW_DOWN"
       ],
       "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/arrow-down.svg",
-      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/arrow_down.png"
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/arrow_down.png",
+      "dashboard_visible": false
     },
     {
       "key": "menu",
@@ -1809,7 +1911,8 @@
         "INDEX"
       ],
       "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/menu.svg",
-      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/menu.png"
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/menu.png",
+      "dashboard_visible": false
     },
     {
       "key": "close_panel",
@@ -1826,7 +1929,8 @@
         "CLOSE_PANEL"
       ],
       "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/panel-left-close.svg",
-      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/close_panel.png"
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/close_panel.png",
+      "dashboard_visible": false
     },
     {
       "key": "open_panel",
@@ -1843,7 +1947,8 @@
         "OPEN_PANEL"
       ],
       "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/panel-left-open.svg",
-      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/open_panel.png"
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/open_panel.png",
+      "dashboard_visible": false
     },
     {
       "key": "notification",
@@ -1860,7 +1965,8 @@
         "NOTIFICATION"
       ],
       "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/bell.svg",
-      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/notification.png"
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/notification.png",
+      "dashboard_visible": false
     },
     {
       "key": "pin",
@@ -1878,7 +1984,8 @@
         "RED_PIN"
       ],
       "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/pin.svg",
-      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/pin.png"
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/pin.png",
+      "dashboard_visible": false
     },
     {
       "key": "clock",
@@ -1896,7 +2003,8 @@
         "CLOCK"
       ],
       "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/clock.svg",
-      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/clock.png"
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/clock.png",
+      "dashboard_visible": false
     },
     {
       "key": "bot",
@@ -1913,7 +2021,8 @@
         "ZBOT"
       ],
       "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/bot.svg",
-      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/bot.png"
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/bot.png",
+      "dashboard_visible": false
     },
     {
       "key": "tools",
@@ -1931,7 +2040,8 @@
         "TOOLS"
       ],
       "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/wrench.svg",
-      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/tools.png"
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/tools.png",
+      "dashboard_visible": false
     }
   ]
 }

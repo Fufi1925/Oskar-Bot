@@ -6,7 +6,7 @@ Kacheln, kräftige Farben, weicher Verlauf und große weiße Symbole. Transparen
 Lucide-Glyphen; die Lizenz steht in [LICENSE.lucide.txt](LICENSE.lucide.txt).
 
 Für Bot-Nachrichten in Discord, automatisch beim Start als Application Emojis
-hochgeladen. Die Dashboard-Auswahl enthält weiterhin die weißen Symbole.
+hochgeladen. Die Dashboard-Auswahl verwendet dieses farbige Set.
 Dieses Set wird zuletzt geladen und liefert die Standard-Bot-Symbole für
 Bestätigung, Fehler, Tickets, Premium, Musik und weitere Aktionen.
 
