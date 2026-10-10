@@ -559,7 +559,9 @@ async def emojis(bot: "universitybot" = Depends(get_bot)):
     from utils.application_emojis import catalog
 
     application_id = bot.application_id or (bot.user.id if bot.user else None)
-    pack = catalog(application_id)
+    full_pack = catalog(application_id, dashboard_only=False)
+    pack = [entry for entry in full_pack["emojis"] if entry.get("dashboard_visible", True)]
+    excluded = [entry for entry in full_pack["emojis"] if not entry.get("dashboard_visible", True)]
     category_labels = {
         "Security": "Sicherheit",
         "Support": "Support",
@@ -568,12 +570,17 @@ async def emojis(bot: "universitybot" = Depends(get_bot)):
         "UI": "Oberfläche",
     }
     pattern = _re.compile(r"^<(a?):([A-Za-z0-9_]+):(\d+)>$")
-    seen: set[str] = set()
+    # Discord-only symbols also exist as CT_* runtime constants. Exclude both
+    # their codes and names so the legacy scan cannot bring them back, even
+    # when the on-disk ID cache has been removed while the bot is running.
+    seen: set[str] = {entry["discord_code"] for entry in excluded if entry["discord_code"]}
+    hidden_keys = {key for entry in excluded
+                   for key in [f"CT_{entry['key'].upper()}", *entry["constants"]]}
     items: list[dict] = []
 
     # All bundled assets appear even when an upload is still missing. The
     # local preview needs no Discord ID and remains available on mobile too.
-    for entry in pack["emojis"]:
+    for entry in pack:
         raw = entry["discord_code"]
         match = pattern.fullmatch(raw) if raw else None
         if raw:
@@ -591,7 +598,7 @@ async def emojis(bot: "universitybot" = Depends(get_bot)):
 
     remaining: list[dict] = []
     for key, raw in vars(active_emojis).items():
-        if not isinstance(raw, str):
+        if key in hidden_keys or not isinstance(raw, str):
             continue
         match = pattern.fullmatch(raw)
         if match is None or raw in seen:
@@ -612,7 +619,8 @@ async def emojis(bot: "universitybot" = Depends(get_bot)):
     items.extend(remaining)
     groups = list(dict.fromkeys(entry["group"] for entry in items))
     return {"emojis": items, "groups": groups, "count": len(items),
-            "cloudtix_count": pack["total"], "cloudtix_ready": pack["ready"]}
+            "cloudtix_count": len(pack),
+            "cloudtix_ready": sum(entry["discord_code"] is not None for entry in pack)}
 
 
 # ── Vorgefertigte Texte ───────────────────────────────────────────────

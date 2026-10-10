@@ -18,6 +18,11 @@ LOG = logging.getLogger("cloudtix.emojis")
 BOT_DIR = Path(__file__).resolve().parents[1]
 ASSETS = BOT_DIR / "assets/emojis/cloudtix"
 MANIFEST = json.loads((ASSETS / "emojis.json").read_text(encoding="utf-8"))
+COLOR_MANIFEST = ASSETS / "discord-color/emojis.json"
+if COLOR_MANIFEST.exists():
+    # Discord-only packs share the same upload/cache and bot constants, but
+    # opt out of dashboard catalogs with dashboard_visible=false.
+    MANIFEST["emojis"].extend(json.loads(COLOR_MANIFEST.read_text(encoding="utf-8"))["emojis"])
 API = "https://discord.com/api/v10"
 _VERIFIED_APP_ENV = "CLOUDTIX_VERIFIED_EMOJI_APPLICATION_ID"
 
@@ -67,11 +72,13 @@ def apply_constants(namespace, collection):
             namespace[constant] = value
 
 
-def catalog(application_id=None):
+def catalog(application_id=None, *, dashboard_only=True):
     cached = _cache(application_id)
     entries = [{**entry, "discord_code": _code(entry, cached)}
-               for entry in MANIFEST["emojis"]]
-    return {"brand": "CloudTIX", "provider": "Lucide", "emojis": entries,
+               for entry in MANIFEST["emojis"]
+               if not dashboard_only or entry.get("dashboard_visible", True)]
+    providers = list(dict.fromkeys(entry.get("provider", MANIFEST["provider"]) for entry in entries))
+    return {"brand": "CloudTIX", "provider": ", ".join(providers), "emojis": entries,
             "ready": sum(entry["discord_code"] is not None for entry in entries),
             "total": len(entries)}
 

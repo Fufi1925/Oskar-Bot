@@ -1,5 +1,11 @@
 # CloudTIX Application Emojis
 
+Zusätzlich gibt es [75 farbige Twemoji-Symbole für Bot-Nachrichten](discord-color/README.md).
+Diese werden ebenfalls automatisch hochgeladen und stehen als `EMOJIS["color_gift"]`
+bzw. `CT_COLOR_GIFT` im Bot bereit. Einige Standardkonstanten wie `TICK`, `ERROR`,
+`WARNING` und `TICKET` nutzen dort die farbigen Varianten. Die Dashboard-Auswahl
+enthält die weißen Symbole.
+
 110 weiße Lucide-Symbole, 128 × 128 Pixel, transparent. Alle Dateien sind deutlich
 unter Discords 256-KB-Grenze; `loading.gif` hat 16 Frames und läuft in einer Schleife.
 Quelle: Lucide **0.468.0**, mit vollständiger ISC-/MIT-Lizenz in
