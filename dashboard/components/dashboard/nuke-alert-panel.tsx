@@ -242,12 +242,6 @@ export function NukeAlertPanel({ guildId }: { guildId: string }) {
             hint="Nur nach einem echten Nuke — also wenn Kanäle oder Rollen gelöscht wurden. Bei allem anderen passiert nichts."
           />
           <InlineToggle
-            checked={value("ping_owner")}
-            onCheckedChange={(v: boolean) => set("ping_owner", v)}
-            label="Server-Inhaber pingen"
-            hint="Nur wenn etwas nicht abgewehrt werden konnte — nicht bei jedem Erfolg."
-          />
-          <InlineToggle
             checked={value("dm_owner")}
             onCheckedChange={(v: boolean) => set("dm_owner", v)}
             label="Bei einem Nuke per DM benachrichtigen"

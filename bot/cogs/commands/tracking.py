@@ -144,7 +144,7 @@ class Tracking(commands.Cog):
                 f"{member.mention} has joined {guild.name}, invited by "
                 f"{inviter.name if inviter else 'Unknown'}, who now has {total} invites."
             )
-            await log_channel.send(view=CV2("📥 Member Joined", msg))
+            await log_channel.send(view=CV2("📥 Member Joined", msg), allowed_mentions=discord.AllowedMentions.none())
 
     @commands.Cog.listener()
     async def on_member_remove(self, member):

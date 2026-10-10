@@ -285,7 +285,7 @@ class AnonChat(commands.Cog):
                 + (f"\n**Nachricht:** [ansehen]({link})" if link else ""),
                 (original.content or "*(nur Anhang)*")[:1500],
                 accent=ACCENT["info"],
-            ))
+            ), allowed_mentions=discord.AllowedMentions.none())
         except Exception:
             # A missing permission here must not stop the relay itself.
             pass

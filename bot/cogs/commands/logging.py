@@ -1449,8 +1449,11 @@ class Logging(commands.Cog):
                 if auto_delete_duration and auto_delete_duration > 0
                 else None
             )
+            # Copied message text and member/role references must never ping.
             message = await channel.send(
-                view=embed, delete_after=delete_after, allowed_mentions=None
+                view=embed,
+                delete_after=delete_after,
+                allowed_mentions=discord.AllowedMentions.none(),
             )
 
             log_data = {
@@ -1678,7 +1681,7 @@ class Logging(commands.Cog):
                     "Invalid Hours", "Hours must be between 1 and 168 (1 week)."
                 )
                 # embed.set_footer removed - CV2 doesn't support it
-                await ctx.send(view=embed, ephemeral=True)
+                await ctx.send(view=embed, ephemeral=True, allowed_mentions=discord.AllowedMentions.none())
                 return
 
             if category and category not in LOG_CATEGORIES:
@@ -1686,7 +1689,7 @@ class Logging(commands.Cog):
                     "Invalid Category", f"Valid categories: {', '.join(LOG_CATEGORIES)}"
                 )
                 # embed.set_footer removed - CV2 doesn't support it
-                await ctx.send(view=embed, ephemeral=True)
+                await ctx.send(view=embed, ephemeral=True, allowed_mentions=discord.AllowedMentions.none())
                 return
 
             await ctx.defer()
@@ -1769,7 +1772,7 @@ class Logging(commands.Cog):
                     "No Results Found", "No log entries match your search criteria."
                 )
                 # embed.set_footer removed - CV2 doesn't support it
-                await ctx.followup.send(view=embed)
+                await ctx.followup.send(view=embed, allowed_mentions=discord.AllowedMentions.none())
                 return
 
             results.sort(key=lambda x: x.get("timestamp", ""), reverse=True)
@@ -1810,7 +1813,7 @@ class Logging(commands.Cog):
                 )
             else:
                 pass
-            await ctx.followup.send(view=embed)
+            await ctx.followup.send(view=embed, allowed_mentions=discord.AllowedMentions.none())
 
         except Exception as e:
             logger.error(f"Error in log search: {e}")
@@ -1819,9 +1822,9 @@ class Logging(commands.Cog):
             )
             # embed.set_footer removed - CV2 doesn't support it
             try:
-                await ctx.followup.send(view=embed)
+                await ctx.followup.send(view=embed, allowed_mentions=discord.AllowedMentions.none())
             except:
-                await ctx.send(view=embed, ephemeral=True)
+                await ctx.send(view=embed, ephemeral=True, allowed_mentions=discord.AllowedMentions.none())
 
     @log.command(name="reset", description="Reset all logging configuration.")
     @commands.has_permissions(manage_guild=True)
@@ -2250,7 +2253,7 @@ class Logging(commands.Cog):
                     "Invalid Range", "Days must be between 1 and 30."
                 )
                 # embed.set_footer removed - CV2 doesn't support it
-                await ctx.send(view=embed, ephemeral=True)
+                await ctx.send(view=embed, ephemeral=True, allowed_mentions=discord.AllowedMentions.none())
                 return
 
             await ctx.defer()
@@ -2293,7 +2296,7 @@ class Logging(commands.Cog):
                     "No Data Found", f"No log data found for the last {days} days."
                 )
                 # embed.set_footer removed - CV2 doesn't support it
-                await ctx.followup.send(view=embed)
+                await ctx.followup.send(view=embed, allowed_mentions=discord.AllowedMentions.none())
                 return
 
             export_filename = f"logs_export_{ctx.guild.id}_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.json"
@@ -2331,7 +2334,7 @@ class Logging(commands.Cog):
 
             with open(temp_path, "rb") as f:
                 file = discord.File(f, filename=export_filename)
-                await ctx.followup.send(view=embed, file=file)
+                await ctx.followup.send(view=embed, file=file, allowed_mentions=discord.AllowedMentions.none())
 
             await asyncio.to_thread(temp_path.unlink)
 
@@ -2342,9 +2345,9 @@ class Logging(commands.Cog):
             )
             # embed.set_footer removed - CV2 doesn't support it
             try:
-                await ctx.followup.send(view=embed)
+                await ctx.followup.send(view=embed, allowed_mentions=discord.AllowedMentions.none())
             except:
-                await ctx.send(view=embed)
+                await ctx.send(view=embed, allowed_mentions=discord.AllowedMentions.none())
 
     @commands.Cog.listener()
     async def on_message_edit(self, before: discord.Message, after: discord.Message):

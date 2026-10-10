@@ -499,7 +499,10 @@ async def complete_oauth_verification(
                 tone="error",
             )
             try:
-                await run_on_bot_loop(log_channel.send(view=log_card))
+                await run_on_bot_loop(log_channel.send(
+                    view=log_card,
+                    allowed_mentions=discord.AllowedMentions.none(),
+                ))
             except (discord.Forbidden, discord.HTTPException):
                 pass
         return {**base, "status": "denied", "reason": denial_reason, "blocked": matched}
@@ -581,11 +584,14 @@ async def complete_oauth_verification(
     log_channel = guild.get_channel(int(log_id)) if log_id else None
     if log_channel and hasattr(log_channel, "send"):
         try:
-            await run_on_bot_loop(log_channel.send(view=StatusCard(
-                "OAuth2-Verifizierung erfolgreich",
-                f"{member.mention} (`{member.id}`) hat **{role_names}** erhalten.",
-                tone="success",
-            )))
+            await run_on_bot_loop(log_channel.send(
+                view=StatusCard(
+                    "OAuth2-Verifizierung erfolgreich",
+                    f"{member.mention} (`{member.id}`) hat **{role_names}** erhalten.",
+                    tone="success",
+                ),
+                allowed_mentions=discord.AllowedMentions.none(),
+            ))
         except (discord.Forbidden, discord.HTTPException):
             pass
 

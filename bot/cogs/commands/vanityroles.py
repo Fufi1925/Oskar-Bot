@@ -170,7 +170,7 @@ class VanityRoles(commands.Cog):
                 f"{member.mention} — {role.mention}\n"
                 f"Auslöser: `{setup['vanity']}`",
                 tone="success" if granted else "info",
-            ))
+            ), allowed_mentions=discord.AllowedMentions.none())
         except Exception:
             # A missing permission here used to abort the whole run.
             pass

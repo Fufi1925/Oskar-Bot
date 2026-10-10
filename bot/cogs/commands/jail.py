@@ -132,7 +132,7 @@ class Jail(commands.Cog):
                     f"**User:** {member.mention}\n"
                     f"**Time:** <t:{int(datetime.utcnow().timestamp())}:f>"
                 )
-                await log_channel.send(view=CV2("🔓 Member Unjailed", desc))
+                await log_channel.send(view=CV2("🔓 Member Unjailed", desc), allowed_mentions=discord.AllowedMentions.none())
 
     @commands.command(name="jail")
     @commands.has_permissions(manage_roles=True)
@@ -185,7 +185,7 @@ class Jail(commands.Cog):
                     f"**Duration:** {duration or 'Permanent'}\n"
                     f"**Time:** <t:{int(datetime.utcnow().timestamp())}:f>"
                 )
-                await log_channel.send(view=CV2("🔒 Member Jailed", desc))
+                await log_channel.send(view=CV2("🔒 Member Jailed", desc), allowed_mentions=discord.AllowedMentions.none())
 
     @commands.command(name="unjail")
     @commands.has_permissions(manage_roles=True)

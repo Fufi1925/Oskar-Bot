@@ -408,7 +408,7 @@ async def test_logging(
     )
 
     try:
-        await channel.send(view=from_embed(embed))
+        await channel.send(view=from_embed(embed), allowed_mentions=discord.AllowedMentions.none())
     except discord.Forbidden:
         raise HTTPException(
             status_code=400,

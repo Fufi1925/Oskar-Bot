@@ -487,11 +487,11 @@ async def _report_error(bot, feature: str, exc: BaseException, *, guild_id: int 
         if not created and row.get("message_id"):
             try:
                 message = await channel.fetch_message(int(row["message_id"]))
-                await message.edit(view=view)
+                await message.edit(view=view, allowed_mentions=discord.AllowedMentions.none())
                 return row
             except (discord.NotFound, discord.Forbidden, discord.HTTPException):
                 pass
-        message = await channel.send(view=view)
+        message = await channel.send(view=view, allowed_mentions=discord.AllowedMentions.none())
         await asyncio.to_thread(attach_error_message, row["error_id"], message.id)
     except discord.HTTPException:
         pass
@@ -517,7 +517,7 @@ async def create_developer_ticket(bot, error_id: str, actor_id: int | str) -> tu
             f"{CODEBASE} Entwickler-Ticket · {error_id.upper()}",
             f"{error_text(row)}\n\n{INFO} **Arbeitsbereich**\nAnalyse, Reproduktion, Fix und Verifikation werden in diesem Thread dokumentiert.",
             color=0x5865F2,
-        ))
+        ), allowed_mentions=discord.AllowedMentions.none())
         attach_ticket(error_id, thread.id, actor_id)
         return get_error(error_id), "created"
     except (discord.NotFound, discord.Forbidden, discord.HTTPException, ValueError) as exc:
@@ -534,7 +534,7 @@ async def refresh_error_report(bot, error_id: str) -> bool:
         return False
     try:
         message = await channel.fetch_message(int(row["message_id"]))
-        await message.edit(view=ErrorActionView(bot, row["error_id"]))
+        await message.edit(view=ErrorActionView(bot, row["error_id"]), allowed_mentions=discord.AllowedMentions.none())
         return True
     except (discord.NotFound, discord.Forbidden, discord.HTTPException, ValueError):
         return False

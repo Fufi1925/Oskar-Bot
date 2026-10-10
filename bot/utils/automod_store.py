@@ -583,7 +583,7 @@ async def log_action(bot, message, settings: dict, rule: str,
             f"**Wo:** {getattr(message.channel, 'mention', 'unbekannt')}",
             tone="warning",
         )
-        await channel.send(view=view)
+        await channel.send(view=view, allowed_mentions=discord.AllowedMentions.none())
     except (discord.Forbidden, discord.HTTPException):
         pass
     except Exception as exc:

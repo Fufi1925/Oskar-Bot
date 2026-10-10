@@ -665,7 +665,7 @@ async def report(
         buttons = recovery_buttons(guild, getattr(guild, "owner_id", 0) or 0)
 
         # ── der Beitrag im Alarmkanal ───────────────────────────────
-        # Einer je Abkuehlzeit. Laut darf es hier sein: es ist ein Log.
+        # Einer je Abkuehlzeit. Auch Alarm-Logs loesen keine Pings aus.
         if decision.post and _last_alert.get(guild.id, 0) + COOLDOWN <= now:
             _last_alert[guild.id] = now
 
@@ -673,17 +673,10 @@ async def report(
             if channel is not None:
                 from utils.panels import Panel
 
-                content = None
-                if settings.get("ping_owner") and outcome != OUTCOME_STOPPED:
-                    owner_id = guild.owner_id
-                    if owner_id:
-                        content = f"<@{owner_id}>"
-
                 try:
                     await channel.send(
-                        content=content,
                         view=Panel(title, *sections, tone=tone, buttons=buttons),
-                        allowed_mentions=discord.AllowedMentions(users=True),
+                        allowed_mentions=discord.AllowedMentions.none(),
                     )
                     # Remembered so an arriving template bot can be told
                     # apart from somebody casually adding a bot, and so
@@ -742,7 +735,7 @@ async def report(
             await owner.send(view=Panel(
                 f"{title} — {guild.name}", *dm_sections,
                 tone=tone, buttons=buttons,
-            ))
+            ), allowed_mentions=discord.AllowedMentions.none())
         except discord.Forbidden:
             # DMs closed. Nothing to be done, and retrying every event
             # would just burn rate limit.
@@ -889,7 +882,7 @@ async def schedule_backup_channel(bot, guild, cleaned: int = 0) -> None:
             return
 
         try:
-            await channel.send(view=recovery_panel(guild, cleaned))
+            await channel.send(view=recovery_panel(guild, cleaned), allowed_mentions=discord.AllowedMentions.none())
         except discord.HTTPException:
             return
 
@@ -1077,7 +1070,7 @@ async def report_self_escalation(
 
         channel = await alert_channel(guild, settings)
         if channel is not None:
-            await channel.send(embed=embed)
+            await channel.send(embed=embed, allowed_mentions=discord.AllowedMentions.none())
             return
 
         # Kein Kanal erreichbar: dann doch der Inhaber, sonst merkt es
@@ -1091,6 +1084,7 @@ async def report_self_escalation(
                         "deshalb hier:"
                     ),
                     embed=embed,
+                    allowed_mentions=discord.AllowedMentions.none(),
                 )
             except discord.Forbidden:
                 pass

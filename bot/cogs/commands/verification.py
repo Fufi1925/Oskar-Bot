@@ -457,7 +457,7 @@ class VerificationModal (discord .ui .Modal ,title ="Enter Verification Code"):
                             f"**Time:** {current_time.strftime('%d.%m.%Y %H:%M')}",
                             tone ="success"if success else "error",
                             )
-                            await log_channel .send (view =embed )
+                            await log_channel .send (view =embed , allowed_mentions=discord.AllowedMentions.none())
         except Exception as e :
             logger .error (f"Error sending verification log: {e}")
 
@@ -1780,7 +1780,7 @@ class Verification (commands .Cog ):
                     logs =await cur .fetchall ()
 
                     if not logs :
-                        await ctx .send ("No verification logs found.")
+                        await ctx .send ("No verification logs found.", allowed_mentions=discord.AllowedMentions.none())
                         return 
 
             log_text =""
@@ -1790,7 +1790,7 @@ class Verification (commands .Cog ):
                 log_text +=f"**{user_name}** — {method.upper()} — {verified_at}\n"
 
             await ctx .send (view =VCard (
-            f"Recent verifications ({len(logs)})",log_text ,tone ="info"))
+            f"Recent verifications ({len(logs)})",log_text ,tone ="info"), allowed_mentions=discord.AllowedMentions.none())
 
         except Exception as e :
             logger .error (f"Error retrieving verification logs: {e}")

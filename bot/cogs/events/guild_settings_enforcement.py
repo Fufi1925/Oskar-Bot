@@ -127,7 +127,7 @@ class GuildSettingsEnforcement(Cog):
                 if moderator:
                     embed.add_field(name="Moderator", value=str(moderator), inline=False)
                 try:
-                    await channel.send(view=from_embed(embed))
+                    await channel.send(view=from_embed(embed), allowed_mentions=discord.AllowedMentions.none())
                 except Exception:
                     pass
 

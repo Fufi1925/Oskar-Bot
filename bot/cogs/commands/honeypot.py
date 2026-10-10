@@ -517,7 +517,7 @@ class Honeypot(Cog):
         )
         embed.add_field(name="Softbans insgesamt", value=str(stand))
         try:
-            await kanal.send(view=from_embed(embed))
+            await kanal.send(view=from_embed(embed), allowed_mentions=discord.AllowedMentions.none())
         except (discord.Forbidden, discord.HTTPException):
             pass
 

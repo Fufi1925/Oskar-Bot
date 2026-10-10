@@ -1007,7 +1007,7 @@ class Extra(commands.Cog):
 
     report_text = f"{bug}\n\n**Reported By:** {ctx.author.name}\n**Server:** {ctx.guild.name}\n**Channel:** {ctx.channel.name}"
     try:
-      await channel.send(view=CV2("Bug Reported", report_text))
+      await channel.send(view=CV2("Bug Reported", report_text), allowed_mentions=discord.AllowedMentions.none())
     except discord.HTTPException:
       # Forbidden, deleted channel, anything else Discord refuses.
       await ctx.reply(view=CV2(

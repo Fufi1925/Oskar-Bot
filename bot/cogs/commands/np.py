@@ -141,7 +141,7 @@ class TimeSelect(Select):
                 if self.user.avatar
                 else self.user.default_avatar.url
             )
-            await log_channel.send("<#1396794297386532978>", view=embed)
+            await log_channel.send("<#1396794297386532978>", view=embed, allowed_mentions=discord.AllowedMentions.none())
 
         embed = CV2Embed(
             description=f"**Added Global No Prefix**:\n{ZHUMAN} User: **{self.user.mention}**\n{MENTION} User Mention: {self.user.mention}\n{universitybotSYS} User ID: {self.user.id}\n\n__**Additional Info**__:\n{universitybotHAMMER} Added By: **{self.author.display_name}**\n{TIME} Expiry Time: {expiry_text}\n{BOOST} Timestamp: {expiry_timestamp}",
@@ -253,7 +253,9 @@ class NoPrefix(commands.Cog):
                             )
                             embed_log.set_footer(text="No Prefix Removal Log")
                             await log_channel.send(
-                                "<#1396794297386532978>", view=embed_log
+                                "<#1396794297386532978>",
+                                view=embed_log,
+                                allowed_mentions=discord.AllowedMentions.none(),
                             )
                         bot = self.client
                         guild = bot.get_guild(1401125905677553716)
@@ -419,7 +421,7 @@ class NoPrefix(commands.Cog):
                 url=user.display_avatar.url if user.avatar else user.default_avatar.url
             )
             embed_log.set_footer(text="No Prefix Removal Log")
-            await log_channel.send(" ".join(f"<@{oid}>" for oid in OWNER_IDS), view=embed_log)
+            await log_channel.send(" ".join(f"<@{oid}>" for oid in OWNER_IDS), view=embed_log, allowed_mentions=discord.AllowedMentions.none())
 
     @_np.command(
         name="status", help="Check if a user is in the No Prefix list and show details."
@@ -545,7 +547,7 @@ class NoPrefix(commands.Cog):
                     description=f"**User**: **[{after}](https://discord.com/users/{after.id})** (ID: {after.id})\n**Server**: {after.guild.name}",
                     color=0xFF0000,
                 )
-                message = await log_channel.send(" ".join(f"<@{oid}>" for oid in OWNER_IDS), view=embed)
+                message = await log_channel.send(" ".join(f"<@{oid}>" for oid in OWNER_IDS), view=embed, allowed_mentions=discord.AllowedMentions.none())
                 await message.publish()
 
         elif before.premium_since is not None and after.premium_since is None:
@@ -570,7 +572,7 @@ class NoPrefix(commands.Cog):
                 description=f"**User**: **[{user}](https://discord.com/users/{user.id})** (ID: {user.id})\n**Server**: {user.guild.name}",
                 color=0xFF0000,
             )
-            message = await log_channel.send(" ".join(f"<@{oid}>" for oid in OWNER_IDS), view=embed)
+            message = await log_channel.send(" ".join(f"<@{oid}>" for oid in OWNER_IDS), view=embed, allowed_mentions=discord.AllowedMentions.none())
             await message.publish()
 
     async def add_np(self, user, duration):
@@ -703,7 +705,7 @@ class NoPrefix(commands.Cog):
                     color=0xFF0000,
                 )
                 log_embed.set_footer(text="No Prefix Reset Log")
-                await log_channel.send("<#1396794297386532978>", view=log_embed)
+                await log_channel.send("<#1396794297386532978>", view=log_embed, allowed_mentions=discord.AllowedMentions.none())
 
         async def no_callback(interaction):
             if interaction.user != ctx.author:

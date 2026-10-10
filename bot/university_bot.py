@@ -244,7 +244,7 @@ async def on_guild_join(guild: discord.Guild):
     log_channel_id = _guild_log_channel()
     log_channel = client.get_channel(log_channel_id) if log_channel_id else None
     if log_channel:
-        await log_channel.send(f"{BRAND_NAME} has been added to the server: **{guild.name}** (ID: `{guild.id}`)")
+        await log_channel.send(f"{BRAND_NAME} has been added to the server: **{guild.name}** (ID: `{guild.id}`)", allowed_mentions=discord.AllowedMentions.none())
 
 async def apply_nickname_rules(member: discord.Member):
     """Apply dashboard-configured prefix/suffix nickname rules for matching roles."""
@@ -375,7 +375,7 @@ async def on_command_completion(context: commands.Context) -> None:
         embed.set_footer(text=f"{BRAND_NAME} Development™ ❤️", icon_url=client.user.display_avatar.url)
         
         try:
-            await webhook.send(view=from_embed(embed))
+            await webhook.send(view=from_embed(embed), allowed_mentions=discord.AllowedMentions.none())
         except Exception as e:
             print(f'Command log webhook failed: {e}')
 
