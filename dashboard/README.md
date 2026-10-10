@@ -184,7 +184,6 @@ redirects and links use `https://cloudtix.up.railway.app`.
 <p>
   <a href="https://discord.gg/F3TedBAVZT"><img src="https://img.shields.io/badge/Discord-Join_Server-5865F2?style=for-the-badge&logo=discord&logoColor=white"/></a>
   <a href="https://youtube.com/@UniversityBotDevs"><img src="https://img.shields.io/badge/YouTube-University%20Bot%20Devs-FF0000?style=for-the-badge&logo=youtube&logoColor=white"/></a>
-  <a href="https://github.com/Fufi1925/Oskar-Bot"><img src="https://img.shields.io/badge/GitHub-University%20Bot-181717?style=for-the-badge&logo=github&logoColor=white"/></a>
 </p>
 
 © 2026 CloudTIX Devs — alle Rechte vorbehalten, siehe [LICENSE](../LICENSE)

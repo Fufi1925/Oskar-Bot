@@ -18,7 +18,6 @@ import { useLanguage } from "@/lib/i18n/LanguageContext";
 import { INVITE_URL } from "@/components/site-nav";
 import styles from "./public-footer.module.css";
 import {
-  Github,
   Mail,
   MessageCircle,
 } from "lucide-react";
@@ -146,7 +145,6 @@ export function PublicFooter({ supportInvite, email }: { supportInvite: string; 
       [copy("Community-Ideen", "Community ideas"), "/ideas"],
       [copy("Unser Team", "Our team"), "/team"],
       [copy("Team beitreten", "Join the team"), "/team/apply"],
-      ["GitHub", "https://github.com/Fufi1925/Oskar-Bot"],
       ["TikTok", TIKTOK_URL],
     ] },
   ];
@@ -171,7 +169,6 @@ export function PublicFooter({ supportInvite, email }: { supportInvite: string; 
         <div className={styles.bottom}>
           <p><img src={brandAsset("favicon-32.png")} width={20} height={20} alt="" />© 2026 {BRAND}. {copy("Alle Rechte vorbehalten.", "All rights reserved.")}</p>
           <div className={styles.socials}>
-            <SocialLink href="https://github.com/Fufi1925/Oskar-Bot" label="GitHub"><Github size={17} /></SocialLink>
             <SocialLink href={TIKTOK_URL} label="TikTok"><TikTokIcon className="h-[17px] w-[17px]" /></SocialLink>
             <SocialLink href={supportInvite} label={copy("Discord Support-Server", "Discord support server")}><MessageCircle size={17} /></SocialLink>
             {email && <SocialLink href={`mailto:${email}`} label={copy("E-Mail", "Email")}><Mail size={17} /></SocialLink>}

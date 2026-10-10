@@ -18,7 +18,7 @@ export default async function GuildLayout({ children, params }: { children: Reac
   catch (error) { console.error("Failed to fetch guild details:", error); }
   if (!guild) redirect("/dashboard");
 
-  return <div className="space-y-6">
+  return <div className="cloudtix-workspace-guild-content space-y-6">
     <nav aria-label="Seitennavigation" className="flex min-w-0 items-center gap-2 text-[11px] text-slate-500"><Link href="/dashboard/guilds" className="inline-flex shrink-0 items-center gap-2 hover:text-white"><Server size={13} />Deine Server</Link><ChevronRight size={12} /><span className="truncate text-slate-300">{guild.name}</span></nav>
     <GuildHeader guild={guild} isOwner={String(guild.owner_id) === String(access.userId ?? "")} />
     <GuildModuleStatus guildId={guildId}>{children}</GuildModuleStatus>

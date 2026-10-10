@@ -9,7 +9,6 @@
  * ║                                                                  ║
  * ║   discord  ──  https://discord.gg/F3TedBAVZT                      ║
  * ║   youtube  ──  https://youtube.com/@UniversityBotDevs                   ║
- * ║   github   ──  https://github.com/Fufi1925/Oskar-Bot                        ║
  * ║                                                                  ║
  * ╚══════════════════════════════════════════════════════════════════╝
  */

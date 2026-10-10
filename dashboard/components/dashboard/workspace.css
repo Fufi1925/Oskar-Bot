@@ -36,7 +36,7 @@
 .cloudtix-workspace-nav-search button { display: grid; flex-shrink: 0; place-items: center; }
 .cloudtix-workspace-nav-scroll { min-height: 0; flex: 1; overflow-y: auto; padding: 0 14px 22px; }
 .cloudtix-workspace-nav-caption { margin: 0 10px 13px; color: #6f6f6f; font-family: ui-monospace, monospace; font-size: 9px; letter-spacing: .11em; }
-.cloudtix-workspace-nav-link { display: flex; min-height: 40px; align-items: center; gap: 11px; margin-bottom: 4px; border: 1px solid transparent; border-radius: 10px; padding: 10px 12px; color: #919191; font-size: 12px; transition: color .15s, background .15s; }
+.cloudtix-workspace-nav-link { touch-action: manipulation; user-select: none; display: flex; min-height: 40px; align-items: center; gap: 11px; margin-bottom: 4px; border: 1px solid transparent; border-radius: 10px; padding: 10px 12px; color: #919191; font-size: 12px; transition: color .15s, background .15s; }
 .cloudtix-workspace-nav-link > svg { flex-shrink: 0; }
 .cloudtix-workspace-nav-link > span { min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cloudtix-workspace-nav-link:hover { background: #1a1a1a; color: #fff; }
@@ -243,3 +243,199 @@ body:has(.cloudtix-workspace-shell) [data-dashboard-surface="true"] :is([class~=
   .cloudtix-workspace-setup-card { padding: 21px; }
 }
 @media (prefers-reduced-motion: reduce) { .cloudtix-workspace-navigation, .cloudtix-workspace-nav-link, .cloudtix-workspace-dots::after { transition: none; } }
+
+/* Keep server settings in a calm, centered column. */
+.cloudtix-workspace-guild-content { width: 100%; max-width: 1080px; margin-inline: auto; }
+.cloudtix-workspace-nav-group:not(.is-expanded) > .cloudtix-workspace-nav-items { display: none; }
+.cloudtix-workspace-favorites { margin-bottom: 20px; border-bottom: 1px solid #252525; padding-bottom: 14px; }
+.cloudtix-workspace-nav-caption { display: flex; align-items: center; gap: 7px; }
+.cloudtix-workspace-pin-hint { margin: -5px 10px 14px; color: #777; font-size: 9px; }
+.pin-mobile-hint { display: none; }
+.cloudtix-workspace-pin-mark { color: currentColor; opacity: .6; }
+.cloudtix-workspace-nav-bottom { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 14px; }
+.cloudtix-workspace-nav-bottom :is(.cloudtix-workspace-theme-button, .cloudtix-workspace-collapse) { display: grid; width: 36px; height: 36px; flex-shrink: 0; place-items: center; border: 1px solid #303030; border-radius: 50%; background: #151515; color: #aaa; }
+.cloudtix-workspace-nav-bottom button:hover { border-color: #777; color: #fff; }
+@media (min-width: 1024px) {
+  .cloudtix-workspace-shell.cloudtix-workspace-shell.is-nav-collapsed .cloudtix-workspace-frame { padding-left: 76px; }
+  .cloudtix-workspace-navigation.is-collapsed { width: 76px; }
+  .cloudtix-workspace-navigation.is-collapsed .cloudtix-workspace-brand { min-height: 76px; justify-content: center; padding: 16px 10px; }
+  .cloudtix-workspace-navigation.is-collapsed :is(.cloudtix-workspace-brand > span, .cloudtix-workspace-nav-search, .cloudtix-workspace-nav-caption, .cloudtix-workspace-pin-hint, .cloudtix-workspace-nav-group-title, .cloudtix-workspace-account > span, .cloudtix-workspace-nav-footer > a > span, .cloudtix-workspace-nav-footer > a > svg:last-child:not(:first-child)) { display: none; }
+  .cloudtix-workspace-navigation.is-collapsed .cloudtix-workspace-server-switch { margin: 0 10px 16px; border: 0; padding: 0; background: transparent; }
+  .cloudtix-workspace-navigation.is-collapsed .cloudtix-workspace-server-switch > a { justify-content: center; margin-bottom: 8px; }
+  .cloudtix-workspace-navigation.is-collapsed .cloudtix-workspace-server-switch > a > :is(span, svg:last-child) { display: none; }
+  .cloudtix-workspace-navigation.is-collapsed .cloudtix-workspace-server-switch > div { justify-content: center; }
+  .cloudtix-workspace-navigation.is-collapsed .cloudtix-workspace-server-switch > div > span { display: none; }
+  .cloudtix-workspace-navigation.is-collapsed .cloudtix-workspace-nav-scroll { padding: 0 10px 16px; }
+  .cloudtix-workspace-navigation.is-collapsed .cloudtix-workspace-nav-group { margin-top: 12px; border-top: 1px solid #252525; padding-top: 12px; }
+  .cloudtix-workspace-navigation.is-collapsed .cloudtix-workspace-nav-items { display: block; padding: 0; }
+  .cloudtix-workspace-navigation.is-collapsed .cloudtix-workspace-nav-link { position: relative; min-height: 44px; justify-content: center; margin-left: 0; padding: 10px; }
+  .cloudtix-workspace-navigation.is-collapsed .cloudtix-workspace-nav-link > :is(span, .cloudtix-workspace-pin-mark, .cloudtix-workspace-premium-mark, .cloudtix-workspace-active-dot) { display: none; }
+  .cloudtix-workspace-navigation.is-collapsed .cloudtix-workspace-module-dot { position: absolute; top: 9px; right: 8px; width: 4px; height: 4px; }
+  .cloudtix-workspace-navigation.is-collapsed .cloudtix-workspace-notice { position: absolute; top: 1px; right: 0; min-width: 13px; height: 13px; font-size: 8px; }
+  .cloudtix-workspace-navigation.is-collapsed .cloudtix-workspace-favorites { margin-bottom: 12px; padding-bottom: 8px; }
+  .cloudtix-workspace-navigation.is-collapsed .cloudtix-workspace-nav-footer { padding: 12px 19px; }
+  .cloudtix-workspace-navigation.is-collapsed .cloudtix-workspace-account { justify-content: center; }
+  .cloudtix-workspace-navigation.is-collapsed .cloudtix-workspace-nav-footer > a { justify-content: center; }
+  .cloudtix-workspace-navigation.is-collapsed .cloudtix-workspace-nav-bottom { flex-direction: column; }
+}
+@media (max-width: 1023px) { .pin-mobile-hint { display: inline; } .pin-desktop-hint { display: none; } }
+
+/* Backup, server profile and Premium editors. */
+.cloudtix-settings-page { display: grid; min-width: 0; gap: 24px; }
+.cloudtix-settings-heading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 20px; padding-block: 8px; }
+.cloudtix-workspace-shell.cloudtix-workspace-shell .cloudtix-settings-heading h1 { max-width: 700px; color: #f5f5f5; font-size: clamp(29px, 3vw, 40px); font-weight: 600; line-height: 1.18; letter-spacing: -.05em; }
+.cloudtix-settings-heading p:not(.cloudtix-workspace-eyebrow) { max-width: 650px; margin-top: 13px; color: #959595; font-size: 13px; line-height: 1.8; }
+.cloudtix-settings-badge { display: inline-flex; width: fit-content; flex-shrink: 0; align-items: center; gap: 7px; border: 1px solid #3a3a3a; border-radius: 8px; padding: 7px 10px; color: #aaa; font-size: 10px; font-weight: 500; line-height: 1.3; }
+.cloudtix-settings-badge i { width: 5px; height: 5px; border-radius: 50%; background: #888; }
+.cloudtix-settings-badge[data-active="true"] i { background: #8dd5a3; }
+.cloudtix-settings-badge.has-changes { border-color: #777; color: #ddd; }
+.cloudtix-settings-grid { display: grid; min-width: 0; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+.cloudtix-settings-card { min-width: 0; border: 1px solid #303030; border-radius: 18px; padding: 25px; background: #111; }
+.cloudtix-settings-card-title { display: flex; align-items: start; gap: 13px; margin-bottom: 22px; }
+.cloudtix-settings-card-title > span { display: grid; width: 39px; height: 39px; flex-shrink: 0; place-items: center; border: 1px solid #333; border-radius: 11px; background: #191919; color: #bbb; }
+.cloudtix-settings-card-title h2, .cloudtix-settings-list-heading h2 { color: #eee; font-size: 17px; line-height: 1.4; }
+.cloudtix-settings-card-title p, .cloudtix-settings-list-heading p { margin-top: 6px; color: #858585; font-size: 12px; line-height: 1.8; }
+.cloudtix-settings-metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.cloudtix-settings-metrics > div { position: relative; min-width: 0; border: 1px solid #303030; border-radius: 15px; padding: 21px; background: #111; }
+.cloudtix-settings-metrics svg { position: absolute; top: 22px; right: 20px; color: #777; }
+.cloudtix-settings-metrics span { display: block; padding-right: 23px; color: #999; font-size: 11px; }
+.cloudtix-settings-metrics strong { display: block; margin-top: 20px; color: #eee; font-size: 29px; font-weight: 550; line-height: 1.3; letter-spacing: -.03em; }
+.cloudtix-settings-metrics strong small { color: #777; font-size: 18px; }
+.cloudtix-settings-metrics strong.is-date { font-size: 15px; line-height: 2.5; letter-spacing: 0; }
+.cloudtix-settings-tabs { display: flex; flex-wrap: wrap; gap: 5px; border: 1px solid #2e2e2e; border-radius: 13px; padding: 6px; background: #111; }
+.cloudtix-settings-tabs button { display: flex; min-height: 40px; align-items: center; justify-content: center; gap: 8px; border-radius: 9px; padding: 10px 16px; color: #999; font-size: 12px; }
+.cloudtix-settings-tabs button:hover { color: #eee; }
+.cloudtix-settings-tabs button[aria-pressed="true"] { background: #ededed; color: #111; }
+.cloudtix-settings-running { display: flex; align-items: center; gap: 12px; border: 1px solid #414141; border-radius: 13px; padding: 17px; background: #151515; color: #bbb; font-size: 12px; }
+.cloudtix-settings-running > svg { flex-shrink: 0; }
+.cloudtix-settings-running strong { color: #ddd; font-weight: 500; }
+.cloudtix-settings-running p { margin-top: 3px; line-height: 1.8; }
+.cloudtix-settings-warning { margin-top: 16px; border: 1px solid rgb(251 191 36 / .2); border-radius: 11px; padding: 13px; background: rgb(251 191 36 / .035); color: #bcb2a0; font-size: 11px; line-height: 1.8; }
+.cloudtix-settings-included { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; }
+.cloudtix-settings-included > span { display: flex; align-items: center; gap: 7px; border: 1px solid #333; border-radius: 8px; padding: 8px 10px; color: #aaa; font-size: 10px; }
+.cloudtix-settings-included > span > svg:last-child { color: #ccc; }
+.cloudtix-settings-check { display: flex; align-items: start; gap: 12px; border: 1px solid #303030; border-radius: 12px; padding: 15px; background: #0c0c0c; }
+.cloudtix-settings-check input { width: 15px; height: 15px; flex-shrink: 0; margin-top: 3px; accent-color: #ddd; }
+.cloudtix-settings-check strong { display: block; color: #ccc; font-size: 12px; font-weight: 500; }
+.cloudtix-settings-check small { display: block; margin-top: 5px; color: #898989; font-size: 11px; line-height: 1.8; }
+.cloudtix-settings-steps { display: grid; gap: 18px; }
+.cloudtix-settings-steps li { display: flex; align-items: start; gap: 13px; }
+.cloudtix-settings-steps b { display: grid; width: 28px; height: 28px; flex-shrink: 0; place-items: center; border: 1px solid #333; border-radius: 9px; color: #999; font-family: ui-monospace, monospace; font-size: 9px; font-weight: 400; }
+.cloudtix-settings-steps strong { color: #c6c6c6; font-size: 12px; font-weight: 500; }
+.cloudtix-settings-steps p { margin-top: 4px; color: #858585; font-size: 11px; line-height: 1.8; }
+.cloudtix-settings-list-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 21px; }
+.cloudtix-settings-list-heading h2 span { margin-left: 7px; color: #888; font-size: 12px; }
+.cloudtix-settings-icon-button { display: grid; width: 36px; height: 36px; flex-shrink: 0; place-items: center; border: 1px solid #363636; border-radius: 10px; background: #171717; color: #aaa; }
+.cloudtix-settings-icon-button:hover { border-color: #777; color: #eee; }
+.cloudtix-settings-icon-button.is-danger { border-color: rgb(248 113 113 / .2); color: #c28989; }
+.cloudtix-settings-search { position: relative; display: block; margin-bottom: 18px; }
+.cloudtix-settings-search svg { position: absolute; top: 14px; left: 13px; color: #777; }
+.cloudtix-settings-search input { width: 100%; border: 1px solid #333; padding: 10px 13px 10px 37px; }
+.cloudtix-settings-empty { display: grid; justify-items: center; gap: 12px; padding: 40px 15px; color: #777; text-align: center; }
+.cloudtix-settings-empty h3 { color: #bbb; font-size: 17px; }
+.cloudtix-settings-empty p { max-width: 430px; color: #888; font-size: 12px; line-height: 1.8; }
+.cloudtix-settings-field-label { display: block; color: #a6a6a6; font-size: 11px; font-weight: 500; }
+.cloudtix-settings-details > div { display: flex; align-items: start; justify-content: space-between; gap: 20px; border-bottom: 1px solid #292929; padding: 13px 0; font-size: 12px; }
+.cloudtix-settings-details > div:first-child { padding-top: 0; }
+.cloudtix-settings-details > div:last-child { border-bottom: 0; padding-bottom: 0; }
+.cloudtix-settings-details dt { color: #929292; }
+.cloudtix-settings-details dd { max-width: 65%; color: #ddd; text-align: right; overflow-wrap: anywhere; }
+.cloudtix-settings-upgrade { display: grid; justify-items: center; gap: 18px; padding: 45px 30px; text-align: center; }
+.cloudtix-settings-upgrade > svg { color: #ccc; }
+.cloudtix-settings-upgrade h2 { font-size: 27px; }
+.cloudtix-settings-upgrade > p:not(.cloudtix-workspace-eyebrow) { max-width: 600px; color: #929292; font-size: 13px; line-height: 1.8; }
+.cloudtix-settings-feature-list { display: grid; gap: 20px; }
+.cloudtix-settings-feature-list > div { display: flex; align-items: start; gap: 12px; }
+.cloudtix-settings-feature-list svg { flex-shrink: 0; margin-top: 2px; color: #aaa; }
+.cloudtix-settings-feature-list strong { display: block; color: #ccc; font-size: 12px; font-weight: 500; }
+.cloudtix-settings-feature-list small { display: block; margin-top: 5px; color: #888; font-size: 11px; line-height: 1.8; }
+.cloudtix-backup-list { display: grid; gap: 12px; }
+.cloudtix-backup-entry { overflow: hidden; border: 1px solid #303030; border-radius: 14px; padding: 20px; background: #0d0d0d; }
+.cloudtix-backup-entry-heading { display: flex; align-items: center; gap: 13px; }
+.cloudtix-backup-entry-icon { display: grid; width: 41px; height: 41px; flex-shrink: 0; place-items: center; border: 1px solid #333; border-radius: 11px; color: #aaa; }
+.cloudtix-backup-entry-heading > div { min-width: 0; flex: 1; }
+.cloudtix-backup-entry h3 { overflow-wrap: anywhere; color: #ddd; font-size: 14px; }
+.cloudtix-backup-entry-heading p { margin-top: 5px; color: #838383; font-size: 10px; overflow-wrap: anywhere; }
+.cloudtix-backup-entry-facts { display: flex; flex-wrap: wrap; gap: 10px 18px; margin-top: 17px; color: #8d8d8d; font-size: 11px; }
+.cloudtix-backup-entry-facts > span { display: flex; align-items: center; gap: 6px; }
+.cloudtix-backup-entry-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 18px; border-top: 1px solid #292929; padding-top: 16px; }
+.cloudtix-backup-entry-actions .cloudtix-workspace-action { min-height: 36px; padding: 8px 11px; font-size: 11px; }
+.cloudtix-backup-entry-actions .is-danger { margin-left: auto; }
+.cloudtix-backup-comparison > div { display: grid; grid-template-columns: minmax(0, 1.5fr) 1fr 1fr; align-items: center; gap: 10px; border-bottom: 1px solid #292929; padding: 12px 0; color: #aaa; font-size: 11px; }
+.cloudtix-backup-comparison > div:first-child { color: #ddd; }
+.cloudtix-backup-comparison > div:last-child { border: 0; }
+.cloudtix-settings-premium-notice { display: flex; align-items: center; flex-wrap: wrap; gap: 16px; border: 1px solid #414141; border-radius: 15px; padding: 20px; background: #151515; }
+.cloudtix-settings-premium-notice > svg { color: #ccc; }
+.cloudtix-settings-premium-notice > div { min-width: 200px; flex: 1; }
+.cloudtix-settings-premium-notice h2 { font-size: 15px; }
+.cloudtix-settings-premium-notice p { margin-top: 6px; color: #929292; font-size: 12px; line-height: 1.8; }
+.cloudtix-design-layout { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); align-items: start; gap: 20px; }
+.cloudtix-design-preview { position: sticky; top: 100px; }
+.cloudtix-design-image-field { border-top: 1px solid #2a2a2a; padding-top: 20px; }
+.cloudtix-design-image-field:first-child { border: 0; padding-top: 0; }
+.cloudtix-design-draft-state { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
+.cloudtix-design-profile { overflow: hidden; margin-top: 20px; border: 1px solid #333; border-radius: 16px; background: #0c0c0c; }
+.cloudtix-design-profile-banner { height: 130px; background: #222; }
+.cloudtix-design-profile-banner > img { width: 100%; height: 100%; object-fit: cover; }
+.cloudtix-design-banner-placeholder { display: grid; height: 100%; align-content: center; justify-items: center; gap: 9px; color: #777; font-size: 10px; }
+.cloudtix-design-profile-content { position: relative; padding: 0 21px 23px; }
+.cloudtix-design-profile-avatar { position: relative; width: 76px; height: 76px; margin-top: -38px; margin-bottom: 17px; border: 5px solid #0c0c0c; border-radius: 50%; background: #171717; object-fit: cover; }
+.cloudtix-design-profile-online { position: absolute; top: 23px; left: 79px; width: 15px; height: 15px; border: 3px solid #0c0c0c; border-radius: 50%; background: #85c899; }
+.cloudtix-design-profile-name { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.cloudtix-design-profile-name h3 { overflow-wrap: anywhere; color: #eee; font-size: 20px; }
+.cloudtix-design-profile-name > span { border-radius: 4px; padding: 2px 5px; background: #e3e3e3; color: #191919; font-size: 8px; font-weight: 650; }
+.cloudtix-design-profile-content > p { margin-top: 7px; color: #909090; font-size: 11px; }
+.cloudtix-design-profile-about { margin-top: 21px; border-top: 1px solid #2c2c2c; padding-top: 19px; }
+.cloudtix-design-profile-about > small { color: #777; font-family: ui-monospace, monospace; font-size: 8px; letter-spacing: .1em; }
+.cloudtix-design-profile-about p { margin-top: 11px; color: #aaa; font-size: 12px; line-height: 1.8; }
+.cloudtix-design-profile-about > div { display: flex; align-items: center; gap: 8px; margin-top: 19px; color: #888; font-size: 10px; }
+.cloudtix-design-message { display: flex; align-items: start; gap: 12px; margin-top: 20px; border: 1px solid #333; border-radius: 15px; padding: 20px 16px; background: #0c0c0c; }
+.cloudtix-design-message > img { width: 38px; height: 38px; flex-shrink: 0; border-radius: 50%; object-fit: cover; }
+.cloudtix-design-message > div { min-width: 0; }
+.cloudtix-design-message h3 { font-size: 14px; }
+.cloudtix-design-message small { display: block; margin-top: 4px; color: #777; font-size: 9px; }
+.cloudtix-design-message p { margin-top: 12px; color: #aaa; font-size: 12px; line-height: 1.8; }
+.cloudtix-design-message-embed { margin-top: 16px; border-left: 3px solid #aaa; border-radius: 4px; padding: 14px; background: #171717; }
+.cloudtix-design-message-embed strong { color: #ccc; font-size: 12px; }
+.cloudtix-design-preview-note { display: flex; align-items: start; gap: 8px; margin-top: 19px; color: #888; font-size: 11px; line-height: 1.8; }
+.cloudtix-design-preview-note svg { flex-shrink: 0; margin-top: 3px; }
+.cloudtix-premium-summary { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 20px; }
+.cloudtix-premium-membership { display: flex; align-items: start; flex-wrap: wrap; gap: 20px; }
+.cloudtix-premium-emblem { display: grid; width: 56px; height: 56px; flex-shrink: 0; place-items: center; border: 1px solid #444; border-radius: 16px; background: #1c1c1c; color: #ddd; }
+.cloudtix-premium-membership > div { min-width: 0; flex: 1; }
+.cloudtix-premium-membership h2 { margin-bottom: 15px; overflow-wrap: anywhere; font-size: 26px; }
+.cloudtix-premium-membership p:not(.cloudtix-workspace-eyebrow) { margin-top: 16px; color: #999; font-size: 12px; line-height: 1.8; }
+.cloudtix-premium-membership > a { width: 100%; margin-top: auto; }
+.cloudtix-premium-duration { display: grid; justify-items: center; align-content: start; gap: 10px; text-align: center; }
+.cloudtix-premium-duration > svg { color: #888; }
+.cloudtix-premium-duration > p { color: #999; font-size: 11px; }
+.cloudtix-premium-duration > strong { color: #e5e5e5; font-size: 62px; font-weight: 500; line-height: 1.2; letter-spacing: -.05em; }
+.cloudtix-premium-duration > span { color: #bbb; font-size: 12px; }
+.cloudtix-premium-duration > small { margin-top: 8px; color: #777; font-size: 10px; }
+.cloudtix-premium-duration .cloudtix-workspace-progress-track { width: 100%; }
+.cloudtix-premium-features { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.cloudtix-premium-feature { display: flex; align-items: start; gap: 12px; border: 1px solid #303030; border-radius: 13px; padding: 19px 16px; background: #0d0d0d; }
+.cloudtix-premium-feature > span { color: #aaa; }
+.cloudtix-premium-feature > div { min-width: 0; flex: 1; }
+.cloudtix-premium-feature h3 { color: #ccc; font-size: 13px; }
+.cloudtix-premium-feature p { margin-top: 7px; color: #898989; font-size: 11px; line-height: 1.8; }
+.cloudtix-premium-feature > svg { flex-shrink: 0; margin-top: 3px; color: #777; }
+.cloudtix-premium-feature:hover { border-color: #777; }
+.cloudtix-premium-choice { border: 1px solid #343434; border-radius: 14px; padding: 22px; background: #0c0c0c; text-align: left; }
+.cloudtix-premium-choice:disabled { opacity: .5; }
+.cloudtix-premium-choice > div { display: flex; align-items: center; justify-content: space-between; gap: 15px; color: #bbb; }
+.cloudtix-premium-choice h3 { margin-top: 17px; color: #ddd; font-size: 15px; }
+.cloudtix-premium-choice p { margin-top: 8px; color: #999; font-size: 11px; line-height: 1.9; }
+@media (max-width: 1100px) { .cloudtix-design-layout, .cloudtix-premium-summary { grid-template-columns: 1fr; } .cloudtix-design-preview { position: static; } }
+@media (max-width: 760px) {
+  .cloudtix-settings-grid, .cloudtix-settings-metrics, .cloudtix-premium-features { grid-template-columns: 1fr; }
+  .cloudtix-settings-card { padding: 21px; }
+  .cloudtix-settings-tabs button { flex: 1; gap: 5px; padding: 9px 8px; font-size: 11px; }
+  .cloudtix-settings-metrics strong.is-date { line-height: 1.5; }
+  .cloudtix-settings-metrics > div { padding: 18px; }
+  .cloudtix-settings-heading .cloudtix-workspace-action { width: 100%; }
+  .cloudtix-backup-entry { padding: 16px; }
+  .cloudtix-backup-entry-heading { flex-wrap: wrap; }
+  .cloudtix-backup-entry-heading > .cloudtix-settings-badge { margin-left: 54px; }
+  .cloudtix-design-image-field [class~="w-32"] { width: 95px; }
+}

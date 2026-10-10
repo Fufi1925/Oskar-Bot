@@ -9,7 +9,6 @@
  * ║                                                                  ║
  * ║   discord  ──  https://discord.gg/F3TedBAVZT                      ║
  * ║   youtube  ──  https://youtube.com/@CloudTIX BotDevs                   ║
- * ║   github   ──  https://github.com/CloudTIX Bot                        ║
  * ║                                                                  ║
  * ╚══════════════════════════════════════════════════════════════════╝
  */
@@ -53,6 +52,7 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [navigationCollapsed, setNavigationCollapsed] = useState(false);
   const [isProfilOpen, setIsProfilOpen] = useState(false);
   const closeSidebar = React.useCallback(() => setIsSidebarOpen(false), []);
   const pathname = usePathname();
@@ -467,7 +467,7 @@ export default function DashboardLayout({
     : allSidebarItems;
 
   return (
-    <div className={cn("user-dashboard-theme min-h-screen bg-[#0a0a0c] text-slate-200", isAdminRoute ? "cloudtix-admin-shell" : "cloudtix-workspace-shell")}>
+    <div className={cn("user-dashboard-theme min-h-screen bg-[#0a0a0c] text-slate-200", isAdminRoute ? "cloudtix-admin-shell" : "cloudtix-workspace-shell", !isAdminRoute && navigationCollapsed && "is-nav-collapsed")}>
       <DiscordIdInspector />
       {/* Liquid Background Elements */}
       {/* Ein ruhiger Schein statt zwei pulsierender Flaechen. */}
@@ -478,6 +478,9 @@ export default function DashboardLayout({
       {!isAdminRoute && <WorkspaceDotField />}
       {!isAdminRoute && <WorkspaceNavigation
         items={mainSidebarItems}
+        userId={sessionUserId || "guest"}
+        collapsed={navigationCollapsed}
+        onCollapsedChange={setNavigationCollapsed}
         guildId={currentGuildId}
         guild={sidebarGuild}
         moduleStates={moduleStates}

@@ -14,7 +14,7 @@ function applyTheme(theme: DashboardTheme) {
 }
 
 /** Global, persistent light/dark switch. Dark is the default for new users. */
-export function ThemeToggle({ embedded = false }: { embedded?: boolean }) {
+export function ThemeToggle({ embedded = false, compact = false }: { embedded?: boolean; compact?: boolean }) {
   const [theme, setTheme] = useState<DashboardTheme>("dark");
   const pathname = usePathname();
 
@@ -40,6 +40,8 @@ export function ThemeToggle({ embedded = false }: { embedded?: boolean }) {
 
   // The homepage and login panel already include their own theme controls.
   if (!embedded && (pathname === "/" || pathname === "/auth/login" || pathname.startsWith("/dashboard") || pathname.startsWith("/Tickets/Transkript/"))) return null;
+
+  if (compact) return <button type="button" className="theme-filter-reset cloudtix-workspace-theme-button" onClick={() => choose(theme === "dark" ? "light" : "dark")} aria-label={theme === "dark" ? "Helles Design aktivieren" : "Dunkles Design aktivieren"} title={theme === "dark" ? "Helles Design" : "Dunkles Design"}>{theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}</button>;
 
   return (
     <div

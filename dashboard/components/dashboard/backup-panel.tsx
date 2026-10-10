@@ -4,53 +4,14 @@ import { websiteLocale, useWebsiteLocale } from "@/lib/i18n/locale";
 import { localizedConfirm } from "@/lib/i18n/browser-language";
 import { WebsiteSelect } from "@/components/ui/website-select";
 
-/**
- * Backup — Sicherungen dieses Servers.
- *
- * ── Was am Vorgänger falsch war ─────────────────────────────────────
- *
- * Die Premium-Sperre lag als `absolute inset-0` über der Automatik-
- * Karte. Ohne Premium ist diese Karte aber kurz (Überschrift, ein
- * Satz, ein Schalter) und die Sperr-Box darin höher — sie stand oben
- * und unten über den Kartenrand hinaus und überlappte die Karte
- * darunter. Im Screenshot gut zu sehen.
- *
- * Zwei Fehler auf einmal: erstens ein Overlay über etwas, das ohnehin
- * niemand bedienen darf, zweitens eine feste Höhe, die von der
- * Textmenge abhängt.
- *
- * ── Wie es jetzt gelöst ist ─────────────────────────────────────────
- *
- * Kein Overlay mehr. Ohne Premium wird die Automatik-Karte gar nicht
- * erst als bedienbare Karte gerendert, sondern als **Angebot**: eine
- * eigene Karte, die sagt, was es gäbe. Nichts liegt über etwas
- * anderem, also kann auch nichts überstehen.
- *
- * ── Trennung Gratis / Premium ───────────────────────────────────────
- *
- * Ausdrückliche Vorgabe: niemand ohne Premium soll denken, er könne
- * die Premium-Sachen benutzen. Deshalb:
- *
- *   * Ganz oben steht in einer Zeile, welchen Stand man hat.
- *   * Was mit Premium ginge, steht in einem eigenen Block mit einer
- *     Gegenüberstellung — nicht als gesperrter Schalter dazwischen.
- *   * Gesperrte Bedienelemente werden gar nicht erst gezeigt. Ein
- *     ausgegrauter Schalter lädt zum Klicken ein und tut dann nichts.
- *
- * ── Die Vorschau ────────────────────────────────────────────────────
- *
- * Wiederherstellen lässt sich nicht rückgängig machen. Wer nur eine
- * Kennung und ein Datum sieht, weiß nicht, ob er die richtige
- * erwischt. Deshalb lässt sich jede Sicherung aufklappen: Kategorien
- * mit ihren Kanälen, Rollen, Einstellungen, Nachrichten je Kanal.
- */
+/** Server backups, automatic schedules, previews and restore confirmation. */
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import {
-  AlertTriangle, ArrowRight, Check, ChevronDown, Clock, Crown,
+  Activity, AlertTriangle, ArrowRight, Check, ChevronDown, Clock, Crown,
   Database, Eye, Hash, Loader2, Lock, MessageSquare, Mic, Plus,
-  RefreshCw, RotateCcw, Settings, Shield, Timer, Trash2, Users, X,
+  RefreshCw, RotateCcw, Search, Settings, Shield, Timer, Trash2, Users, X,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -544,6 +505,8 @@ export function BackupPanel({ guildId }: { guildId: string }) {
   const [gewaehlt, setGewaehlt] = useState<Sicherung | null>(null);
   const [offen, setOffen] = useState<string | null>(null);
   const [mitNachrichten, setMitNachrichten] = useState(false);
+  const [tab, setTab] = useState<"library" | "auto" | "scope">("library");
+  const [query, setQuery] = useState("");
   const timer = useRef<number | undefined>(undefined);
 
   const laden = useCallback(async (still = false) => {
@@ -647,452 +610,46 @@ export function BackupPanel({ guildId }: { guildId: string }) {
     );
   }
 
-  return (
-    <div className="space-y-4">
-      {gewaehlt && (
-        <WiederherstellenFenster
-          sicherung={gewaehlt}
-          premium={premium}
-          onAbbruch={() => setGewaehlt(null)}
-          onStart={wiederherstellen}
-        />
-      )}
+  if (!daten) return <section className="cloudtix-settings-card text-center"><Database className="mx-auto h-8 w-8 text-slate-500" /><h3 className="mt-4 text-lg">Sicherungen nicht erreichbar</h3><p className="mt-2 text-sm text-slate-400">Die Sicherungen konnten nicht geladen werden.</p><button onClick={() => void laden()} className="cloudtix-workspace-action mt-5">Erneut laden</button></section>;
+  const bytes = sicherungen.reduce((sum, item) => sum + (item.groesse || 0), 0);
+  const newest = Math.max(0, ...sicherungen.map(item => item.erstellt_at));
+  const shown = sicherungen.filter(item => `${item.kennung} ${item.notiz || ""}`.toLowerCase().includes(query.trim().toLowerCase()));
 
-      {/* ── Welchen Stand habe ich? ─────────────────────────────── */}
-      {/*
-          Ganz oben und in einer Zeile. Ohne diese Zeile rät man aus
-          gesperrten Schaltern zusammen, was man hat — und das ist
-          genau die Verwirrung, die weg soll.
-      */}
-      <div
-        className={cn(
-          "flex flex-wrap items-center gap-x-3 gap-y-2 rounded-2xl border px-4 py-3",
-          premium
-            ? "border-amber-400/30 bg-amber-400/[0.05]"
-            : "border-slate-800 cloudtix-workspace-card bg-[#0f0f13]"
-        )}
-      >
-        {premium ? (
-          <>
-            <Crown className="h-4 w-4 shrink-0 text-amber-400" />
-            <span className="text-sm font-bold text-amber-300">
-              Premium aktiv
-            </span>
-            <span className="text-sm text-slate-400">
-              Bis zu {maxPremium} Sicherungen, Automatik und Nachrichten.
-            </span>
-          </>
-        ) : (
-          <>
-            <Database className="h-4 w-4 shrink-0 text-slate-500" />
-            <span className="text-sm font-bold text-white">Gratis-Version</span>
-            <span className="text-sm text-slate-400">
-              Eine Sicherung, von Hand erstellt. Alles Weitere gibt es mit
-              Premium.
-            </span>
-          </>
-        )}
+  return <div className="cloudtix-settings-page">
+    {gewaehlt && <WiederherstellenFenster sicherung={gewaehlt} premium={premium} onAbbruch={() => setGewaehlt(null)} onStart={wiederherstellen} />}
+    <header className="cloudtix-settings-heading"><div><p className="cloudtix-workspace-eyebrow">DATEN & SICHERHEIT</p><h1>Server sichern.</h1><p>Bewahre deine Einrichtung auf und stelle einen früheren Stand wieder her.</p></div><span className="cloudtix-settings-badge"><Database size={13} />{premium ? "Premium-Backups" : "Gratis-Backup"}</span></header>
+    <section className="cloudtix-settings-metrics" aria-label="Backup-Übersicht">
+      <div><Database size={17} /><span>Gespeicherte Sicherungen</span><strong>{sicherungen.length}<small> / {grenze}</small></strong></div>
+      <div><Settings size={17} /><span>Gesicherte Daten</span><strong>{groesse(bytes)}</strong></div>
+      <div><Clock size={17} /><span>Letzte Sicherung</span><strong className="is-date">{newest ? zeitpunkt(newest) : "Noch keine"}</strong></div>
+    </section>
+    <nav className="cloudtix-settings-tabs" aria-label="Backup-Bereiche">{([["library", "Sicherungen", Database], ["auto", "Automatik", Timer], ["scope", "Sicherungsumfang", Shield]] as const).map(([key, label, Icon]) => <button key={key} type="button" aria-pressed={tab === key} onClick={() => setTab(key)}><Icon size={15} />{label}</button>)}</nav>
+    {laeuft && <div role="status" className="cloudtix-settings-running"><Loader2 size={18} className="animate-spin" /><div><strong>{lauf.art === "wiederherstellen" ? "Wiederherstellung läuft" : "Sicherung wird erstellt"}</strong><p>{lauf.schritt || "Wird vorbereitet …"}</p></div></div>}
+
+    {tab === "library" && <>
+      <div className="cloudtix-settings-grid">
+        <section className="cloudtix-settings-card"><div className="cloudtix-settings-card-title"><span><Plus size={18} /></span><div><h2>Neue Sicherung</h2><p>Speichere den aktuellen Stand deines Servers.</p></div></div>
+          <div className="cloudtix-settings-included">{[[Hash, "Kanäle"], [Users, "Rollen"], [Settings, "Einstellungen"]].map(([Icon, label]: any) => <span key={label}><Icon size={14} />{label}<Check size={12} /></span>)}</div>
+          {premium && <label className="cloudtix-settings-check"><input type="checkbox" checked={mitNachrichten} disabled={beschaeftigt || laeuft} onChange={event => setMitNachrichten(event.target.checked)} /><span><strong>Nachrichten einschließen</strong><small>Bis zu {(daten?.limits?.nachrichten ?? 500).toLocaleString(websiteLocale())} Nachrichten je Kanal. Die Sicherung dauert dadurch länger.</small></span></label>}
+          {voll && <p className="cloudtix-settings-warning">Alle {grenze} Plätze sind belegt. Lösche eine vorhandene Sicherung, um einen Platz freizugeben.</p>}
+          <button onClick={erstellen} disabled={beschaeftigt || laeuft || voll} className="cloudtix-workspace-action mt-5 w-full disabled:cursor-not-allowed disabled:opacity-40">{beschaeftigt || laeuft ? <Loader2 size={15} className="animate-spin" /> : <Plus size={15} />}Backup erstellen</button>
+        </section>
+        <section className="cloudtix-settings-card"><div className="cloudtix-settings-card-title"><span><Shield size={18} /></span><div><h2>Deine Einrichtung bleibt greifbar.</h2><p>Prüfe den Inhalt, bevor du einen Stand wiederherstellst.</p></div></div><ol className="cloudtix-settings-steps"><li><b>01</b><div><strong>Stand sichern</strong><p>Kanäle, Rollen, Berechtigungen und Dashboard-Einstellungen aufbewahren.</p></div></li><li><b>02</b><div><strong>Inhalt ansehen</strong><p>Die Vorschau zeigt dir, was in einer Sicherung enthalten ist.</p></div></li><li><b>03</b><div><strong>Gezielt wiederherstellen</strong><p>Wähle deine Optionen und bestätige die Wiederherstellung.</p></div></li></ol></section>
       </div>
+      <section className="cloudtix-settings-card"><div className="cloudtix-settings-list-heading"><div><h2>Deine Sicherungen <span>{sicherungen.length}</span></h2><p>Gespeicherte Stände dieses Servers.</p></div><button type="button" onClick={() => void laden()} className="cloudtix-settings-icon-button" aria-label="Sicherungen neu laden"><RefreshCw size={16} /></button></div>
+        {sicherungen.length > 0 && <label className="cloudtix-settings-search"><Search size={15} /><input value={query} onChange={event => setQuery(event.target.value)} placeholder="Kennung oder Notiz suchen …" aria-label="Sicherungen suchen" /></label>}
+        <div className="cloudtix-backup-list">{shown.map(item => {
+          const open = offen === item.kennung;
+          return <article key={item.kennung} className="cloudtix-backup-entry"><div className="cloudtix-backup-entry-heading"><span className="cloudtix-backup-entry-icon"><Database size={20} /></span><div><h3>{item.notiz || item.kennung}</h3><p>{zeitpunkt(item.erstellt_at)}{item.notiz ? ` · ${item.kennung}` : ""}</p></div><span className="cloudtix-settings-badge">{item.quelle === "auto" ? "Automatisch" : "Manuell"}</span></div><div className="cloudtix-backup-entry-facts"><span><Hash size={13} />{item.kanaele} Kanäle</span><span><Users size={13} />{item.rollen} Rollen</span><span>{groesse(item.groesse)}</span>{item.mit_nachrichten && <span><MessageSquare size={13} />{item.nachrichten.toLocaleString(websiteLocale())} Nachrichten</span>}</div><div className="cloudtix-backup-entry-actions"><button type="button" onClick={() => setOffen(open ? null : item.kennung)} aria-expanded={open} className="cloudtix-workspace-action is-secondary"><Eye size={14} />Vorschau<ChevronDown size={12} className={open ? "rotate-180" : ""} /></button><button type="button" onClick={() => setGewaehlt(item)} disabled={beschaeftigt || laeuft} className="cloudtix-workspace-action is-secondary disabled:opacity-40"><RotateCcw size={14} />Wiederherstellen</button><button type="button" onClick={() => void loeschen(item)} disabled={beschaeftigt || laeuft} className="cloudtix-settings-icon-button is-danger" aria-label={`Sicherung ${item.kennung} löschen`}><Trash2 size={15} /></button></div>{open && <Vorschau guildId={guildId} kennung={item.kennung} />}</article>;
+        })}{!shown.length && <div className="cloudtix-settings-empty"><Database size={28} /><h3>{sicherungen.length ? "Keine passende Sicherung" : "Dein erster Stand wartet."}</h3><p>{sicherungen.length ? "Versuche eine andere Kennung oder Notiz." : "Erstelle oben dein erstes Backup, um die Einrichtung aufzubewahren."}</p></div>}</div>
+      </section>
+    </>}
 
-      {/* ── Läuft gerade etwas? ─────────────────────────────────── */}
-      {laeuft && (
-        <div className="flex items-center gap-3 rounded-3xl border border-primary/30 bg-primary/[0.06] p-4">
-          <Loader2 className="h-5 w-5 shrink-0 animate-spin text-primary" />
-          <div className="min-w-0">
-            <div className="text-sm font-bold text-white">
-              {lauf.art === "wiederherstellen"
-                ? "Wird wiederhergestellt"
-                : "Sicherung wird erstellt"}
-            </div>
-            <div className="mt-0.5 truncate text-xs text-slate-400">
-              {lauf.schritt || "Wird vorbereitet"}
-            </div>
-          </div>
-        </div>
-      )}
+    {tab === "auto" && (premium ? <div className="cloudtix-settings-grid">
+      <section className="cloudtix-settings-card"><div className="cloudtix-settings-card-title"><span><Timer size={18} /></span><div><h2>Automatisch sichern</h2><p>Ein regelmäßiger Stand, ohne jedes Mal selbst daran zu denken.</p></div></div><label className="cloudtix-settings-check"><input type="checkbox" checked={Boolean(auto.aktiv)} disabled={beschaeftigt || laeuft} onChange={event => void autoSetzen({ aktiv: event.target.checked })} /><span><strong>Automatik aktivieren</strong><small>Änderungen werden direkt gespeichert.</small></span></label>{auto.aktiv && <div className="mt-5 space-y-5"><label className="cloudtix-settings-field-label">Zeitplan<WebsiteSelect value={String(auto.stunden ?? 24)} disabled={beschaeftigt || laeuft} onChange={event => void autoSetzen({ stunden: Number(event.target.value) })} className={cn(INPUT, "mt-2")}><option value="6">Alle 6 Stunden</option><option value="12">Alle 12 Stunden</option><option value="24">Täglich</option><option value="72">Alle 3 Tage</option><option value="168">Wöchentlich</option><option value="720">Monatlich</option></WebsiteSelect></label><label className="cloudtix-settings-check"><input type="checkbox" checked={Boolean(auto.alte_loeschen)} disabled={beschaeftigt || laeuft} onChange={event => void autoSetzen({ alte_loeschen: event.target.checked })} /><span><strong>Ältesten Stand ersetzen</strong><small>Wenn alle Plätze belegt sind, wird die älteste Sicherung gelöscht. Ohne diese Option pausiert die Automatik.</small></span></label><label className="cloudtix-settings-check"><input type="checkbox" checked={Boolean(auto.mit_nachrichten)} disabled={beschaeftigt || laeuft} onChange={event => void autoSetzen({ mit_nachrichten: event.target.checked })} /><span><strong>Nachrichten mitsichern</strong><small>Benötigt mehr Zeit und Speicherplatz.</small></span></label></div>}</section>
+      <section className="cloudtix-settings-card"><div className="cloudtix-settings-card-title"><span><Activity size={18} /></span><div><h2>Letzter Lauf</h2><p>Der aktuelle Stand deiner Automatik.</p></div></div><dl className="cloudtix-settings-details"><div><dt>Status</dt><dd>{auto.aktiv ? "Aktiviert" : "Ausgeschaltet"}</dd></div><div><dt>Zuletzt gesichert</dt><dd>{zeitpunkt(auto.letzter_lauf)}</dd></div><div><dt>Belegte Plätze</dt><dd>{sicherungen.length} von {grenze}</dd></div></dl>{auto.letzter_fehler && <p className="cloudtix-settings-warning">Letzter Versuch: {auto.letzter_fehler}</p>}</section>
+    </div> : <section className="cloudtix-settings-card cloudtix-settings-upgrade"><Crown size={30} /><p className="cloudtix-workspace-eyebrow">CLOUDTIX PREMIUM</p><h2>Dein Server. Regelmäßig gesichert.</h2><p>Mit Premium erhältst du automatische Backups, bis zu {maxPremium} gespeicherte Stände und Sicherungen mit Nachrichten.</p><Link href={`/dashboard/guild/${guildId}/premium`} className="cloudtix-workspace-action">Server-Premium öffnen<ArrowRight size={15} /></Link></section>)}
 
-      {/* ── Der Knopf ───────────────────────────────────────────── */}
-      <div className={cn(CARD, "p-5 sm:p-6")}>
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
-          <div className="min-w-0 flex-1">
-            <h3 className="font-bold text-white">Sicherung erstellen</h3>
-            <p className="mt-1 text-sm leading-relaxed text-slate-400">
-              Kanäle, Kategorien, Rollen, Rechte und alle
-              Dashboard-Einstellungen dieses Servers. Dauert ein paar
-              Sekunden.
-            </p>
-
-            <div className="mt-2">
-              <span
-                className={cn(
-                  "rounded-lg px-2 py-1 text-xs font-bold",
-                  voll
-                    ? "bg-amber-400/10 text-amber-300"
-                    : "cloudtix-workspace-card bg-[#0f0f13] text-slate-400"
-                )}
-              >
-                {sicherungen.length} von {grenze} belegt
-              </span>
-            </div>
-
-            {/* Nachrichten: nur mit Premium, und dann als echte Wahl.
-                Ohne Premium steht der Schalter gar nicht erst da —
-                ein ausgegrautes Kästchen lädt zum Klicken ein und tut
-                dann nichts. */}
-            {premium && (
-              <label className="mt-3 flex cursor-pointer items-start gap-2.5">
-                <input
-                  type="checkbox"
-                  checked={mitNachrichten}
-                  onChange={(e) => setMitNachrichten(e.target.checked)}
-                  className="mt-0.5 h-4 w-4 shrink-0 accent-amber-400"
-                />
-                <span className="text-xs leading-relaxed text-slate-400">
-                  Die letzten{" "}
-                  {(daten?.limits?.nachrichten ?? 500).toLocaleString(websiteLocale())}{" "}
-                  Nachrichten je Kanal mitsichern.{" "}
-                  <span className="text-amber-300/80">
-                    Dauert dann mehrere Minuten statt Sekunden.
-                  </span>
-                </span>
-              </label>
-            )}
-          </div>
-
-          <button
-            onClick={erstellen}
-            disabled={beschaeftigt || laeuft || voll}
-            title={voll ? "Lösche zuerst eine alte Sicherung." : undefined}
-            className="inline-flex shrink-0 items-center justify-center gap-2 rounded-2xl bg-primary px-5 py-3 text-sm font-semibold text-white transition hover:brightness-110 disabled:opacity-40"
-          >
-            {beschaeftigt || laeuft ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Plus className="h-4 w-4" />
-            )}
-            Backup erstellen
-          </button>
-        </div>
-
-        {voll && (
-          <p className="mt-3 rounded-2xl border border-amber-400/25 bg-amber-400/[0.05] p-3 text-xs leading-relaxed text-amber-200/80">
-            {premium
-              ? `Alle ${grenze} Plätze belegt. Lösche eine alte Sicherung, dann geht es weiter.`
-              : `Der eine Platz ist belegt. Lösche die vorhandene Sicherung — oder hol dir Premium für bis zu ${maxPremium}.`}
-          </p>
-        )}
-      </div>
-
-      {/* ── Die Liste ───────────────────────────────────────────── */}
-      <div className={cn(CARD, "overflow-hidden")}>
-        <div className="flex items-center justify-between border-b border-slate-800 cloudtix-workspace-card bg-[#0f0f13] px-5 py-3">
-          <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">
-            Vorhandene Sicherungen
-          </span>
-          <button
-            onClick={() => laden()}
-            className="text-slate-500 transition hover:text-slate-300"
-            title="Neu laden"
-          >
-            <RefreshCw className="h-3.5 w-3.5" />
-          </button>
-        </div>
-
-        {sicherungen.length === 0 ? (
-          <div className="px-5 py-12 text-center">
-            <div className="mx-auto mb-3 w-fit rounded-2xl cloudtix-workspace-card bg-[#0f0f13] p-3">
-              <Database className="h-5 w-5 text-slate-700" />
-            </div>
-            <p className="text-sm font-bold text-slate-400">
-              Noch keine Sicherung.
-            </p>
-            <p className="mt-1 text-xs text-slate-600">
-              Ein Klick auf „Backup erstellen“ genügt.
-            </p>
-          </div>
-        ) : (
-          sicherungen.map((s, i) => {
-            const auf = offen === s.kennung;
-            return (
-              <div
-                key={s.kennung}
-                className={cn(i > 0 && "border-t border-slate-800")}
-              >
-                <div className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="font-mono text-sm font-bold text-white">
-                        {s.kennung}
-                      </span>
-                      {s.quelle === "auto" && (
-                        <span className="rounded-md border border-sky-500/20 bg-sky-500/10 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-widest text-sky-300">
-                          Automatisch
-                        </span>
-                      )}
-                      {s.mit_nachrichten && (
-                        <span className="rounded-md border border-amber-400/20 bg-amber-400/10 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-widest text-amber-400">
-                          Mit Nachrichten
-                        </span>
-                      )}
-                    </div>
-
-                    <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500">
-                      <span className="inline-flex items-center gap-1">
-                        <Clock className="h-3 w-3" />
-                        {zeitpunkt(s.erstellt_at)}
-                      </span>
-                      <span className="inline-flex items-center gap-1">
-                        <Hash className="h-3 w-3" />
-                        {s.kanaele} Kanäle
-                      </span>
-                      <span className="inline-flex items-center gap-1">
-                        <Users className="h-3 w-3" />
-                        {s.rollen} Rollen
-                      </span>
-                      {s.nachrichten > 0 && (
-                        <span className="inline-flex items-center gap-1">
-                          <MessageSquare className="h-3 w-3" />
-                          {s.nachrichten.toLocaleString(websiteLocale())}
-                        </span>
-                      )}
-                      <span>{groesse(s.groesse)}</span>
-                    </div>
-                  </div>
-
-                  <div className="flex shrink-0 flex-wrap gap-2">
-                    <button
-                      onClick={() => setOffen(auf ? null : s.kennung)}
-                      className="inline-flex items-center gap-1.5 rounded-xl border border-slate-800 cloudtix-workspace-card bg-[#0f0f13] px-3 py-2 text-xs font-bold text-slate-300 transition hover:bg-white/[0.04]"
-                    >
-                      <Eye className="h-3.5 w-3.5" />
-                      Vorschau
-                      <ChevronDown
-                        className={cn(
-                          "h-3 w-3 transition-transform",
-                          auf && "rotate-180"
-                        )}
-                      />
-                    </button>
-                    <button
-                      onClick={() => setGewaehlt(s)}
-                      disabled={beschaeftigt || laeuft}
-                      className="inline-flex items-center gap-1.5 rounded-xl border border-slate-800 cloudtix-workspace-card bg-[#0f0f13] px-3 py-2 text-xs font-bold text-slate-200 transition hover:bg-white/[0.04] disabled:opacity-40"
-                    >
-                      <RotateCcw className="h-3.5 w-3.5" />
-                      Wiederherstellen
-                    </button>
-                    <button
-                      onClick={() => loeschen(s)}
-                      disabled={beschaeftigt || laeuft}
-                      className="inline-flex items-center justify-center rounded-xl border border-red-500/25 bg-red-500/[0.06] p-2 text-red-300 transition hover:bg-red-500/15 disabled:opacity-40"
-                      title="Löschen"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                </div>
-
-                {auf && <Vorschau guildId={guildId} kennung={s.kennung} />}
-              </div>
-            );
-          })
-        )}
-      </div>
-
-      {/* ── Automatik ───────────────────────────────────────────────
-          MIT Premium: eine ganz normale Karte mit Schaltern.
-          OHNE Premium: gar keine Karte, sondern das Angebot weiter
-          unten. Kein Overlay über einer kurzen Karte — genau das ist
-          im Screenshot übergelaufen.
-      */}
-      {premium && (
-        <div className={cn(CARD, "p-5 sm:p-6")}>
-          <div className="flex items-center gap-2">
-            <Timer className="h-4 w-4 text-amber-400" />
-            <h3 className="font-bold text-white">Automatisch sichern</h3>
-          </div>
-          <p className="mt-1 text-sm text-slate-400">
-            Der Bot legt in festem Abstand von selbst eine Sicherung an.
-          </p>
-
-          <label className="mt-4 flex cursor-pointer items-center gap-3">
-            <input
-              type="checkbox"
-              checked={Boolean(auto.aktiv)}
-              disabled={beschaeftigt}
-              onChange={(e) => autoSetzen({ aktiv: e.target.checked })}
-              className="h-4 w-4 accent-amber-400"
-            />
-            <span className="text-sm font-medium text-white">
-              Automatik einschalten
-            </span>
-          </label>
-
-          {auto.aktiv && (
-            <div className="mt-4 space-y-4 rounded-2xl border border-slate-800 cloudtix-workspace-card bg-[#0f0f13] p-4">
-              <div>
-                <label className="block text-[10px] font-black uppercase tracking-widest text-slate-500">
-                  Abstand
-                </label>
-                <WebsiteSelect
-                  value={String(auto.stunden ?? 24)}
-                  disabled={beschaeftigt}
-                  onChange={(e) =>
-                    autoSetzen({ stunden: Number(e.target.value) })
-                  }
-                  className={cn(INPUT, "mt-1.5")}
-                >
-                  <option value="6">Alle 6 Stunden</option>
-                  <option value="12">Alle 12 Stunden</option>
-                  <option value="24">Täglich</option>
-                  <option value="72">Alle 3 Tage</option>
-                  <option value="168">Wöchentlich</option>
-                  <option value="720">Monatlich</option>
-                </WebsiteSelect>
-              </div>
-
-              <label className="flex cursor-pointer items-start gap-2.5">
-                <input
-                  type="checkbox"
-                  checked={Boolean(auto.alte_loeschen)}
-                  disabled={beschaeftigt}
-                  onChange={(e) =>
-                    autoSetzen({ alte_loeschen: e.target.checked })
-                  }
-                  className="mt-0.5 h-4 w-4 shrink-0 accent-amber-400"
-                />
-                <span className="text-xs leading-relaxed text-slate-400">
-                  Wenn alle Plätze belegt sind, die{" "}
-                  <strong className="text-slate-300">älteste löschen</strong>.
-                  <span className="mt-0.5 block text-slate-600">
-                    Aus: Die Automatik setzt aus, sobald es voll ist.
-                  </span>
-                </span>
-              </label>
-
-              <label className="flex cursor-pointer items-start gap-2.5">
-                <input
-                  type="checkbox"
-                  checked={Boolean(auto.mit_nachrichten)}
-                  disabled={beschaeftigt}
-                  onChange={(e) =>
-                    autoSetzen({ mit_nachrichten: e.target.checked })
-                  }
-                  className="mt-0.5 h-4 w-4 shrink-0 accent-amber-400"
-                />
-                <span className="text-xs leading-relaxed text-slate-400">
-                  Auch Nachrichten mitsichern.
-                  <span className="mt-0.5 block text-slate-600">
-                    Dauert deutlich länger und braucht mehr Platz.
-                  </span>
-                </span>
-              </label>
-
-              {auto.letzter_lauf > 0 && (
-                <p className="text-xs text-slate-600">
-                  Zuletzt: {zeitpunkt(auto.letzter_lauf)}
-                </p>
-              )}
-              {auto.letzter_fehler && (
-                <div className="flex gap-2 rounded-xl border border-amber-500/25 bg-amber-500/[0.05] p-3">
-                  <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-400" />
-                  <p className="text-xs leading-relaxed text-amber-200/80">
-                    Letzter Versuch: {auto.letzter_fehler}
-                  </p>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* ── Ohne Premium: was es gäbe ───────────────────────────────
-          Eine eigene Karte, kein Overlay. Sie steht am Ende, weil sie
-          ein Angebot ist und keine Bedienung — und weil dort niemand
-          versehentlich hineinklickt.
-      */}
-      {!premium && (
-        <div className="overflow-hidden rounded-3xl border border-amber-400/30 bg-gradient-to-br from-amber-400/[0.08] to-transparent">
-          <div className="flex items-start gap-3 border-b border-amber-400/15 px-5 py-4">
-            <div className="shrink-0 rounded-2xl bg-amber-400/15 p-2.5">
-              <Crown className="h-5 w-5 text-amber-400" />
-            </div>
-            <div className="min-w-0">
-              <h3 className="font-bold text-amber-300">Mit Premium</h3>
-              <p className="mt-0.5 text-sm leading-relaxed text-slate-400">
-                Alles hier oben funktioniert auch ohne. Das hier kommt
-                dazu.
-              </p>
-            </div>
-          </div>
-
-          {/* Die Gegenüberstellung. Zwei Spalten nebeneinander statt
-              zweier Absätze — so sieht man den Unterschied, statt ihn
-              sich zusammenzureimen. */}
-          <div className="px-5 py-4">
-            <div className="overflow-hidden rounded-2xl border border-slate-800">
-              <div className="grid grid-cols-[1.4fr_1fr_1fr] border-b border-slate-800 cloudtix-workspace-card bg-[#0f0f13]">
-                <div className="px-3 py-2 text-[10px] font-black uppercase tracking-widest text-slate-600">
-                  Funktion
-                </div>
-                <div className="px-3 py-2 text-[10px] font-black uppercase tracking-widest text-slate-600">
-                  Gratis
-                </div>
-                <div className="px-3 py-2 text-[10px] font-black uppercase tracking-widest text-amber-400">
-                  Premium
-                </div>
-              </div>
-
-              {VERGLEICH.map((z, i) => (
-                <div
-                  key={z.was}
-                  className={cn(
-                    "grid grid-cols-[1.4fr_1fr_1fr] items-center cloudtix-workspace-card bg-[#131318]",
-                    i > 0 && "border-t border-slate-800"
-                  )}
-                >
-                  <div className="px-3 py-2.5 text-xs text-slate-300">
-                    {z.was}
-                  </div>
-                  <div className="px-3 py-2.5">
-                    <JaNein wert={z.gratis} />
-                  </div>
-                  <div className="px-3 py-2.5">
-                    <JaNein wert={z.premium} />
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <div className="mt-4 flex flex-col gap-2 sm:flex-row">
-              <Link
-                href="/dashboard/premium/beta"
-                className="inline-flex flex-1 items-center justify-center gap-2 rounded-2xl bg-amber-400 px-4 py-2.5 text-sm font-bold text-black transition hover:brightness-110"
-              >
-                Premium holen
-                <ArrowRight className="h-4 w-4" />
-              </Link>
-              <Link
-                href="/premium"
-                className="inline-flex flex-1 items-center justify-center rounded-2xl border border-slate-800 cloudtix-workspace-card bg-[#0f0f13] px-4 py-2.5 text-sm font-semibold text-slate-300 transition hover:bg-white/[0.04]"
-              >
-                Was Premium sonst kann
-              </Link>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── Was nicht geht ──────────────────────────────────────── */}
-      <div className="flex gap-3 rounded-3xl border border-slate-800 cloudtix-workspace-card bg-[#0f0f13] p-4">
-        <Shield className="mt-0.5 h-4 w-4 shrink-0 text-slate-600" />
-        <p className="text-xs leading-relaxed text-slate-500">
-          Mitglieder und ihre Rollenzuordnung sind nicht dabei: Discord
-          erlaubt keinem Bot, jemanden wieder in einen Server zu holen.
-          Nachrichten lassen sich nur als Neuposts wiederherstellen, nicht
-          als Originale.
-        </p>
-      </div>
-    </div>
-  );
+    {tab === "scope" && <div className="cloudtix-settings-grid"><section className="cloudtix-settings-card"><div className="cloudtix-settings-card-title"><span><Settings size={18} /></span><div><h2>Was gesichert wird</h2><p>Die Einrichtung, die deine Community zusammenhält.</p></div></div><div className="cloudtix-settings-feature-list"><div><Hash size={18} /><span><strong>Serverstruktur</strong><small>Kategorien, Kanäle und ihre Berechtigungen.</small></span></div><div><Users size={18} /><span><strong>Rollen</strong><small>Rollen und deren Rechte.</small></span></div><div><Settings size={18} /><span><strong>Dashboard-Einstellungen</strong><small>Die gespeicherte Konfiguration deiner Module.</small></span></div><div><MessageSquare size={18} /><span><strong>Nachrichten mit Premium</strong><small>Optional bis zu {(daten?.limits?.nachrichten ?? 500).toLocaleString(websiteLocale())} Nachrichten je Kanal.</small></span></div></div><p className="cloudtix-settings-warning">Mitglieder und ihre Rollenzuordnung sind nicht enthalten. Nachrichten werden als neue Beiträge wiederhergestellt, nicht als Originale.</p></section><section className="cloudtix-settings-card"><div className="cloudtix-settings-card-title"><span><Crown size={18} /></span><div><h2>Gratis & Premium</h2><p>Der passende Umfang für deinen Server.</p></div></div><div className="cloudtix-backup-comparison"><div><strong>Funktion</strong><strong>Gratis</strong><strong>Premium</strong></div>{VERGLEICH.map(row => <div key={row.was}><span>{row.was}</span><JaNein wert={row.gratis} /><JaNein wert={row.premium} /></div>)}</div>{!premium && <Link href="/dashboard/premium" className="cloudtix-workspace-action mt-5 w-full">Premium ansehen<ArrowRight size={15} /></Link>}</section></div>}
+  </div>;
 }
