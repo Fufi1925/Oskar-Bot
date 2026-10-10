@@ -1,6 +1,6 @@
 "use client";
 
-import { loginCallbackUrl } from "@/lib/auth-navigation";
+import { openLoginPanel } from "@/lib/login-panel";
 
 /**
  * Team-Bewerbung über die Website.
@@ -38,7 +38,7 @@ import { websiteLocale, useWebsiteLocale } from "@/lib/i18n/locale";
 import React from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { signIn, useSession } from "next-auth/react";
+import { useSession } from "next-auth/react";
 import {
   ArrowLeft, Check, CheckCircle2, Clock, Loader2, LogIn, Send, Shield,
   Sparkles, Video, Wrench, X,
@@ -306,7 +306,7 @@ function ApplyInner() {
             </p>
             <button
               type="button"
-              onClick={() => signIn("discord", { callbackUrl: loginCallbackUrl(window.location.href, window.location.origin) })}
+              onClick={() => openLoginPanel()}
               className="mt-6 rounded-xl bg-primary px-7 py-3.5 text-[15px] font-semibold text-white transition-colors hover:bg-primary-hover"
             >
               Mit Discord anmelden

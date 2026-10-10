@@ -14,9 +14,11 @@ import { brandAsset, normalisiereMarke } from "@/lib/brand";
 import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useLanguage } from "@/lib/i18n/LanguageContext";
+import { INVITE_URL } from "@/components/site-nav";
+import styles from "./public-footer.module.css";
 import {
-  Activity,
-  Heart,
+  Github,
   Mail,
   MessageCircle,
 } from "lucide-react";
@@ -58,6 +60,7 @@ function SocialLink({
 }
 
 function LiveStatus() {
+  const { language } = useLanguage();
   const [online, setOnline] = React.useState<boolean | null>(null);
 
   React.useEffect(() => {
@@ -109,111 +112,72 @@ function LiveStatus() {
         />
       </span>
       {online === true
-        ? "Status: Alle Systeme aktiv"
+        ? (language === "en" ? "All systems operational" : "Alle Systeme betriebsbereit")
         : online === false
-          ? "Status prüfen"
-          : "Status wird geprüft …"}
+          ? (language === "en" ? "Check status" : "Status prüfen")
+          : (language === "en" ? "Checking status …" : "Status wird geprüft …")}
     </Link>
   );
 }
 
-export function PublicFooter({
-  supportInvite,
-  email,
-}: {
-  supportInvite: string;
-  email: string;
-}) {
+export function PublicFooter({ supportInvite, email }: { supportInvite: string; email: string }) {
   const pathname = usePathname();
+  const { language } = useLanguage();
+  const copy = (de: string, en: string) => language === "en" ? en : de;
 
-  // Interne Arbeits- und Übergangsseiten bekommen keine öffentliche
-  // Marketing-Fußzeile. Alle normalen Website-Reiter teilen sie dagegen.
-  if (
-    pathname.startsWith("/dashboard") ||
-    pathname.startsWith("/api/") ||
-    pathname.startsWith("/auth/") ||
-    pathname.startsWith("/Tickets/Transkript/") ||
-    pathname.startsWith("/526etrzeqwgoqfu32qzi") ||
-    pathname.startsWith("/wartung")
-  ) {
-    return null;
-  }
+  if (["/dashboard", "/api/", "/auth/", "/Tickets/Transkript/", "/526etrzeqwgoqfu32qzi", "/wartung"].some((path) => pathname.startsWith(path))) return null;
+
+  const groups = [
+    { title: copy("Produkt", "Product"), links: [
+      [copy("Bot einladen", "Invite bot"), INVITE_URL],
+      ["Dashboard", "/dashboard"],
+      ["Premium", "/premium"],
+      [copy("Kaufanfrage stellen", "Request premium"), "/dashboard/premium"],
+      [copy("Alle Befehle", "All commands"), "/commands"],
+    ] },
+    { title: copy("Ressourcen", "Resources"), links: [
+      [copy("Dokumentation", "Documentation"), "/docs"],
+      ["FAQ", "/#faq"],
+      [copy("Systemstatus", "System status"), "/status"],
+      ["Support", supportInvite],
+      ...(email ? [[copy("Kontakt", "Contact"), `mailto:${email}`]] : []),
+    ] },
+    { title: copy("Mitmachen", "Get involved"), links: [
+      [copy("Community-Ideen", "Community ideas"), "/ideas"],
+      [copy("Unser Team", "Our team"), "/team"],
+      [copy("Team beitreten", "Join the team"), "/team/apply"],
+      ["GitHub", "https://github.com/Fufi1925/Oskar-Bot"],
+      ["TikTok", TIKTOK_URL],
+    ] },
+  ];
 
   return (
-    <footer className="relative z-10 border-t border-white/10 bg-[#080808] px-6 py-12 sm:py-14 lg:px-8">
-      <div className="mx-auto max-w-[1240px]">
-        <div className="grid gap-12 md:grid-cols-2 lg:grid-cols-[1.35fr_0.8fr_1fr] lg:gap-16">
-          <div>
-            <Link href="/" className="inline-flex items-center gap-3 text-white">
-              <span className="grid h-10 w-10 place-items-center overflow-hidden rounded-xl border border-white/15 bg-black">
-                <img src={brandAsset("icon-192.png")} width={40} height={40} alt="" />
-              </span>
-              <span className="text-[20px] font-extrabold tracking-tight">{BRAND}</span>
-            </Link>
-            <p className="mt-4 max-w-sm text-[14px] leading-6 text-slate-500">
-              Der Discord-Bot für Moderation, Tickets, Bewerbungen,
-              Verifizierung und eine starke Community.
-            </p>
-
-            <div className="mt-6 flex flex-wrap gap-2.5">
-              {email && (
-                <SocialLink href={`mailto:${email}`} label="E-Mail">
-                  <Mail className="h-[18px] w-[18px]" />
-                </SocialLink>
-              )}
-              <SocialLink href={TIKTOK_URL} label="TikTok-Kanal">
-                <TikTokIcon className="h-[18px] w-[18px]" />
-              </SocialLink>
-              <SocialLink href={supportInvite} label="Discord Support-Server">
-                <MessageCircle className="h-[18px] w-[18px]" />
-              </SocialLink>
-            </div>
+    <footer data-no-translate className={styles.footer}>
+      <div className={styles.container}>
+        <div className={styles.columns}>
+          <div className={styles.brand}>
+            <Link href="/" className={styles.brandLink}><img src={brandAsset("icon-192.png")} width={40} height={40} alt="" /><span>{BRAND}<small>DISCORD. SIMPLIFIED.</small></span></Link>
+            <p>{copy("Ein Bot für Moderation, Tickets und Automationen. Mehr Überblick für dich. Mehr Raum für deine Community.", "One bot for moderation, tickets and automation. More clarity for you. More room for your community.")}</p>
+            <LiveStatus />
           </div>
-
-          <div>
-            <h2 className="text-[12px] font-extrabold uppercase tracking-[0.18em] text-slate-300">
-              Schnellzugriff
-            </h2>
-            <nav className="mt-5 grid gap-3 text-[14px] text-slate-500" aria-label="Links in der Fußzeile">
-              <Link href="/docs" className="w-fit transition-colors hover:text-white">Dokumentation</Link>
-              <Link href="/commands" className="w-fit transition-colors hover:text-white">Befehle</Link>
-              <Link href="/team" className="w-fit transition-colors hover:text-white">Team</Link>
-              <Link href="/terms" className="w-fit transition-colors hover:text-white">Nutzungsbedingungen</Link>
-              <Link href="/privacy" className="w-fit transition-colors hover:text-white">Datenschutz</Link>
-              <Link href="/imprint" className="w-fit transition-colors hover:text-white">Impressum</Link>
-            </nav>
-          </div>
-
-          <div>
-            <h2 className="text-[12px] font-extrabold uppercase tracking-[0.18em] text-slate-300">
-              Kontakt
-            </h2>
-            <div className="mt-5 grid gap-3 text-[14px] text-slate-500">
-              {email && (
-                <a href={`mailto:${email}`} className="flex w-fit items-center gap-2 transition-colors hover:text-white">
-                  <Mail className="h-4 w-4" />
-                  {email}
-                </a>
-              )}
-              <a href={supportInvite} target="_blank" rel="noopener noreferrer" className="w-fit transition-colors hover:text-white">
-                Unserem Discord beitreten
-              </a>
-              <a href={TIKTOK_URL} target="_blank" rel="noopener noreferrer" className="w-fit transition-colors hover:text-white">
-                Folge uns auf TikTok
-              </a>
-            </div>
+          {groups.map((group) => <div key={group.title}><h2>{group.title}</h2><nav aria-label={group.title}>{group.links.map(([label, href]) => href.startsWith("/") ? <Link key={label} href={href}>{label}</Link> : <a key={label} href={href} target={href.startsWith("https:") ? "_blank" : undefined} rel={href.startsWith("https:") ? "noopener noreferrer" : undefined}>{label}</a>)}</nav></div>)}
+        </div>
+        <nav className={styles.legal} aria-label={copy("Rechtliche Informationen", "Legal information")}>
+          <Link href="/imprint">{copy("Impressum", "Legal notice")}</Link>
+          <Link href="/privacy">{copy("Datenschutz", "Privacy")}</Link>
+          <Link href="/terms">{copy("Nutzungsbedingungen", "Terms of Service")}</Link>
+          {email && <a href={`mailto:${email}`}>{copy("Kontakt", "Contact")}</a>}
+        </nav>
+        <div className={styles.bottom}>
+          <p><img src={brandAsset("favicon-32.png")} width={20} height={20} alt="" />© 2026 {BRAND}. {copy("Alle Rechte vorbehalten.", "All rights reserved.")}</p>
+          <div className={styles.socials}>
+            <SocialLink href="https://github.com/Fufi1925/Oskar-Bot" label="GitHub"><Github size={17} /></SocialLink>
+            <SocialLink href={TIKTOK_URL} label="TikTok"><TikTokIcon className="h-[17px] w-[17px]" /></SocialLink>
+            <SocialLink href={supportInvite} label={copy("Discord Support-Server", "Discord support server")}><MessageCircle size={17} /></SocialLink>
+            {email && <SocialLink href={`mailto:${email}`} label={copy("E-Mail", "Email")}><Mail size={17} /></SocialLink>}
           </div>
         </div>
-
-        <div className="mt-12 flex flex-col gap-5 border-t border-slate-800/80 pt-7 sm:flex-row sm:items-center sm:justify-between">
-          <p className="flex flex-wrap items-center gap-1.5 text-[13px] text-slate-600">
-            Erstellt mit <Heart className="h-4 w-4 text-zinc-400" />
-            <span className="font-semibold text-slate-400">vom CloudTIX Team</span>
-            <span aria-hidden>·</span>
-            <span>&copy; {2026}</span>
-          </p>
-          <LiveStatus />
-        </div>
+        <div className={styles.wordmark} aria-hidden="true">CLOUDTIX</div>
       </div>
     </footer>
   );

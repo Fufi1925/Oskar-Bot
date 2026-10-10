@@ -1,8 +1,7 @@
 "use client";
 
-import { loginCallbackUrl } from "@/lib/auth-navigation";
+import { openLoginPanel } from "@/lib/login-panel";
 
-import { signIn } from "next-auth/react";
 import { LogIn, ShieldCheck, UserRound, X } from "lucide-react";
 import Link from "next/link";
 
@@ -24,7 +23,7 @@ export function AccountLoginGate() {
           </div>
           <h1 id="account-login-title" className="mt-6 text-2xl font-bold text-white">Dein Konto öffnen</h1>
           <p className="mt-2 text-sm leading-6 text-slate-400">Melde dich mit Discord an, um ausschließlich deine echten Profildaten, Server und Bot-Aktivität zu sehen.</p>
-          <button type="button" onClick={() => signIn("discord", { callbackUrl: loginCallbackUrl(window.location.href, window.location.origin) })} className="mt-7 flex w-full items-center justify-center gap-2.5 rounded-xl bg-primary px-5 py-3.5 font-semibold text-white transition-colors hover:bg-primary-hover">
+          <button type="button" onClick={() => openLoginPanel()} className="mt-7 flex w-full items-center justify-center gap-2.5 rounded-xl bg-primary px-5 py-3.5 font-semibold text-white transition-colors hover:bg-primary-hover">
             <LogIn className="h-5 w-5" /> Mit Discord anmelden
           </button>
           <p className="mt-5 flex items-center justify-center gap-1.5 text-xs text-slate-600"><ShieldCheck className="h-3.5 w-3.5" /> Wir zeigen keine erfundenen Beispielwerte.</p>

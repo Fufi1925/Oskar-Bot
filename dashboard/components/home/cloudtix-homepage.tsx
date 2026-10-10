@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 import { INVITE_URL, SiteNav } from "@/components/site-nav";
 import { FeaturedServerMarquee } from "@/components/home/featured-server-marquee";
-import { BRAND, brandAsset } from "@/lib/brand";
+import { BRAND, BRAND_LOGO, brandAsset } from "@/lib/brand";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
 import { SUPPORT_INVITE } from "@/lib/legal";
 import styles from "./cloudtix-homepage.module.css";
@@ -95,17 +95,16 @@ export function CloudtixHomepage() {
     ? value.toLocaleString(language === "en" ? "en-US" : "de-DE") : "—";
 
   return (
-    <main className={styles.home}>
+    <main className={`${styles.home} cloudtix-dotted`}>
       <SiteNav />
       <div className={styles.container} data-no-translate>
         <section className={styles.hero} aria-labelledby="cloudtix-title">
           <picture className={styles.heroArtwork}>
-            <source media="(prefers-reduced-motion: reduce)" srcSet="/banner_cloudtix_nur_wolken_weiss-still.png" />
             <img src="/banner_cloudtix_nur_wolken_weiss.gif" alt={copy("Animierte Wolken mit dem CloudTIX-Logo", "Animated clouds with the CloudTIX logo")} width={1000} height={400} fetchPriority="high" />
           </picture>
           <div className={styles.heroShade} aria-hidden="true" />
           <div className={styles.heroEmblem} aria-hidden="true">
-            <img src={brandAsset("icon-512.png")} alt="" width={126} height={126} />
+            <img src={BRAND_LOGO} alt="" width={126} height={126} />
           </div>
           <div className={styles.heroContent}>
             <span className={styles.heroBadge}><span />{copy("Ein Bot. Dein ganzer Server.", "One bot. Your whole server.")}</span>
@@ -139,6 +138,16 @@ export function CloudtixHomepage() {
             <DashboardPreview copy={copy} />
           </article>
           {FEATURES.map((feature) => <article key={feature.title[0]} className={styles.featureCard}><div className={styles.cardTop}><span className={styles.featureIcon}><feature.icon size={21} /></span><span className={styles.featureTag}>{copy(feature.tag[0], feature.tag[1])}</span></div><h3>{copy(feature.title[0], feature.title[1])}</h3><p>{copy(feature.text[0], feature.text[1])}</p><Link href={feature.href || "/docs"} className={styles.textLink}>{copy("Mehr erfahren", "Learn more")}<ArrowRight size={15} /></Link></article>)}
+        </div>
+      </section>
+
+      <section data-no-translate className={styles.moduleBand} aria-label={copy("CloudTIX-Funktionen", "CloudTIX features")}>
+        <div className={styles.moduleRail}>
+          <div className={styles.moduleTrack}>
+            {[0, 1, 2].map((repeat) => <div key={repeat} className={styles.moduleRun} aria-hidden={repeat > 0}>{[
+              copy("TICKET-SYSTEM", "TICKET SYSTEM"), copy("VERIFIZIERUNG", "VERIFICATION"), "MODERATION", "AUTOMOD", "ANTI-NUKE", "LEVELING", "COMMUNITY", copy("AUTOMATIONEN", "AUTOMATION"),
+            ].map((module) => <span key={module}>{module}<i aria-hidden="true" /></span>)}</div>)}
+          </div>
         </div>
       </section>
 

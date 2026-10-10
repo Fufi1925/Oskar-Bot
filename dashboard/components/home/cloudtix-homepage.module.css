@@ -1,4 +1,4 @@
-.home { background: #080808; color: #fafafa; overflow: clip; }
+.home { background-color: #080808; color: #fafafa; overflow: clip; }
 .home *, .home *::before, .home *::after { box-sizing: border-box; }
 .home a, .home button { -webkit-tap-highlight-color: transparent; }
 .home a:focus-visible, .home button:focus-visible { outline: 2px solid #fff; outline-offset: 5px; }
@@ -9,7 +9,7 @@
 .heroArtwork img { height: 100%; width: 100%; object-fit: contain; object-position: center; }
 .heroShade { position: absolute; inset: 0; z-index: -2; background: linear-gradient(90deg, rgba(5,5,5,.96) 0%, rgba(5,5,5,.85) 35%, rgba(5,5,5,.2) 72%, transparent 100%); }
 .heroEmblem { position: absolute; top: 48%; right: 9%; display: grid; width: 210px; aspect-ratio: 1; place-items: center; transform: translateY(-50%); border: 1px solid #373737; border-radius: 50%; background: rgb(8 8 8 / .9); box-shadow: 0 0 0 20px rgb(255 255 255 / .025), 0 0 0 52px rgb(255 255 255 / .018), 0 0 65px rgb(255 255 255 / .05); }
-.heroEmblem img { width: 126px; height: 126px; border-radius: 50%; }
+.heroEmblem img { width: 126px; height: 126px; object-fit: cover; border-radius: 50%; }
 .heroContent { max-width: 680px; padding: 60px 56px 72px; }
 .heroBadge { display: inline-flex; align-items: center; gap: 9px; padding: 7px 12px; border: 1px solid #373737; border-radius: 999px; background: rgb(255 255 255 / .025); color: #bcbcbc; font-size: 11px; font-weight: 500; }
 .heroBadge > span { height: 5px; width: 5px; border-radius: 50%; background: #e5e5e5; }
@@ -163,3 +163,14 @@
   .home *, .home *::before, .home *::after { transition: none !important; scroll-behavior: auto; }
   .primaryButton:hover, .secondaryButton:hover { transform: none; }
 }
+
+.moduleBand { overflow: hidden; padding-block: 55px; margin-bottom: 22px; }
+.moduleRail { width: calc(100% + 120px); margin-left: -60px; transform: rotate(-2deg); border-block: 1px solid #fff; background: #ebebeb; color: #111; box-shadow: 0 0 30px rgb(255 255 255 / .07); }
+.moduleTrack { display: flex; width: max-content; animation: cloudtixModules 40s linear infinite; }
+.moduleRun { display: flex; flex-shrink: 0; }
+.moduleRun > span { display: inline-flex; align-items: center; gap: 32px; padding: 18px 16px; font-size: clamp(18px, 2vw, 27px); font-weight: 750; letter-spacing: -.025em; white-space: nowrap; }
+.moduleRun i { display: block; width: 7px; height: 7px; border: 1px solid #676767; transform: rotate(45deg); }
+.moduleRail:hover .moduleTrack { animation-play-state: paused; }
+@keyframes cloudtixModules { from { transform: translateX(0); } to { transform: translateX(-33.333333%); } }
+@media (max-width: 700px) { .moduleBand { padding-block: 35px; margin-bottom: 5px; } .moduleRun > span { gap: 24px; padding-block: 14px; } }
+@media (prefers-reduced-motion: reduce) { .moduleTrack { animation: none; } }

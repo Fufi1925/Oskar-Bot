@@ -222,7 +222,7 @@ def test_eine_navigationsleiste():
 
     # Und der Kontoknopf muss beide Faelle kennen.
     check("angemeldet: Name und Bild", "session?.user" in nav)
-    check("abgemeldet: Anmelden-Knopf", "Anmelden" in nav and "signIn" in nav)
+    check("abgemeldet: Anmelden-Knopf", "Anmelden" in nav and "openLoginPanel" in nav)
 
 
 def test_alle_seiten_nutzen_sie():

@@ -1,0 +1,24 @@
+.page { position: relative; display: flex; min-height: 100svh; flex-direction: column; align-items: center; justify-content: center; gap: 26px; padding: 116px 22px 56px; background-color: #080808; color: #fafafa; }
+.topbar { position: absolute; top: 25px; right: 30px; left: 30px; display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+.back { display: inline-flex; align-items: center; gap: 9px; color: #a3a3a3; font-size: 12px; transition: color .2s; }
+.back:hover { color: #fff; }
+.controls { display: flex; align-items: center; gap: 12px; }
+.card { position: relative; width: min(100%, 440px); border: 1px solid #303030; border-radius: 26px; padding: 40px; background: #101010; box-shadow: 0 24px 80px rgb(0 0 0 / .35), 0 0 70px rgb(255 255 255 / .025); text-align: center; }
+.logo { display: grid; width: 76px; height: 76px; margin-inline: auto; overflow: hidden; border: 1px solid #323232; border-radius: 22px; background: #050505; }
+.logo img { width: 76px; height: 76px; object-fit: cover; }
+.card h1 { margin-top: 26px; font-size: 34px; font-weight: 700; letter-spacing: -.045em; }
+.description { margin-top: 13px; color: #a3a3a3; font-size: 14px; line-height: 1.8; text-wrap: balance; }
+.label { margin-top: 28px; margin-bottom: 12px; color: #858585; font-family: ui-monospace, monospace; font-size: 10px; font-weight: 500; letter-spacing: .14em; }
+.continue { display: inline-flex; min-height: 54px; width: 100%; align-items: center; justify-content: center; gap: 11px; border: 1px solid #fff; border-radius: 999px; background: #f5f5f5; color: #101010; font-size: 14px; font-weight: 650; transition: background .2s, transform .2s; }
+.continue:not(:disabled):hover { transform: translateY(-2px); background: #dcdcdc; }
+.continue:disabled { cursor: wait; opacity: .6; }
+.card > .label:nth-last-of-type(1) { text-align: left; }
+.info { display: flex; align-items: start; gap: 12px; border: 1px solid #303030; border-radius: 16px; padding: 17px; background: #181818; color: #a3a3a3; text-align: left; }
+.info > svg { flex-shrink: 0; margin-top: 3px; }
+.info p { font-size: 12px; line-height: 1.85; }
+.info a { color: #e5e5e5; text-decoration: underline; text-underline-offset: 3px; }
+.info a:hover { color: #fff; }
+.bottom { color: #6f6f6f; font-size: 11px; text-align: center; }
+.page a:focus-visible, .page button:focus-visible { outline: 2px solid #d4d4d4; outline-offset: 5px; }
+@media (max-width: 520px) { .topbar { top: 18px; left: 18px; right: 18px; gap: 12px; } .controls { gap: 8px; } .back { font-size: 11px; } .card { padding: 30px 24px; border-radius: 22px; } .page { padding-inline: 18px; } }
+@media (prefers-reduced-motion: reduce) { .continue { transition: none; } .continue:not(:disabled):hover { transform: none; } }

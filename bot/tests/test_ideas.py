@@ -38,7 +38,7 @@ admin_shell=(ROOT/"dashboard/components/dashboard/admin-content.tsx").read_text(
 middleware=(ROOT/"dashboard/middleware.ts").read_text()
 check("öffentliche Übersicht, Detail, Meine Ideen und Formular existieren",all((ROOT/x).exists() for x in ["dashboard/app/ideas/page.tsx","dashboard/app/ideas/new/page.tsx","dashboard/app/ideas/me/page.tsx","dashboard/app/ideas/[ideaId]/page.tsx"]))
 check("öffentliche Ideen können ohne Login geladen werden",'pathname.startsWith("/api/bot/ideas")' in middleware and 'method === "GET"' in middleware)
-check("Voten und Kommentieren verlangen Discord-Login",'signIn("discord"' in ui and "voteIdea" in ui and "commentIdea" in ui)
+check("Voten und Kommentieren verlangen Discord-Login","openLoginPanel" in ui and "voteIdea" in ui and "commentIdea" in ui)
 check("öffentliche Website hat den neuen responsiven Ideenaufbau",all(x in ui for x in ["Gemeinsam bauen wir den besseren CloudTIX", "Ideen entdecken", "Gute Ideen lohnen sich", "Deine Idee zählt"]))
 check("Einreichung, Details und Belohnungen haben eigene neue Ansichten",all(x in ui for x in ["Ein Problem pro Idee", "Antwort vom CloudTIX Team", "Für diesen Server einlösen"]))
 check("eigenes vollständiges Ideen-Adminsystem ist eingebaut",'id: "ideas"' in admin_shell and '<IdeasAdmin />' in admin_shell and all(x in admin_ui for x in ["Community Ideen","Gesperrte Nutzer","Entscheidung speichern & DM senden","Ideen-Blacklist"]))

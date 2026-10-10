@@ -28,7 +28,7 @@ store = (BOT / "utils/leveling_store.py").read_text(encoding="utf-8")
 nav = (DASH / "components/site-nav.tsx").read_text(encoding="utf-8")
 
 check("account page retains a login fallback", "<AccountLoginGate />" in page and 'role="dialog"' in gate)
-check("login returns through the success screen", "loginCallbackUrl(window.location.href" in gate and "/auth/success?next=" in navigation)
+check("login returns through the success screen", "openLoginPanel" in gate and "loginCallbackUrl(target" in (DASH / "app/auth/login/page.tsx").read_text() and "/auth/success?next=" in navigation)
 check("Discord identity comes from the session", "getServerSession(authOptions)" in page and "session.user.id" in page)
 check("Discord profile and guilds are fetched live", "/api/users/@me" in page and "/api/users/@me/guilds?with_counts=true" in page)
 check("premium is loaded from the real premium endpoint", "api.getMyPremium(userId)" in page)

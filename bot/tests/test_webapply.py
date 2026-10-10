@@ -619,7 +619,7 @@ def test_seite_wertet_rolle_aus():
                     seite) is not None)
     check("und haengt die Anzeige daran",
           "const angemeldet = Boolean(session?.user?.id)" in seite)
-    check("bietet den Login an", "signIn(\"discord\"" in seite)
+    check("bietet den Login an", "openLoginPanel" in seite)
     check("wertet ?rolle= aus", 'params.get("rolle")' in seite)
     # Die Grenze muss die Seite auch wirklich umschliessen.
     check("in einer Suspense-Grenze",

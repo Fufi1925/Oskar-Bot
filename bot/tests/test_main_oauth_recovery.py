@@ -23,7 +23,7 @@ check("LBoost-Secrets werden nie als Hauptlogin benutzt", "LBOST_SHOP" not in au
 scopes = (ROOT / "dashboard/lib/discord-oauth.ts").read_text()
 check("OAuth fordert die vom Owner gewaehlten Scopes", 'scope: oauthScopes' in auth and 'oauthScopes = DISCORD_USER_SCOPES' in auth and 'identify connections guilds guilds.members.read' in scopes)
 check("eigene Fehlerseite ist aktiv", 'error: "/auth/error"' in auth and error_page.is_file())
-check("Fehlerseite kann OAuth wirklich neu starten", 'signIn("discord"' in error_page.read_text())
+check("Fehlerseite kann OAuth wirklich neu starten", 'openLoginPanel' in error_page.read_text() and 'signIn("discord"' in (ROOT / 'dashboard/app/auth/login/page.tsx').read_text())
 check("Produktionslogs enthalten konkrete Callback-Fehler", "[next-auth][${code}]" in auth)
 check("NEXTAUTH_URL wird auf Origin normalisiert", "NORMALIZED_NEXTAUTH_URL" in start and "urlsplit" in start)
 check("Callback wird beim Start sichtbar ausgegeben", "api/auth/callback/discord" in start)

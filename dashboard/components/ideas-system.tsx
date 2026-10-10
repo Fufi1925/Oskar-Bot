@@ -1,12 +1,12 @@
 "use client";
 
-import { loginCallbackUrl } from "@/lib/auth-navigation";
+import { openLoginPanel } from "@/lib/login-panel";
 
 import { websiteLocale, useWebsiteLocale } from "@/lib/i18n/locale";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { signIn, useSession } from "next-auth/react";
+import { useSession } from "next-auth/react";
 import {
   ArrowLeft, ArrowRight, CalendarDays, Check, CheckCircle2, ChevronDown,
   Eye, FileImage, Filter, Gift, Lightbulb, Loader2, MessageCircle, Plus,
@@ -41,7 +41,7 @@ function Avatar({ src, name, size = "h-8 w-8" }: { src?: string; name?: string; 
 }
 function LoginButton({ text = "Mit Discord anmelden" }: { text?: string }) {
   useWebsiteLocale();
-  return <button onClick={() => signIn("discord", { callbackUrl: loginCallbackUrl(window.location.href, window.location.origin) })} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-indigo-600 px-5 text-sm font-bold text-white transition hover:bg-indigo-500"><ShieldCheck className="h-4 w-4" />{text}</button>;
+  return <button onClick={() => openLoginPanel()} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-indigo-600 px-5 text-sm font-bold text-white transition hover:bg-indigo-500"><ShieldCheck className="h-4 w-4" />{text}</button>;
 }
 
 function IdeasShell({ children }: { children: React.ReactNode }) {
@@ -182,7 +182,7 @@ export function IdeaDetail({ id }: { id: string }) {
   useEffect(() => { void load(); }, [load]);
   if (!idea) return <IdeasShell><Loading /></IdeasShell>;
   const vote = async (value: number) => {
-    if (status !== "authenticated") return void signIn("discord", { callbackUrl: loginCallbackUrl(window.location.href, window.location.origin) });
+    if (status !== "authenticated") return void openLoginPanel();
     const result = await api.voteIdea(id, idea.my_vote === value ? 0 : value); setIdea(result.idea);
   };
   const sendComment = async () => {

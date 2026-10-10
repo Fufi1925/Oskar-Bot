@@ -960,3 +960,11 @@ input[type="number"] {
 .leave-editor .font-black { font-weight: 600; }
 .leave-editor .text-slate-600 { color: #94a3b8; }
 .leave-editor .grid > * { min-width: 0; }
+
+/* Public website and login backdrop; opaque cards keep the pattern behind content. */
+.cloudtix-dotted,
+body:has([data-public-nav]) main {
+  background-image: radial-gradient(circle, rgb(255 255 255 / .11) 1px, transparent 1px);
+  background-size: 26px 26px;
+  background-position: 13px 13px;
+}

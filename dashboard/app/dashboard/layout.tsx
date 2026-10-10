@@ -16,7 +16,7 @@
 
 "use client";
 
-import { loginCallbackUrl } from "@/lib/auth-navigation";
+import { openLoginPanel } from "@/lib/login-panel";
 
 import { BRAND_LOGO } from "@/lib/brand";
 import React, { useState, useEffect, useRef } from "react";
@@ -35,7 +35,7 @@ import {
   LifeBuoy, ChevronDown, Bot, Shield, UserCheck, Badge, Gauge, Headphones,
   KeyRound, Music, Upload, Users, UserCog
 } from "lucide-react";
-import { useSession, signIn, signOut } from "next-auth/react";
+import { useSession, signOut } from "next-auth/react";
 import { cn, isAdmin } from "@/lib/utils";
 import { api } from "@/lib/api";
 import { AdminConfig } from "@/types/api";
@@ -105,7 +105,7 @@ export default function DashboardLayout({
 
   React.useEffect(() => {
     if (status === "unauthenticated") {
-      signIn("discord", { callbackUrl: loginCallbackUrl(window.location.href, window.location.origin) });
+      openLoginPanel();
     }
     
     // Fetch global notification + maintenance state

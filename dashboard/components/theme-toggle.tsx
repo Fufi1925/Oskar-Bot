@@ -38,8 +38,8 @@ export function ThemeToggle({ embedded = false }: { embedded?: boolean }) {
     window.dispatchEvent(new CustomEvent("dashboard-theme-change", { detail: next }));
   };
 
-  // The homepage already offers this switch in its navigation drawer.
-  if (!embedded && (pathname === "/" || pathname.startsWith("/Tickets/Transkript/"))) return null;
+  // The homepage and login panel already include their own theme controls.
+  if (!embedded && (pathname === "/" || pathname === "/auth/login" || pathname.startsWith("/Tickets/Transkript/"))) return null;
 
   return (
     <div

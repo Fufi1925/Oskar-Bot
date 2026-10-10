@@ -1,4 +1,4 @@
-/** Shared destinations for automatic Discord sign-in and the return trip. */
+/** Shared destinations for the Discord login panel and the return trip. */
 export const LOGIN_PATH = "/auth/login";
 
 export function loginDestination(

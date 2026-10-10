@@ -920,7 +920,7 @@ def test_public_mobile_drawer():
     check("theme, language and account controls are included",
           "<ThemeToggle embedded />" in src
           and "<LanguageSwitcher />" in src
-          and 'signIn("discord"' in src)
+          and "openLoginPanel" in src)
     check("the embedded theme control is not fixed",
           'embedded ? "relative"' in theme)
     check("desktop navigation remains available",
