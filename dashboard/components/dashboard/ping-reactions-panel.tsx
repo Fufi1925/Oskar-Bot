@@ -31,7 +31,7 @@ import { cn } from "@/lib/utils";
 import { EmojiPicker } from "@/components/dashboard/emoji-picker";
 
 const CARD =
-  "bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6";
+  "cloudtix-admin-card bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6";
 
 interface EmojiInfo {
   raw: string;
@@ -278,7 +278,7 @@ export function PingReactionsPanel() {
           onChange={(event) => setUserId(event.target.value)}
           disabled={Boolean(editing)}
           placeholder="z. B. 1303627964734246944"
-          className="w-full bg-[#0e0e12] border border-slate-800 rounded-xl px-3 py-2.5 text-sm text-white placeholder:text-slate-600 outline-none focus:border-primary/50 transition-colors mt-2 disabled:opacity-50 font-mono"
+          className="w-full cloudtix-admin-field bg-[#0e0e12] border border-slate-800 rounded-xl px-3 py-2.5 text-sm text-white placeholder:text-slate-600 outline-none focus:border-primary/50 transition-colors mt-2 disabled:opacity-50 font-mono"
         />
 
         <div className="flex items-center gap-3 mt-5 mb-2">
@@ -297,7 +297,7 @@ export function PingReactionsPanel() {
           className={cn(
   "flex flex-wrap gap-2 min-h-[3rem] rounded-xl border p-2.5",
             picked.length
-              ? "border-slate-800 bg-[#0e0e12]"
+              ? "border-slate-800 cloudtix-admin-field bg-[#0e0e12]"
               : "border-dashed border-slate-800 bg-transparent"
           )}
         >
@@ -325,7 +325,7 @@ export function PingReactionsPanel() {
           value={note}
           onChange={(event) => setNote(event.target.value)}
           placeholder="Wofür ist das? Nur für euch sichtbar."
-          className="w-full bg-[#0e0e12] border border-slate-800 rounded-xl px-3 py-2.5 text-sm text-white placeholder:text-slate-600 outline-none focus:border-primary/50 transition-colors mt-2"
+          className="w-full cloudtix-admin-field bg-[#0e0e12] border border-slate-800 rounded-xl px-3 py-2.5 text-sm text-white placeholder:text-slate-600 outline-none focus:border-primary/50 transition-colors mt-2"
         />
 
         <button
@@ -364,8 +364,8 @@ export function PingReactionsPanel() {
                 className={cn(
   "flex flex-wrap items-center gap-3 rounded-xl border px-3 py-2.5 transition-colors",
                   rule.enabled
-                    ? "bg-[#0e0e12] border-slate-800"
-                    : "bg-[#0e0e12]/50 border-slate-800/50 opacity-55"
+                    ? "cloudtix-admin-field bg-[#0e0e12] border-slate-800"
+                    : "cloudtix-admin-field bg-[#0e0e12]/50 border-slate-800/50 opacity-55"
                 )}
               >
                 <span className="h-8 w-8 rounded-full bg-primary/15 border border-primary/25 flex items-center justify-center text-[10px] font-black text-primary shrink-0 overflow-hidden">
@@ -414,7 +414,7 @@ export function PingReactionsPanel() {
                     onClick={() => toggle(rule)}
                     disabled={busy}
                     title={rule.enabled ? "Pausieren" : "Wieder aktivieren"}
-                    className="p-2 rounded-lg bg-[#0e0e12] border border-slate-800 hover:bg-white/[0.07] transition-all disabled:opacity-40"
+                    className="p-2 rounded-lg cloudtix-admin-field bg-[#0e0e12] border border-slate-800 hover:bg-white/[0.07] transition-all disabled:opacity-40"
                   >
                     {rule.enabled ? (
                       <Pause className="h-3.5 w-3.5 text-amber-400" />
@@ -426,7 +426,7 @@ export function PingReactionsPanel() {
                     onClick={() => edit(rule)}
                     disabled={busy}
                     title="Bearbeiten"
-                    className="p-2 rounded-lg bg-[#0e0e12] border border-slate-800 hover:bg-white/[0.07] transition-all disabled:opacity-40"
+                    className="p-2 rounded-lg cloudtix-admin-field bg-[#0e0e12] border border-slate-800 hover:bg-white/[0.07] transition-all disabled:opacity-40"
                   >
                     <Save className="h-3.5 w-3.5 text-slate-400" />
                   </button>
@@ -441,7 +441,7 @@ export function PingReactionsPanel() {
                         ? `Zurücksetzen auf ${rule.default_emojis.length} Emojis`
                         : "Steht schon auf dem Originalstand"
                     }
-                    className="p-2 rounded-lg bg-[#0e0e12] border border-slate-800 hover:bg-white/[0.07] transition-all disabled:opacity-25"
+                    className="p-2 rounded-lg cloudtix-admin-field bg-[#0e0e12] border border-slate-800 hover:bg-white/[0.07] transition-all disabled:opacity-25"
                   >
                     <RotateCcw className="h-3.5 w-3.5 text-slate-400" />
                   </button>
@@ -476,8 +476,8 @@ export function PingReactionsPanel() {
                 className={cn(
   "flex flex-wrap items-center gap-3 rounded-xl border px-3 py-2.5 transition-colors",
                   rule.enabled
-                    ? "bg-[#0e0e12] border-slate-800"
-                    : "bg-[#0e0e12]/50 border-slate-800/50 opacity-55"
+                    ? "cloudtix-admin-field bg-[#0e0e12] border-slate-800"
+                    : "cloudtix-admin-field bg-[#0e0e12]/50 border-slate-800/50 opacity-55"
                 )}
               >
                 <span className="h-8 w-8 rounded-full bg-primary/15 border border-primary/25 flex items-center justify-center text-[10px] font-black text-primary shrink-0 overflow-hidden">
@@ -515,7 +515,7 @@ export function PingReactionsPanel() {
                     onClick={() => toggle(rule)}
                     disabled={busy}
                     title={rule.enabled ? "Pausieren" : "Wieder aktivieren"}
-                    className="p-2 rounded-lg bg-[#0e0e12] border border-slate-800 hover:bg-white/[0.07] transition-all disabled:opacity-40"
+                    className="p-2 rounded-lg cloudtix-admin-field bg-[#0e0e12] border border-slate-800 hover:bg-white/[0.07] transition-all disabled:opacity-40"
                   >
                     {rule.enabled ? (
                       <Pause className="h-3.5 w-3.5 text-amber-400" />
@@ -527,7 +527,7 @@ export function PingReactionsPanel() {
                     onClick={() => edit(rule)}
                     disabled={busy}
                     title="Bearbeiten"
-                    className="p-2 rounded-lg bg-[#0e0e12] border border-slate-800 hover:bg-white/[0.07] transition-all disabled:opacity-40"
+                    className="p-2 rounded-lg cloudtix-admin-field bg-[#0e0e12] border border-slate-800 hover:bg-white/[0.07] transition-all disabled:opacity-40"
                   >
                     <Save className="h-3.5 w-3.5 text-slate-400" />
                   </button>

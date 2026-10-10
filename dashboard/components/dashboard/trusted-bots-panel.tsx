@@ -50,7 +50,7 @@ interface TrustedBot {
   added_at: number;
 }
 
-const KARTE = "rounded-3xl border border-slate-800 bg-[#131318]";
+const KARTE = "rounded-3xl border border-slate-800 cloudtix-admin-card bg-[#131318]";
 
 /** Woher der Eintrag stammt — und ob er sich entfernen lässt. */
 const QUELLE: Record<string, { text: string; ton: string }> = {
@@ -60,7 +60,7 @@ const QUELLE: Record<string, { text: string; ton: string }> = {
   },
   env: {
     text: "Aus der Variablen",
-    ton: "border-slate-800 bg-[#0e0e12] text-slate-400",
+    ton: "border-slate-800 cloudtix-admin-field bg-[#0e0e12] text-slate-400",
   },
   manual: {
     text: "Hier eingetragen",
@@ -170,7 +170,7 @@ export function TrustedBotsPanel() {
         <button
           type="button"
           onClick={load}
-          className="flex shrink-0 items-center gap-2 rounded-xl border border-slate-800 bg-[#0e0e12] px-4 py-2.5 text-sm font-semibold text-slate-300 transition-colors hover:border-slate-700 hover:text-white"
+          className="flex shrink-0 items-center gap-2 rounded-xl border border-slate-800 cloudtix-admin-field bg-[#0e0e12] px-4 py-2.5 text-sm font-semibold text-slate-300 transition-colors hover:border-slate-700 hover:text-white"
         >
           <RefreshCw className="h-3.5 w-3.5" />
           Aktualisieren
@@ -206,7 +206,7 @@ export function TrustedBotsPanel() {
             placeholder="z. B. 159985870458322944"
             inputMode="numeric"
             aria-label="Discord-ID des Bots"
-            className="min-w-[220px] flex-1 rounded-xl border border-slate-800 bg-[#0e0e12] px-4 py-2.5 font-mono text-sm text-white placeholder:text-slate-600 transition-colors focus:border-slate-700 focus:outline-none"
+            className="min-w-[220px] flex-1 rounded-xl border border-slate-800 cloudtix-admin-field bg-[#0e0e12] px-4 py-2.5 font-mono text-sm text-white placeholder:text-slate-600 transition-colors focus:border-slate-700 focus:outline-none"
           />
           <input
             value={notiz}
@@ -216,7 +216,7 @@ export function TrustedBotsPanel() {
             }}
             placeholder="Notiz (optional) — z. B. „MEE6“"
             aria-label="Notiz"
-            className="min-w-[180px] flex-1 rounded-xl border border-slate-800 bg-[#0e0e12] px-4 py-2.5 text-sm text-white placeholder:text-slate-600 transition-colors focus:border-slate-700 focus:outline-none"
+            className="min-w-[180px] flex-1 rounded-xl border border-slate-800 cloudtix-admin-field bg-[#0e0e12] px-4 py-2.5 text-sm text-white placeholder:text-slate-600 transition-colors focus:border-slate-700 focus:outline-none"
           />
           <button
             type="button"
@@ -258,7 +258,7 @@ export function TrustedBotsPanel() {
                     className="h-9 w-9 shrink-0 rounded-full border border-slate-800 object-cover"
                   />
                 ) : (
-                  <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-slate-800 bg-[#0e0e12]">
+                  <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-slate-800 cloudtix-admin-field bg-[#0e0e12]">
                     <Bot className="h-4 w-4 text-slate-600" />
                   </span>
                 )}
@@ -300,7 +300,7 @@ export function TrustedBotsPanel() {
                       type="button"
                       onClick={() => entfernen(eintrag)}
                       disabled={busy === eintrag.id}
-                      className="flex items-center gap-1.5 rounded-lg border border-slate-800 bg-[#0e0e12] px-3 py-2 text-[12px] font-semibold text-slate-400 transition-colors hover:border-rose-500/30 hover:text-rose-300 disabled:opacity-40"
+                      className="flex items-center gap-1.5 rounded-lg border border-slate-800 cloudtix-admin-field bg-[#0e0e12] px-3 py-2 text-[12px] font-semibold text-slate-400 transition-colors hover:border-rose-500/30 hover:text-rose-300 disabled:opacity-40"
                     >
                       {busy === eintrag.id ? (
                         <Loader2 className="h-3.5 w-3.5 animate-spin" />

@@ -48,7 +48,7 @@ interface StatsPayload {
 }
 
 const CARD =
-  "bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6";
+  "cloudtix-admin-card bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6";
 
 /** Slash-Befehle werden mit führendem Schrägstrich gezählt. */
 function isSlash(command: string) {
@@ -159,7 +159,7 @@ export function CommandStatsPanel() {
   return (
     <section className="space-y-6">
       {/* Kopf: worum es geht, und der Zeitraum */}
-      <div className="bg-[#131318] border border-slate-800 rounded-3xl p-5 sm:p-8">
+      <div className="cloudtix-admin-panel-header cloudtix-admin-card bg-[#131318] border border-slate-800 rounded-3xl p-5 sm:p-8">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
           <div className="flex items-center gap-4">
             <div className="h-12 w-12 rounded-2xl bg-primary/15 border border-primary/25 flex items-center justify-center shrink-0">
@@ -175,7 +175,7 @@ export function CommandStatsPanel() {
           </div>
 
           <div className="flex items-center gap-3">
-            <div className="flex gap-1.5 p-1.5 bg-[#131318]/70 border border-slate-800 rounded-2xl">
+            <div className="flex gap-1.5 p-1.5 cloudtix-admin-card bg-[#131318]/70 border border-slate-800 rounded-2xl">
               {[7, 30, 90].map((value) => (
                 <button
                   key={value}
@@ -194,7 +194,7 @@ export function CommandStatsPanel() {
             <button
               onClick={load}
               title="Neu laden"
-              className="p-3 rounded-2xl bg-[#0e0e12] border border-slate-800 hover:bg-white/[0.06] transition-all"
+              className="p-3 rounded-2xl cloudtix-admin-field bg-[#0e0e12] border border-slate-800 hover:bg-white/[0.06] transition-all"
             >
               <RefreshCw className="h-4 w-4 text-primary" />
             </button>
@@ -290,7 +290,7 @@ export function CommandStatsPanel() {
               ohne beides eine Wand aus Zeilen sind. */}
           <div
             className={cn(
-  "bg-[#131318] border border-slate-800 rounded-3xl overflow-hidden"
+  "cloudtix-admin-card bg-[#131318] border border-slate-800 rounded-3xl overflow-hidden"
             )}
           >
             <div className="px-4 sm:px-6 py-4 border-b border-slate-800 flex flex-wrap items-center gap-3">
@@ -299,7 +299,7 @@ export function CommandStatsPanel() {
                 Am meisten benutzt
               </h4>
 
-              <div className="flex gap-1 ml-auto p-1 bg-[#0e0e12] border border-slate-800 rounded-xl">
+              <div className="flex gap-1 ml-auto p-1 cloudtix-admin-field bg-[#0e0e12] border border-slate-800 rounded-xl">
                 {(
                   [
                     ["all", "Alle", null],
@@ -329,7 +329,7 @@ export function CommandStatsPanel() {
                   value={query}
                   onChange={(event) => setQuery(event.target.value)}
                   placeholder="Befehl suchen"
-                  className="w-full bg-[#0e0e12] border border-slate-800 rounded-xl pl-9 pr-3 py-2 text-xs text-white placeholder:text-slate-600 outline-none focus:border-primary/50 transition-colors"
+                  className="w-full cloudtix-admin-field bg-[#0e0e12] border border-slate-800 rounded-xl pl-9 pr-3 py-2 text-xs text-white placeholder:text-slate-600 outline-none focus:border-primary/50 transition-colors"
                 />
               </div>
             </div>

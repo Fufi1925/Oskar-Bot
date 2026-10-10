@@ -94,7 +94,7 @@ export function OverviewCharts({ className }: { className?: string }) {
   return (
     <div
       className={cn(
-        "rounded-2xl border border-slate-800 bg-[#131318] p-5 sm:p-6",
+        "rounded-2xl border border-slate-800 cloudtix-admin-card bg-[#131318] p-5 sm:p-6",
         className,
       )}
     >
@@ -110,7 +110,7 @@ export function OverviewCharts({ className }: { className?: string }) {
           </p>
         </div>
 
-        <div className="flex gap-1 rounded-lg border border-slate-800 bg-[#0f0f13] p-1">
+        <div className="flex gap-1 rounded-lg border border-slate-800 cloudtix-admin-card bg-[#0f0f13] p-1">
           {ZEITRAEUME.map(([wert, label]) => (
             <button
               key={wert}
@@ -139,7 +139,7 @@ export function OverviewCharts({ className }: { className?: string }) {
           Der Verlauf ließ sich nicht laden. Der Bot antwortet gerade nicht.
         </p>
       ) : !data.has_data ? (
-        <div className="mt-5 rounded-xl border border-slate-800 bg-[#0f0f13] p-5">
+        <div className="mt-5 rounded-xl border border-slate-800 cloudtix-admin-card bg-[#0f0f13] p-5">
           <p className="text-[14px] text-slate-300">Noch keine Messungen.</p>
           <p className="mt-1.5 text-[13px] leading-relaxed text-slate-500">
             Der Verlauf beginnt mit dem ersten Schnappschuss — der läuft

@@ -299,7 +299,7 @@ export function DashboardUsersPanel({ currentUserId, canManageAi = false }: { cu
 
   if (loading) {
     return (
-      <div className="bg-[#131318] border border-slate-800 rounded-3xl p-16 flex items-center justify-center">
+      <div className="cloudtix-admin-card bg-[#131318] border border-slate-800 rounded-3xl p-16 flex items-center justify-center">
         <Loader2 className="h-6 w-6 text-primary animate-spin" />
       </div>
     );
@@ -317,7 +317,7 @@ export function DashboardUsersPanel({ currentUserId, canManageAi = false }: { cu
           { label: "Discord admins", value: summary?.discord_admin_count ?? 0, icon: ShieldCheck, color: "text-indigo-300" },
           { label: "Banned", value: summary?.banned_count ?? 0, icon: Ban, color: "text-rose-400" },
         ].map((card) => (
-          <div key={card.label} className="bg-[#131318] border border-slate-800 rounded-3xl p-5">
+          <div key={card.label} className="cloudtix-admin-card bg-[#131318] border border-slate-800 rounded-3xl p-5">
             <card.icon className={cn("h-5 w-5 mb-3", card.color)} />
             <p className="text-3xl font-black text-white">{card.value}</p>
             <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mt-1">{card.label}</p>
@@ -326,7 +326,7 @@ export function DashboardUsersPanel({ currentUserId, canManageAi = false }: { cu
       </div>
 
       {/* Ban somebody who never signed in */}
-      <div className="bg-[#131318] border border-slate-800 rounded-3xl p-6 space-y-4">
+      <div className="cloudtix-admin-card bg-[#131318] border border-slate-800 rounded-3xl p-6 space-y-4">
         <div className="flex items-center gap-3">
           <UserX className="h-5 w-5 text-rose-400" />
           <h3 className="font-black text-white">Ban by user ID</h3>
@@ -340,13 +340,13 @@ export function DashboardUsersPanel({ currentUserId, canManageAi = false }: { cu
             value={manualId}
             onChange={(e) => setManualId(e.target.value)}
             placeholder="Discord user ID"
-            className="bg-[#0e0e12] border border-slate-800 rounded-2xl px-4 py-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-primary"
+            className="cloudtix-admin-field bg-[#0e0e12] border border-slate-800 rounded-2xl px-4 py-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-primary"
           />
           <input
             value={manualReason}
             onChange={(e) => setManualReason(e.target.value)}
             placeholder="Reason (optional)"
-            className="lg:col-span-2 bg-[#0e0e12] border border-slate-800 rounded-2xl px-4 py-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-primary"
+            className="lg:col-span-2 cloudtix-admin-field bg-[#0e0e12] border border-slate-800 rounded-2xl px-4 py-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-primary"
           />
           <Select value={manualDuration} onValueChange={setManualDuration} options={DURATIONS} />
         </div>
@@ -378,14 +378,14 @@ export function DashboardUsersPanel({ currentUserId, canManageAi = false }: { cu
       </div>
 
       {/* Search and filter */}
-      <div className="bg-[#131318] border border-slate-800 rounded-3xl p-6 flex flex-col lg:flex-row gap-4 lg:items-center">
+      <div className="cloudtix-admin-card bg-[#131318] border border-slate-800 rounded-3xl p-6 flex flex-col lg:flex-row gap-4 lg:items-center">
         <div className="flex-1 relative">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search by name, ID, role or server"
-            className="w-full bg-[#0e0e12] border border-slate-800 rounded-2xl pl-11 pr-4 py-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-primary"
+            className="w-full cloudtix-admin-field bg-[#0e0e12] border border-slate-800 rounded-2xl pl-11 pr-4 py-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-primary"
           />
         </div>
         <div className="w-full lg:w-56">
@@ -398,7 +398,7 @@ export function DashboardUsersPanel({ currentUserId, canManageAi = false }: { cu
             "px-5 py-3 rounded-2xl text-sm font-bold border transition-all whitespace-nowrap",
             showDiscordAdmins
               ? "bg-indigo-500/15 border-indigo-500/30 text-indigo-300"
-              : "bg-[#0e0e12] border-slate-800 text-slate-300 hover:bg-white/[0.06]"
+              : "cloudtix-admin-field bg-[#0e0e12] border-slate-800 text-slate-300 hover:bg-white/[0.06]"
           )}
         >
           <ShieldCheck className="h-4 w-4 inline mr-2" />
@@ -407,7 +407,7 @@ export function DashboardUsersPanel({ currentUserId, canManageAi = false }: { cu
         <button
           onClick={() => load()}
           disabled={busy}
-          className="px-5 py-3 bg-[#0e0e12] border border-slate-800 rounded-2xl text-sm font-bold text-slate-300 hover:bg-white/[0.06] disabled:opacity-40"
+          className="px-5 py-3 cloudtix-admin-field bg-[#0e0e12] border border-slate-800 rounded-2xl text-sm font-bold text-slate-300 hover:bg-white/[0.06] disabled:opacity-40"
         >
           <RefreshCw className="h-4 w-4 inline mr-2" />
           Refresh
@@ -417,7 +417,7 @@ export function DashboardUsersPanel({ currentUserId, canManageAi = false }: { cu
       {/* List */}
       <div className="space-y-3">
         {visible.length === 0 && (
-          <div className="bg-[#131318] border border-slate-800 rounded-3xl p-12 text-center text-slate-500">
+          <div className="cloudtix-admin-card bg-[#131318] border border-slate-800 rounded-3xl p-12 text-center text-slate-500">
             {users.length === 0
               ? "Nobody has authorised the bot through this dashboard yet. People appear here the moment they sign in with Discord."
               : "Nobody matches this filter."}
@@ -432,7 +432,7 @@ export function DashboardUsersPanel({ currentUserId, canManageAi = false }: { cu
             <div
               key={user.user_id}
               className={cn(
-                "bg-[#131318] border rounded-3xl overflow-hidden transition-all",
+                "cloudtix-admin-card bg-[#131318] border rounded-3xl overflow-hidden transition-all",
                 user.banned ? "border-rose-500/30 bg-rose-500/[0.03]" : "border-slate-800"
               )}
             >
@@ -490,7 +490,7 @@ export function DashboardUsersPanel({ currentUserId, canManageAi = false }: { cu
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => setExpanded(open ? null : user.user_id)}
-                    className="px-4 py-2 rounded-xl bg-[#0e0e12] border border-slate-800 text-xs font-bold text-slate-300 hover:bg-white/[0.06]"
+                    className="px-4 py-2 rounded-xl cloudtix-admin-field bg-[#0e0e12] border border-slate-800 text-xs font-bold text-slate-300 hover:bg-white/[0.06]"
                   >
                     {open ? "Less" : "Details"}
                   </button>
@@ -528,7 +528,7 @@ export function DashboardUsersPanel({ currentUserId, canManageAi = false }: { cu
               </div>
 
               {open && (
-                <div className="border-t border-slate-800 p-6 bg-[#0e0e12]/60 space-y-5">
+                <div className="border-t border-slate-800 p-6 cloudtix-admin-field bg-[#0e0e12]/60 space-y-5">
                   {user.banned && user.ban && (
                     <div className="p-4 rounded-2xl bg-rose-500/10 border border-rose-500/25 space-y-1">
                       <p className="text-sm font-bold text-rose-300">
@@ -699,7 +699,7 @@ export function DashboardUsersPanel({ currentUserId, canManageAi = false }: { cu
       {/* Ban dialog */}
       {banTarget && (
         <div className="fixed inset-0 z-[60] overflow-y-auto bg-black/70 backdrop-blur-sm p-4 sm:p-6">
-          <div className="w-full max-w-lg mx-auto my-8 bg-[#131318] border border-slate-800 rounded-3xl overflow-hidden">
+          <div className="w-full max-w-lg mx-auto my-8 cloudtix-admin-card bg-[#131318] border border-slate-800 rounded-3xl overflow-hidden">
             <div className="p-6 border-b border-slate-800 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="h-10 w-10 rounded-2xl bg-rose-500/15 border border-rose-500/25 flex items-center justify-center">
@@ -730,7 +730,7 @@ export function DashboardUsersPanel({ currentUserId, canManageAi = false }: { cu
                   value={banReason}
                   onChange={(e) => setBanReason(e.target.value)}
                   placeholder="Shown in the audit log"
-                  className="w-full bg-[#0e0e12] border border-slate-800 rounded-2xl px-4 py-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-primary"
+                  className="w-full cloudtix-admin-field bg-[#0e0e12] border border-slate-800 rounded-2xl px-4 py-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-primary"
                 />
               </label>
 
@@ -761,7 +761,7 @@ export function DashboardUsersPanel({ currentUserId, canManageAi = false }: { cu
             <div className="p-6 border-t border-slate-800 flex gap-3">
               <button
                 onClick={closeBanDialog}
-                className="flex-1 py-3 rounded-2xl bg-[#0e0e12] border border-slate-800 text-sm font-bold text-slate-300 hover:bg-white/[0.06]"
+                className="flex-1 py-3 rounded-2xl cloudtix-admin-field bg-[#0e0e12] border border-slate-800 text-sm font-bold text-slate-300 hover:bg-white/[0.06]"
               >
                 Cancel
               </button>

@@ -75,7 +75,7 @@ export function TicketAiAdmin() {
 
   return (
     <div className="space-y-5">
-      <div className="rounded-2xl border border-violet-500/20 bg-[#131318] p-5 sm:p-6">
+      <div className="rounded-2xl border border-violet-500/20 cloudtix-admin-card bg-[#131318] p-5 sm:p-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="flex gap-3">
             <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-violet-500/12 text-violet-300"><BrainCircuit className="h-5 w-5" /></span>
@@ -94,7 +94,7 @@ export function TicketAiAdmin() {
         </div>
       </div>
 
-      <div className="rounded-2xl border border-cyan-500/20 bg-[#131318] p-4 sm:p-5">
+      <div className="rounded-2xl border border-cyan-500/20 cloudtix-admin-card bg-[#131318] p-4 sm:p-5">
         <div className="flex items-start gap-3">
           <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-cyan-500/10 text-cyan-300"><BrainCircuit className="h-4 w-4" /></span>
           <div>
@@ -103,7 +103,7 @@ export function TicketAiAdmin() {
           </div>
         </div>
         <div className="mt-4 flex flex-col gap-2 sm:flex-row">
-          <textarea value={testQuestion} onChange={(event) => setTestQuestion(event.target.value.slice(0, 1000))} rows={2} placeholder="Zum Beispiel: Wie viel ist 17 × 6?" className="min-h-20 min-w-0 flex-1 resize-y rounded-xl border border-slate-800 bg-[#0e0e12] px-4 py-3 text-sm text-white outline-none focus:border-cyan-500/40" />
+          <textarea value={testQuestion} onChange={(event) => setTestQuestion(event.target.value.slice(0, 1000))} rows={2} placeholder="Zum Beispiel: Wie viel ist 17 × 6?" className="min-h-20 min-w-0 flex-1 resize-y rounded-xl border border-slate-800 cloudtix-admin-field bg-[#0e0e12] px-4 py-3 text-sm text-white outline-none focus:border-cyan-500/40" />
           <button type="button" onClick={runTest} disabled={testBusy || !keyReady} className="inline-flex items-center justify-center gap-2 rounded-xl bg-cyan-500 px-5 py-3 text-sm font-black text-black hover:bg-cyan-400 disabled:opacity-40">
             {testBusy && <Loader2 className="h-4 w-4 animate-spin" />}{testBusy ? "Teste …" : "KI testen"}
           </button>
@@ -112,10 +112,10 @@ export function TicketAiAdmin() {
         {testError && <div className="mt-3 rounded-xl border border-red-500/25 bg-red-500/[0.06] p-4"><p className="text-[10px] font-black uppercase tracking-wider text-red-400">KI-Test fehlgeschlagen</p><pre className="mt-2 whitespace-pre-wrap break-words text-xs leading-5 text-red-200">{testError}</pre></div>}
       </div>
 
-      <div className="rounded-2xl border border-slate-800 bg-[#131318] p-4 sm:p-5">
+      <div className="rounded-2xl border border-slate-800 cloudtix-admin-card bg-[#131318] p-4 sm:p-5">
         <div className="relative">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-600" />
-          <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Servername oder Server-ID suchen" className="w-full rounded-xl border border-slate-800 bg-[#0e0e12] py-3 pl-10 pr-4 text-sm text-white outline-none focus:border-violet-500/40" />
+          <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Servername oder Server-ID suchen" className="w-full rounded-xl border border-slate-800 cloudtix-admin-field bg-[#0e0e12] py-3 pl-10 pr-4 text-sm text-white outline-none focus:border-violet-500/40" />
         </div>
 
         {loading ? (
@@ -125,7 +125,7 @@ export function TicketAiAdmin() {
         ) : (
           <div className="mt-4 grid gap-3 lg:grid-cols-2">
             {visible.map((guild) => (
-              <div key={guild.guild_id} className={cn("flex items-center gap-3 rounded-xl border p-3", guild.enabled ? "border-violet-500/25 bg-violet-500/[0.05]" : "border-slate-800 bg-[#0e0e12]")}>
+              <div key={guild.guild_id} className={cn("flex items-center gap-3 rounded-xl border p-3", guild.enabled ? "border-violet-500/25 bg-violet-500/[0.05]" : "border-slate-800 cloudtix-admin-field bg-[#0e0e12]")}>
                 {guild.icon ? <img src={guild.icon} alt="" className="h-10 w-10 rounded-xl object-cover" /> : <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-slate-800 text-slate-400"><Bot className="h-4 w-4" /></span>}
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-bold text-white">{guild.name}</p>

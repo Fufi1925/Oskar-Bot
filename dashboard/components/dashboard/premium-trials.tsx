@@ -61,7 +61,7 @@ interface TrialRow {
   seconds_left: number;
 }
 
-const KARTE = "rounded-3xl border border-slate-800 bg-[#131318]";
+const KARTE = "rounded-3xl border border-slate-800 cloudtix-admin-card bg-[#131318]";
 
 function datum(unix: number) {
   if (!unix) return "—";
@@ -198,7 +198,7 @@ export function PremiumTrials() {
         <button
           type="button"
           onClick={load}
-          className="flex shrink-0 items-center gap-2 rounded-xl border border-slate-800 bg-[#0e0e12] px-4 py-2.5 text-sm font-semibold text-slate-300 transition-colors hover:border-slate-700 hover:text-white"
+          className="flex shrink-0 items-center gap-2 rounded-xl border border-slate-800 cloudtix-admin-field bg-[#0e0e12] px-4 py-2.5 text-sm font-semibold text-slate-300 transition-colors hover:border-slate-700 hover:text-white"
         >
           <RefreshCw className="h-3.5 w-3.5" />
           Aktualisieren
@@ -227,7 +227,7 @@ export function PremiumTrials() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Nach Name, ID oder Server suchen"
-            className="w-full rounded-xl border border-slate-800 bg-[#0e0e12] py-2.5 pl-10 pr-4 text-sm text-white placeholder:text-slate-600 transition-colors focus:border-slate-700 focus:outline-none"
+            className="w-full rounded-xl border border-slate-800 cloudtix-admin-field bg-[#0e0e12] py-2.5 pl-10 pr-4 text-sm text-white placeholder:text-slate-600 transition-colors focus:border-slate-700 focus:outline-none"
           />
         </div>
         <button
@@ -238,7 +238,7 @@ export function PremiumTrials() {
             "rounded-xl border px-4 py-2.5 text-sm font-semibold transition-colors",
             nurAktive
               ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
-              : "border-slate-800 bg-[#0e0e12] text-slate-400 hover:border-slate-700 hover:text-white",
+              : "border-slate-800 cloudtix-admin-field bg-[#0e0e12] text-slate-400 hover:border-slate-700 hover:text-white",
           )}
         >
           Nur laufende
@@ -336,7 +336,7 @@ export function PremiumTrials() {
                   onClick={() => zuruecksetzen(row)}
                   disabled={busy === row.user_id}
                   title="Gibt den Weg frei: das Konto darf noch einmal kostenlos."
-                  className="flex items-center gap-1.5 rounded-xl border border-slate-800 bg-[#0e0e12] px-3 py-2 text-[13px] font-semibold text-slate-300 transition-colors hover:border-slate-700 hover:text-white disabled:opacity-40"
+                  className="flex items-center gap-1.5 rounded-xl border border-slate-800 cloudtix-admin-field bg-[#0e0e12] px-3 py-2 text-[13px] font-semibold text-slate-300 transition-colors hover:border-slate-700 hover:text-white disabled:opacity-40"
                 >
                   {busy === row.user_id ? (
                     <Loader2 className="h-3.5 w-3.5 animate-spin" />

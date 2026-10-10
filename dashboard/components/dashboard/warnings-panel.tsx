@@ -109,14 +109,14 @@ export function WarningsPanel({ guildId }: { guildId: string }) {
 
   return (
     <section className="space-y-6">
-      <div className="bg-[#131318] border border-slate-800 rounded-3xl p-8">
+      <div className="cloudtix-admin-card bg-[#131318] border border-slate-800 rounded-3xl p-8">
         <div className="flex items-center justify-between gap-4 mb-6 flex-wrap">
           <h4 className="font-black text-white flex items-center gap-2">
             <Plus className="h-5 w-5 text-primary" /> Mitglied verwarnen
           </h4>
           <button
             onClick={load}
-            className="p-2.5 rounded-xl bg-[#0e0e12] border border-slate-800 hover:bg-white/[0.06] transition-all"
+            className="p-2.5 rounded-xl cloudtix-admin-field bg-[#0e0e12] border border-slate-800 hover:bg-white/[0.06] transition-all"
           >
             <RefreshCw className={cn("h-4 w-4 text-primary", loading && "animate-spin")} />
           </button>
@@ -133,7 +133,7 @@ export function WarningsPanel({ guildId }: { guildId: string }) {
               onChange={(e) => setReason(e.target.value)}
               placeholder="What happened?"
               maxLength={500}
-              className="w-full bg-[#0e0e12] border border-slate-800 rounded-2xl px-4 py-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-primary"
+              className="w-full cloudtix-admin-field bg-[#0e0e12] border border-slate-800 rounded-2xl px-4 py-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-primary"
             />
             {/* Der Grund geht dem Mitglied per DM zu -- also echter
                 Discord-Text. Die Grenze 500 kommt aus der Route. */}
@@ -176,7 +176,7 @@ export function WarningsPanel({ guildId }: { guildId: string }) {
 
           <div className="space-y-3">
             {users.map((user) => (
-              <div key={user.user_id} className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6">
+              <div key={user.user_id} className="cloudtix-admin-card bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6">
                 <div className="flex items-center justify-between gap-4 flex-wrap">
                   <div className="min-w-0">
                     <p className="font-black text-white truncate">
@@ -200,7 +200,7 @@ export function WarningsPanel({ guildId }: { guildId: string }) {
                     <button
                       onClick={() => clearUser(user.user_id)}
                       disabled={busy}
-                      className="p-2.5 rounded-xl bg-[#0e0e12] border border-slate-800 text-slate-500 hover:text-red-400 hover:bg-red-400/10 transition-all disabled:opacity-40"
+                      className="p-2.5 rounded-xl cloudtix-admin-field bg-[#0e0e12] border border-slate-800 text-slate-500 hover:text-red-400 hover:bg-red-400/10 transition-all disabled:opacity-40"
                       title="Clear all warnings"
                     >
                       <Trash2 className="h-4 w-4" />
@@ -226,7 +226,7 @@ export function WarningsPanel({ guildId }: { guildId: string }) {
                         {user.entries.map((entry) => (
                           <div
                             key={entry.id}
-                            className="flex items-start justify-between gap-3 p-3 bg-[#0e0e12] border border-slate-800 rounded-2xl"
+                            className="flex items-start justify-between gap-3 p-3 cloudtix-admin-field bg-[#0e0e12] border border-slate-800 rounded-2xl"
                           >
                             <div className="min-w-0">
                               <p className="text-sm text-slate-300 break-words">{entry.reason}</p>

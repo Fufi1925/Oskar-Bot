@@ -128,7 +128,7 @@ export function OwnerPrivilegesPanel({ currentUserId }: { currentUserId: string 
 
   return (
     <section className="space-y-6">
-      <header className="rounded-2xl border border-white/10 bg-[#131318] p-5 sm:p-7">
+      <header className="rounded-2xl border border-white/10 cloudtix-admin-card bg-[#131318] p-5 sm:p-7">
         <div className="flex items-center gap-3"><LockKeyhole className="h-6 w-6 text-amber-300" /><h2 className="text-xl font-bold text-white">Owner-Extra</h2><button type="button" disabled={changed || busy} onClick={() => setReload((value) => value + 1)} className="ml-auto rounded-lg border border-white/10 px-3 py-2 text-xs text-slate-300 disabled:opacity-40">Aktualisieren</button></div>
         <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-400">Sonderrechte gezielt pro Owner verwalten. Wähle eine Person, prüfe die Ausnahmen und speichere deine Änderungen gemeinsam.</p>
         <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3">
@@ -137,7 +137,7 @@ export function OwnerPrivilegesPanel({ currentUserId }: { currentUserId: string 
       </header>
       {owners.length === 0 ? <p className="rounded-2xl border border-white/10 p-6 text-slate-400">Keine Owner verfügbar.</p> : (
         <div className="grid items-start gap-5 lg:grid-cols-[260px_minmax(0,1fr)]">
-          <aside className="rounded-2xl border border-white/10 bg-[#131318] p-4">
+          <aside className="rounded-2xl border border-white/10 cloudtix-admin-card bg-[#131318] p-4">
             <label htmlFor="owner-search" className="mb-2 block text-xs font-medium text-slate-400">Owner suchen</label>
             <input id="owner-search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Name oder Discord-ID" className="w-full rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-amber-300/50" />
             <div className="mt-3 space-y-2">
@@ -149,7 +149,7 @@ export function OwnerPrivilegesPanel({ currentUserId }: { currentUserId: string 
             </div>
             {changed && <p className="mt-3 text-xs leading-5 text-amber-300">Speichere oder verwirf deine Änderungen, bevor du die Person wechselst.</p>}
           </aside>
-          {owner && draft && <article className="overflow-hidden rounded-2xl border border-white/10 bg-[#101014]">
+          {owner && draft && <article className="overflow-hidden rounded-2xl border border-white/10 cloudtix-admin-field bg-[#101014]">
             <header className="flex flex-wrap items-center gap-3 border-b border-white/10 p-5">
               <Crown className="h-6 w-6 text-amber-300" /><div className="min-w-0 flex-1"><h3 className="truncate font-semibold text-white">{owner.username || "Owner"}</h3><p className="break-all text-xs text-slate-400">{owner.user_id}</p></div>
               <button type="button" onClick={() => { navigator.clipboard.writeText(owner.user_id).then(() => toast.success("Discord-ID kopiert.")).catch(() => toast.error("Kopieren nicht möglich.")); }} className="rounded-lg border border-white/10 px-3 py-2 text-xs text-slate-300 hover:bg-white/5">ID kopieren</button>

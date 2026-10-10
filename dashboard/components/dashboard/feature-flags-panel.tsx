@@ -106,7 +106,7 @@ export function FeatureFlagsPanel({ canEdit = false }: { canEdit?: boolean }) {
 
   return (
     <section className="space-y-6">
-      <div className="bg-[#131318] border border-slate-800 rounded-3xl p-5 sm:p-8">
+      <div className="cloudtix-admin-panel-header cloudtix-admin-card bg-[#131318] border border-slate-800 rounded-3xl p-5 sm:p-8">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
           <div className="flex items-center gap-4">
             <div className="h-12 w-12 rounded-2xl bg-primary/15 border border-primary/25 flex items-center justify-center">
@@ -126,7 +126,7 @@ export function FeatureFlagsPanel({ canEdit = false }: { canEdit?: boolean }) {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search features..."
-              className="w-full bg-[#0e0e12] border border-slate-800 rounded-2xl pl-11 pr-4 py-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-primary"
+              className="w-full cloudtix-admin-field bg-[#0e0e12] border border-slate-800 rounded-2xl pl-11 pr-4 py-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-primary"
             />
           </label>
         </div>
@@ -140,7 +140,7 @@ export function FeatureFlagsPanel({ canEdit = false }: { canEdit?: boolean }) {
                 "px-4 py-2 rounded-xl text-sm font-semibold transition-all",
                 activeCategory === category
                   ? "bg-primary text-white"
-                  : "bg-[#0e0e12] text-slate-400 hover:text-white hover:bg-white/[0.06]"
+                  : "cloudtix-admin-field bg-[#0e0e12] text-slate-400 hover:text-white hover:bg-white/[0.06]"
               )}
             >
               {category === "all" ? `All (${features.length})` : category}
@@ -156,7 +156,7 @@ export function FeatureFlagsPanel({ canEdit = false }: { canEdit?: boolean }) {
             <div
               key={flag.key}
               className={cn(
-                "bg-[#131318] border rounded-3xl p-4 sm:p-6 transition-all",
+                "cloudtix-admin-card bg-[#131318] border rounded-3xl p-4 sm:p-6 transition-all",
                 flag.active ? "border-primary/25" : "border-slate-800"
               )}
             >

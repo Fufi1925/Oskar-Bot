@@ -85,7 +85,7 @@ export function BotSettingsPanel() {
 
   return (
     <section className="space-y-6">
-      <div className="bg-[#131318] border border-slate-800 rounded-3xl p-5 sm:p-8">
+      <div className="cloudtix-admin-panel-header cloudtix-admin-card bg-[#131318] border border-slate-800 rounded-3xl p-5 sm:p-8">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
           <div className="flex items-center gap-4">
             <div className="h-12 w-12 rounded-2xl bg-primary/15 border border-primary/25 flex items-center justify-center">
@@ -111,7 +111,7 @@ export function BotSettingsPanel() {
       </div>
 
       {groups.map((group) => (
-        <div key={group} className="bg-[#131318] border border-slate-800 rounded-3xl p-8">
+        <div key={group} className="cloudtix-admin-card bg-[#131318] border border-slate-800 rounded-3xl p-8">
           <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-600 mb-6">
             {group}
           </p>
@@ -162,7 +162,7 @@ export function BotSettingsPanel() {
                       }
                       inputMode={setting.kind === "number" ? "numeric" : "text"}
                       className={cn(
-  "w-full bg-[#0e0e12] border border-slate-800 rounded-2xl px-4 py-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-primary",
+  "w-full cloudtix-admin-field bg-[#0e0e12] border border-slate-800 rounded-2xl px-4 py-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-primary",
                         setting.env_override && "opacity-50 cursor-not-allowed"
                       )}
                     />
@@ -193,7 +193,7 @@ export function BotSettingsPanel() {
         onSave={save}
       />
 
-      <div className="flex gap-3 p-5 bg-[#0e0e12] border border-slate-800 rounded-3xl">
+      <div className="flex gap-3 p-5 cloudtix-admin-field bg-[#0e0e12] border border-slate-800 rounded-3xl">
         <Info className="h-5 w-5 text-slate-500 shrink-0" />
         <p className="text-xs text-slate-400 leading-relaxed">
           Channel IDs: enable Developer Mode in Discord, then right-click a channel and pick

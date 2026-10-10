@@ -22,7 +22,7 @@ import { KeyRound, Loader2, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
 
-const CARD = "bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6";
+const CARD = "cloudtix-admin-card bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6";
 
 interface Eintrag {
   guild_id: string;
@@ -122,7 +122,7 @@ export function DesignUnlockPanel({
           <WebsiteSelect
             value={guilds.some((g) => g.id === wahl) ? wahl : ""}
             onChange={(e) => setWahl(e.target.value)}
-            className="flex-1 rounded-2xl border border-slate-800 bg-[#0f0f13] px-4 py-3 text-sm text-white outline-none focus:border-amber-400/50"
+            className="flex-1 rounded-2xl border border-slate-800 cloudtix-admin-card bg-[#0f0f13] px-4 py-3 text-sm text-white outline-none focus:border-amber-400/50"
           >
             <option value="">Server wählen …</option>
             {guilds.map((g) => (
@@ -135,7 +135,7 @@ export function DesignUnlockPanel({
             value={notiz}
             onChange={(e) => setNotiz(e.target.value)}
             placeholder="Notiz (freiwillig)"
-            className="flex-1 rounded-2xl border border-slate-800 bg-[#0f0f13] px-4 py-3 text-sm text-white outline-none focus:border-amber-400/50"
+            className="flex-1 rounded-2xl border border-slate-800 cloudtix-admin-card bg-[#0f0f13] px-4 py-3 text-sm text-white outline-none focus:border-amber-400/50"
           />
           <button
             onClick={freischalten}
@@ -171,7 +171,7 @@ export function DesignUnlockPanel({
             {liste.map((e) => (
               <div
                 key={e.guild_id}
-                className="flex flex-wrap items-center gap-3 rounded-2xl border border-slate-800 bg-[#0f0f13] p-3"
+                className="flex flex-wrap items-center gap-3 rounded-2xl border border-slate-800 cloudtix-admin-card bg-[#0f0f13] p-3"
               >
                 <div className="min-w-0 flex-1">
                   <div className="truncate text-sm text-white">

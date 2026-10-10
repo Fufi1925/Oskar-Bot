@@ -260,7 +260,7 @@ export function UserLookupPanel() {
   return (
     <div className="space-y-5">
       {/* ── Suche ─────────────────────────────────────────────── */}
-      <div className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-4">
+      <div className="cloudtix-admin-card bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-4">
         <div>
           <h3 className="font-bold text-white">Nutzer nachschlagen</h3>
           <p className="text-[11px] text-slate-500 mt-0.5">
@@ -292,7 +292,7 @@ export function UserLookupPanel() {
       {/* ── Ergebnis ──────────────────────────────────────────── */}
       {data && (
         <>
-          <div className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5">
+          <div className="cloudtix-admin-card bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5">
             <div className="flex items-start gap-4 flex-wrap">
               {data.avatar ? (
                 // eslint-disable-next-line @next/next/no-img-element
@@ -362,7 +362,7 @@ export function UserLookupPanel() {
           </div>
 
           {/* ── Maßnahmen ───────────────────────────────────── */}
-          <div className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-4">
+          <div className="cloudtix-admin-card bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-4">
             <div>
               <h3 className="font-bold text-white">Maßnahmen</h3>
               <p className="text-[11px] text-slate-500 mt-0.5">
@@ -443,7 +443,7 @@ export function UserLookupPanel() {
           </div>
 
           {/* ── Die Server ──────────────────────────────────── */}
-          <div className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-3">
+          <div className="cloudtix-admin-card bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-3">
             <h3 className="font-bold text-white">
               Server ({data.guild_count})
             </h3>
@@ -456,7 +456,7 @@ export function UserLookupPanel() {
                 {data.guilds.map((g) => (
                   <div
                     key={g.guild_id}
-                    className="flex items-center gap-3 p-3 rounded-2xl bg-[#0e0e12] border border-slate-800"
+                    className="flex items-center gap-3 p-3 rounded-2xl cloudtix-admin-field bg-[#0e0e12] border border-slate-800"
                   >
                     {g.guild_icon ? (
                       // eslint-disable-next-line @next/next/no-img-element
@@ -538,7 +538,7 @@ export function UserLookupPanel() {
             {bans.map((b) => (
               <div
                 key={b.user_id}
-                className="flex items-center gap-3 p-3 rounded-2xl bg-[#0e0e12] border border-slate-800"
+                className="flex items-center gap-3 p-3 rounded-2xl cloudtix-admin-field bg-[#0e0e12] border border-slate-800"
               >
                 <div className="min-w-0 flex-1">
                   <p className="text-sm text-white font-bold truncate">
@@ -571,7 +571,7 @@ export function UserLookupPanel() {
       {/* ── Bestätigung für den Massenbann ────────────────────── */}
       {banDialog && data && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-black/70 p-4">
-          <div className="w-full max-w-lg bg-[#0d1b30] border border-red-500/30 rounded-3xl p-6 space-y-5">
+          <div className="w-full max-w-lg cloudtix-admin-field bg-[#0d1b30] border border-red-500/30 rounded-3xl p-6 space-y-5">
             <div className="flex items-start justify-between gap-4">
               <div className="flex gap-3">
                 <div className="h-10 w-10 rounded-2xl bg-red-500/15 border border-red-500/30 grid place-items-center shrink-0">

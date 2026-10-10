@@ -68,7 +68,7 @@ export function PremiumGuilds() {
 
   return (
     <div className="space-y-4">
-      <section className="rounded-3xl border border-amber-400/20 bg-[#111116] p-5 sm:p-6">
+      <section className="rounded-3xl border border-amber-400/20 cloudtix-admin-card bg-[#111116] p-5 sm:p-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="flex gap-3">
             <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-amber-400/10 text-amber-300"><Crown className="h-5 w-5" /></span>
@@ -82,12 +82,12 @@ export function PremiumGuilds() {
         </div>
       </section>
 
-      <section className="rounded-3xl border border-slate-800 bg-[#131318] p-4 sm:p-5">
-        <div className="relative"><Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-600" /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Servername oder Server-ID suchen" className="w-full rounded-xl border border-slate-800 bg-[#0e0e12] py-3 pl-10 pr-4 text-sm text-white outline-none focus:border-amber-400/40" /></div>
+      <section className="rounded-3xl border border-slate-800 cloudtix-admin-card bg-[#131318] p-4 sm:p-5">
+        <div className="relative"><Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-600" /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Servername oder Server-ID suchen" className="w-full rounded-xl border border-slate-800 cloudtix-admin-field bg-[#0e0e12] py-3 pl-10 pr-4 text-sm text-white outline-none focus:border-amber-400/40" /></div>
         {loading ? <div className="grid min-h-52 place-items-center"><Loader2 className="h-6 w-6 animate-spin text-amber-300" /></div> : error ? (
           <div className="mt-4 rounded-2xl border border-red-500/20 bg-red-500/[0.05] p-5 text-center"><p className="text-sm font-bold text-red-200">{error}</p><button onClick={load} className="mt-3 rounded-xl border border-red-400/20 px-3 py-2 text-xs font-bold text-red-200">Erneut versuchen</button></div>
         ) : <div className="mt-4 grid gap-3 lg:grid-cols-2">
-          {visible.map((guild) => <div key={guild.guild_id} className={cn("flex items-center gap-3 rounded-2xl border p-3", guild.premium ? "border-amber-400/25 bg-amber-400/[0.04]" : "border-slate-800 bg-[#0e0e12]")}>
+          {visible.map((guild) => <div key={guild.guild_id} className={cn("flex items-center gap-3 rounded-2xl border p-3", guild.premium ? "border-amber-400/25 bg-amber-400/[0.04]" : "border-slate-800 cloudtix-admin-field bg-[#0e0e12]")}>
             {guild.icon ? <img src={guild.icon} alt="" className="h-10 w-10 rounded-xl object-cover" /> : <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-slate-800 text-slate-500"><Server className="h-4 w-4" /></span>}
             <div className="min-w-0 flex-1"><p className="truncate text-sm font-bold text-white">{guild.name}</p><p className="truncate text-[10px] text-slate-600">{guild.guild_id} · {guild.members.toLocaleString(websiteLocale())} Mitglieder</p><p className={cn("mt-1 text-[9px] font-black uppercase", guild.premium ? "text-amber-300" : "text-slate-600")}>{guild.premium ? "Server-Premium aktiv" : "Kein Server-Premium"}</p></div>
             <button type="button" onClick={() => toggle(guild)} disabled={busy === guild.guild_id} className={cn("relative h-7 w-12 shrink-0 rounded-full transition-colors disabled:opacity-40", guild.premium ? "bg-amber-400" : "bg-slate-700")} aria-label={`Premium für ${guild.name} ${guild.premium ? "entziehen" : "vergeben"}`}>

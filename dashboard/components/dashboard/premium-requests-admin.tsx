@@ -75,7 +75,7 @@ export function PremiumRequestsAdmin() {
   );
 
   return (
-    <section className="rounded-xl border border-white/[.06] bg-[#202126] p-4 sm:p-5">
+    <section className="rounded-xl border border-white/[.06] cloudtix-admin-card bg-[#202126] p-4 sm:p-5">
       <div className="flex items-center gap-3">
         <span className="grid h-9 w-9 place-items-center rounded-lg bg-amber-400/10">
           <ShoppingCart className="h-4 w-4 text-amber-300" />

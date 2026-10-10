@@ -28,9 +28,9 @@ import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { InlineToggle } from "@/components/dashboard/form-elements";
 
-const CARD = "rounded-xl border border-white/[.06] bg-[#202126] p-4 sm:p-5";
+const CARD = "rounded-xl border border-white/[.06] cloudtix-admin-card bg-[#202126] p-4 sm:p-5";
 const INPUT =
-  "w-full rounded-lg border border-white/[.07] bg-[#191a1f] px-3.5 py-2.5 text-[14px] " +
+  "w-full rounded-lg border border-white/[.07] cloudtix-admin-field bg-[#191a1f] px-3.5 py-2.5 text-[14px] " +
   "text-white placeholder:text-slate-600 focus:outline-none focus:border-blue-400/30 " +
   "transition-colors";
 
@@ -155,7 +155,7 @@ export function ApplicationsAdmin() {
               "rounded-lg border px-3.5 py-2 text-[12px] font-medium transition-colors",
               filter === f.id
                 ? "border-blue-400/25 bg-blue-500/10 text-blue-300"
-                : "border-white/[.06] bg-[#202126] text-slate-500 hover:border-white/[.12] hover:text-slate-300",
+                : "border-white/[.06] cloudtix-admin-card bg-[#202126] text-slate-500 hover:border-white/[.12] hover:text-slate-300",
             )}
           >
             {f.label}
@@ -168,7 +168,7 @@ export function ApplicationsAdmin() {
         <button
           type="button"
           onClick={() => setZeigeConfig((z) => !z)}
-          className="ml-auto flex items-center gap-2 rounded-lg border border-white/[.06] bg-[#202126] px-3.5 py-2 text-[12px] font-medium text-slate-400 transition-colors hover:border-white/[.12] hover:text-white"
+          className="ml-auto flex items-center gap-2 rounded-lg border border-white/[.06] cloudtix-admin-card bg-[#202126] px-3.5 py-2 text-[12px] font-medium text-slate-400 transition-colors hover:border-white/[.12] hover:text-white"
         >
           <Settings2 className="h-3.5 w-3.5" />
           Einstellungen
@@ -207,7 +207,7 @@ export function ApplicationsAdmin() {
               return (
                 <div
                   key={r.key}
-                  className="rounded-xl bg-[#0a0a0c] border border-slate-800 p-3.5"
+                  className="rounded-xl cloudtix-admin-field bg-[#0a0a0c] border border-slate-800 p-3.5"
                 >
                   <div className="flex items-center justify-between gap-3">
                     <span className="text-[14px] font-semibold text-white">
@@ -373,7 +373,7 @@ export function ApplicationsAdmin() {
                   "w-full rounded-xl border p-3.5 text-left transition-colors",
                   gewaehlt?.user_id === a.user_id
                     ? "border-indigo-500/40 bg-indigo-500/5"
-                    : "border-slate-800 bg-[#0f0f13] hover:border-slate-700",
+                    : "border-slate-800 cloudtix-admin-card bg-[#0f0f13] hover:border-slate-700",
                 )}
               >
                 <div className="flex items-center gap-2.5">
@@ -439,7 +439,7 @@ export function ApplicationsAdmin() {
                 </div>
 
                 {gewaehlt.reason && (
-                  <div className="mt-4 rounded-xl border border-slate-800 bg-[#0a0a0c] p-3.5">
+                  <div className="mt-4 rounded-xl border border-slate-800 cloudtix-admin-field bg-[#0a0a0c] p-3.5">
                     <div className="text-[10px] font-black uppercase tracking-widest text-slate-600">
                       Begründung von{" "}
                       {gewaehlt.decided_by_name || gewaehlt.decided_by || "—"}

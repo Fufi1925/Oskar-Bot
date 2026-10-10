@@ -73,7 +73,7 @@ export function OwnerAccessPanel({ currentUserId }: { currentUserId?: string }) 
 
   return (
     <section className="space-y-6">
-      <div className="bg-[#131318] border border-slate-800 rounded-3xl p-5 sm:p-8">
+      <div className="cloudtix-admin-panel-header cloudtix-admin-card bg-[#131318] border border-slate-800 rounded-3xl p-5 sm:p-8">
         <div className="flex items-center gap-4">
           <div className="h-12 w-12 rounded-2xl bg-amber-400/15 border border-amber-400/25 flex items-center justify-center">
             <Crown className="h-6 w-6 text-amber-400" />
@@ -87,7 +87,7 @@ export function OwnerAccessPanel({ currentUserId }: { currentUserId?: string }) 
         </div>
       </div>
 
-      <div className="bg-[#0e0e12] border border-slate-800 rounded-3xl p-5 flex gap-3">
+      <div className="cloudtix-admin-field bg-[#0e0e12] border border-slate-800 rounded-3xl p-5 flex gap-3">
         <Lock className="h-5 w-5 text-slate-500 shrink-0" />
         <p className="text-sm text-slate-400">
           Full access is fixed by <code>OWNER_IDS</code> and <code>ADMIN_IDS</code>.
@@ -101,7 +101,7 @@ export function OwnerAccessPanel({ currentUserId }: { currentUserId?: string }) 
           <div
             key={entry.user_id}
             className={cn(
-  "bg-[#131318] border rounded-3xl p-4 sm:p-6 flex items-center justify-between gap-4 flex-wrap",
+  "cloudtix-admin-card bg-[#131318] border rounded-3xl p-4 sm:p-6 flex items-center justify-between gap-4 flex-wrap",
               entry.kind === "owner" ? "border-amber-400/25" : "border-slate-800"
             )}
           >

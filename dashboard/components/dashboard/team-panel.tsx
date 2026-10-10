@@ -139,7 +139,7 @@ export function TeamPanel({ canAssign = false }: { canAssign?: boolean }) {
   return (
     <section className="space-y-6">
       {/* Header */}
-      <div className="bg-[#131318] border border-slate-800 rounded-3xl p-5 sm:p-8">
+      <div className="cloudtix-admin-panel-header cloudtix-admin-card bg-[#131318] border border-slate-800 rounded-3xl p-5 sm:p-8">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
           <div className="flex items-center gap-4">
             <div className="h-12 w-12 rounded-2xl bg-primary/15 border border-primary/25 flex items-center justify-center">
@@ -153,7 +153,7 @@ export function TeamPanel({ canAssign = false }: { canAssign?: boolean }) {
             </div>
           </div>
 
-          <div className="flex gap-2 p-1.5 bg-[#131318]/70 border border-slate-800 rounded-2xl">
+          <div className="flex gap-2 p-1.5 cloudtix-admin-card bg-[#131318]/70 border border-slate-800 rounded-2xl">
             {(["team", "roles"] as const).map((id) => (
               <button
                 key={id}
@@ -174,7 +174,7 @@ export function TeamPanel({ canAssign = false }: { canAssign?: boolean }) {
         <>
           {/* Assign */}
           {canAssign && (
-          <div className="bg-[#131318] border border-slate-800 rounded-3xl p-8">
+          <div className="cloudtix-admin-card bg-[#131318] border border-slate-800 rounded-3xl p-8">
             <h4 className="font-black text-white flex items-center gap-2 mb-6">
               <UserPlus className="h-5 w-5 text-primary" /> Grant a role
             </h4>
@@ -188,7 +188,7 @@ export function TeamPanel({ canAssign = false }: { canAssign?: boolean }) {
                   value={userId}
                   onChange={(e) => setUserId(e.target.value)}
                   placeholder="123456789012345678"
-                  className="w-full bg-[#0e0e12] border border-slate-800 rounded-2xl px-4 py-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-primary"
+                  className="w-full cloudtix-admin-field bg-[#0e0e12] border border-slate-800 rounded-2xl px-4 py-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-primary"
                 />
               </label>
 
@@ -199,7 +199,7 @@ export function TeamPanel({ canAssign = false }: { canAssign?: boolean }) {
                 <WebsiteSelect
                   value={roleKey}
                   onChange={(e) => setRoleKey(e.target.value)}
-                  className="w-full appearance-none bg-[#0a0a0c] border border-white/10 rounded-2xl px-4 py-3 pr-9 text-sm text-white focus:outline-none focus:ring-1 focus:ring-primary bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20fill%3D%22none%22%20viewBox%3D%220%200%2024%2024%22%20stroke%3D%22%2394a3b8%22%20stroke-width%3D%222%22%3E%3Cpath%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20d%3D%22M19%209l-7%207-7-7%22/%3E%3C/svg%3E')] bg-[length:1.1rem] bg-[right_0.6rem_center] bg-no-repeat cursor-pointer"
+                  className="w-full appearance-none cloudtix-admin-field bg-[#0a0a0c] border border-white/10 rounded-2xl px-4 py-3 pr-9 text-sm text-white focus:outline-none focus:ring-1 focus:ring-primary bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20fill%3D%22none%22%20viewBox%3D%220%200%2024%2024%22%20stroke%3D%22%2394a3b8%22%20stroke-width%3D%222%22%3E%3Cpath%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20d%3D%22M19%209l-7%207-7-7%22/%3E%3C/svg%3E')] bg-[length:1.1rem] bg-[right_0.6rem_center] bg-no-repeat cursor-pointer"
                 >
                   <option value="">Pick a role...</option>
                   {categories.map((category) => (
@@ -224,7 +224,7 @@ export function TeamPanel({ canAssign = false }: { canAssign?: boolean }) {
                   value={guildScope}
                   onChange={(e) => setGuildScope(e.target.value)}
                   placeholder="Empty = all servers. Otherwise IDs separated by commas"
-                  className="w-full bg-[#0e0e12] border border-slate-800 rounded-2xl px-4 py-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-primary"
+                  className="w-full cloudtix-admin-field bg-[#0e0e12] border border-slate-800 rounded-2xl px-4 py-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-primary"
                 />
               </label>
 
@@ -236,13 +236,13 @@ export function TeamPanel({ canAssign = false }: { canAssign?: boolean }) {
                   value={note}
                   onChange={(e) => setNote(e.target.value)}
                   placeholder="e.g. trial until end of month"
-                  className="w-full bg-[#0e0e12] border border-slate-800 rounded-2xl px-4 py-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-primary"
+                  className="w-full cloudtix-admin-field bg-[#0e0e12] border border-slate-800 rounded-2xl px-4 py-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-primary"
                 />
               </label>
             </div>
 
             {roleKey && (
-              <div className="mt-5 p-4 bg-[#0e0e12] border border-slate-800 rounded-2xl">
+              <div className="mt-5 p-4 cloudtix-admin-field bg-[#0e0e12] border border-slate-800 rounded-2xl">
                 {(() => {
                   const role = roles.find((r) => r.key === roleKey);
                   if (!role) return null;
@@ -286,7 +286,7 @@ export function TeamPanel({ canAssign = false }: { canAssign?: boolean }) {
             {members.map((member) => (
               <div
                 key={member.user_id}
-                className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6"
+                className="cloudtix-admin-card bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6"
               >
                 <div className="flex items-start justify-between gap-4 flex-wrap">
                   <div className="flex items-center gap-4">
@@ -373,7 +373,7 @@ export function TeamPanel({ canAssign = false }: { canAssign?: boolean }) {
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Search roles..."
-                className="w-full bg-[#0e0e12] border border-slate-800 rounded-2xl pl-11 pr-4 py-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-primary"
+                className="w-full cloudtix-admin-field bg-[#0e0e12] border border-slate-800 rounded-2xl pl-11 pr-4 py-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-primary"
               />
             </label>
           </div>
@@ -387,7 +387,7 @@ export function TeamPanel({ canAssign = false }: { canAssign?: boolean }) {
   "px-4 py-2 rounded-xl text-sm font-semibold transition-all",
                   activeCategory === category
                     ? "bg-primary text-white"
-                    : "bg-[#0e0e12] text-slate-400 hover:text-white hover:bg-white/[0.06]"
+                    : "cloudtix-admin-field bg-[#0e0e12] text-slate-400 hover:text-white hover:bg-white/[0.06]"
                 )}
               >
                 {category === "all" ? `All (${roles.length})` : category}
@@ -399,7 +399,7 @@ export function TeamPanel({ canAssign = false }: { canAssign?: boolean }) {
             {visibleRoles.map((role) => (
               <div
                 key={role.key}
-                className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 hover:border-white/10 transition-all"
+                className="cloudtix-admin-card bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 hover:border-white/10 transition-all"
               >
                 <div className="flex items-start justify-between gap-4">
                   <div className="min-w-0">

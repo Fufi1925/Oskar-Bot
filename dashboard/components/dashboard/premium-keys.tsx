@@ -59,7 +59,7 @@ interface KeyRow {
 /* ── helpers ───────────────────────────────────────────────────────── */
 
 const INPUT =
-  "w-full bg-[#0e0e12] border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white " +
+  "w-full cloudtix-admin-field bg-[#0e0e12] border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white " +
   "placeholder:text-slate-600 focus:border-primary/50 focus:outline-none transition-colors";
 
 const STATES: Record<KeyState, { label: string; dot: string; chip: string }> = {
@@ -154,7 +154,7 @@ function Stat({
         "text-left rounded-2xl border px-4 py-3.5 transition-all",
         active
           ? "border-primary/40 bg-primary/[0.08]"
-          : "border-slate-800 bg-[#0e0e12]/60",
+          : "border-slate-800 cloudtix-admin-field bg-[#0e0e12]/60",
         onClick && "hover:border-slate-700"
       )}
     >
@@ -188,8 +188,8 @@ function Panel({
       className={cn(
         "rounded-3xl border p-5 space-y-4",
         tone === "muted"
-          ? "border-slate-800/70 bg-[#0e0e12]/40"
-          : "border-slate-800 bg-[#0e0e12]/60"
+          ? "border-slate-800/70 cloudtix-admin-field bg-[#0e0e12]/40"
+          : "border-slate-800 cloudtix-admin-field bg-[#0e0e12]/60"
       )}
     >
       <header className="flex items-center gap-3">
@@ -594,7 +594,7 @@ export function PremiumKeys() {
                         "px-2.5 py-1 rounded-lg text-[11px] font-bold border transition-colors",
                         days === value
                           ? "bg-primary/15 border-primary/40 text-white"
-                          : "bg-[#0e0e12] border-slate-800 text-slate-400 hover:border-slate-700"
+                          : "cloudtix-admin-field bg-[#0e0e12] border-slate-800 text-slate-400 hover:border-slate-700"
                       )}
                     >
                       {label}
@@ -690,7 +690,7 @@ export function PremiumKeys() {
             </div>
             {fresh.map((k) => (
               <div key={k} className="flex items-center gap-2">
-                <code className="flex-1 font-mono text-sm text-white tracking-widest bg-[#0e0e12] rounded-lg px-3 py-2 select-all">
+                <code className="flex-1 font-mono text-sm text-white tracking-widest cloudtix-admin-field bg-[#0e0e12] rounded-lg px-3 py-2 select-all">
                   {k}
                 </code>
                 <button
@@ -698,7 +698,7 @@ export function PremiumKeys() {
                     navigator.clipboard?.writeText(k);
                     toast.success("Kopiert.");
                   }}
-                  className="p-2.5 rounded-lg bg-[#0e0e12] border border-slate-800 text-slate-400 hover:text-white transition-colors"
+                  className="p-2.5 rounded-lg cloudtix-admin-field bg-[#0e0e12] border border-slate-800 text-slate-400 hover:text-white transition-colors"
                   aria-label="Key kopieren"
                 >
                   <Copy className="h-4 w-4" />
@@ -781,7 +781,7 @@ export function PremiumKeys() {
                   "px-3 py-2 rounded-lg text-[11px] font-bold border transition-colors",
                   filter === id
                     ? "bg-primary/15 border-primary/40 text-white"
-                    : "bg-[#0e0e12] border-slate-800 text-slate-400 hover:border-slate-700"
+                    : "cloudtix-admin-field bg-[#0e0e12] border-slate-800 text-slate-400 hover:border-slate-700"
                 )}
               >
                 {label}
@@ -797,7 +797,7 @@ export function PremiumKeys() {
                     : "created"
                 )
               }
-              className="px-3 py-2 rounded-lg text-[11px] font-bold border bg-[#0e0e12] border-slate-800 text-slate-400 hover:border-slate-700 transition-colors flex items-center gap-1.5"
+              className="px-3 py-2 rounded-lg text-[11px] font-bold border cloudtix-admin-field bg-[#0e0e12] border-slate-800 text-slate-400 hover:border-slate-700 transition-colors flex items-center gap-1.5"
               title="Sortierung wechseln"
             >
               <ArrowUpDown className="h-3.5 w-3.5" />
@@ -873,7 +873,7 @@ export function PremiumKeys() {
                   // per-row delay would take half a minute to finish.
                   delay={Math.min(index, 10) * 35}
                   className={cn(
-                    "rounded-xl border bg-[#0e0e12] transition-colors",
+                    "rounded-xl border cloudtix-admin-field bg-[#0e0e12] transition-colors",
                     selected.has(row.key_hash)
                       ? "border-primary/40"
                       : "border-slate-800"

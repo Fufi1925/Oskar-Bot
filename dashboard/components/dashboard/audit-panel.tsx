@@ -62,7 +62,7 @@ export function AuditPanel() {
 
   return (
     <section className="space-y-6">
-      <div className="bg-[#131318] border border-slate-800 rounded-3xl p-5 sm:p-8">
+      <div className="cloudtix-admin-panel-header cloudtix-admin-card bg-[#131318] border border-slate-800 rounded-3xl p-5 sm:p-8">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
           <div className="flex items-center gap-4">
             <div className="h-12 w-12 shrink-0 rounded-2xl bg-primary/15 border border-primary/25 flex items-center justify-center">
@@ -77,7 +77,7 @@ export function AuditPanel() {
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
-            <div className="flex flex-wrap gap-1.5 p-1.5 bg-[#131318]/70 border border-slate-800 rounded-2xl">
+            <div className="flex flex-wrap gap-1.5 p-1.5 cloudtix-admin-card bg-[#131318]/70 border border-slate-800 rounded-2xl">
               {([
                 ["audit", "Actions", FileText],
                 ["timeline", "Timeline", Clock],
@@ -98,7 +98,7 @@ export function AuditPanel() {
             </div>
             <button
               onClick={load}
-              className="p-3 rounded-2xl bg-[#0e0e12] border border-slate-800 hover:bg-white/[0.06] transition-all"
+              className="p-3 rounded-2xl cloudtix-admin-field bg-[#0e0e12] border border-slate-800 hover:bg-white/[0.06] transition-all"
               title="Refresh"
             >
               <RefreshCw className={cn("h-4 w-4 text-primary", loading && "animate-spin")} />
@@ -128,7 +128,7 @@ export function AuditPanel() {
       ) : (
         <>
           {tab === "audit" && (
-            <div className="bg-[#131318] border border-slate-800 rounded-3xl overflow-hidden">
+            <div className="cloudtix-admin-card bg-[#131318] border border-slate-800 rounded-3xl overflow-hidden">
               {entries.length === 0 ? (
                 <p className="text-sm text-slate-500 py-12 text-center">
                   No actions recorded yet.
@@ -187,7 +187,7 @@ export function AuditPanel() {
           )}
 
           {tab === "timeline" && (
-            <div className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6">
+            <div className="cloudtix-admin-card bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6">
               {timeline.length === 0 ? (
                 <p className="text-sm text-slate-500 py-8 text-center">No events yet.</p>
               ) : (
@@ -220,7 +220,7 @@ export function AuditPanel() {
           )}
 
           {tab === "broadcasts" && (
-            <div className="bg-[#131318] border border-slate-800 rounded-3xl overflow-hidden">
+            <div className="cloudtix-admin-card bg-[#131318] border border-slate-800 rounded-3xl overflow-hidden">
               {broadcasts.length === 0 ? (
                 <p className="text-sm text-slate-500 py-12 text-center">
                   No broadcasts sent yet.

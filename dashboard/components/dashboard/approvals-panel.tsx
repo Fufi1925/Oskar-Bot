@@ -80,7 +80,7 @@ export function ApprovalsPanel({
 
   if (disabled) {
     return (
-      <div className="bg-[#0e0e12] border border-slate-800 rounded-3xl p-8 flex gap-4">
+      <div className="cloudtix-admin-field bg-[#0e0e12] border border-slate-800 rounded-3xl p-8 flex gap-4">
         <ClipboardList className="h-6 w-6 text-slate-500 shrink-0" />
         <div>
           <h4 className="font-black text-white">Approval queue is off</h4>
@@ -101,7 +101,7 @@ export function ApprovalsPanel({
 
   return (
     <section className="space-y-6">
-      <div className="bg-[#131318] border border-slate-800 rounded-3xl p-5 sm:p-8">
+      <div className="cloudtix-admin-panel-header cloudtix-admin-card bg-[#131318] border border-slate-800 rounded-3xl p-5 sm:p-8">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
           <div className="flex items-center gap-4">
             <div className="h-12 w-12 shrink-0 rounded-2xl bg-primary/15 border border-primary/25 flex items-center justify-center">
@@ -116,7 +116,7 @@ export function ApprovalsPanel({
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
-            <div className="flex flex-wrap gap-1.5 p-1.5 bg-[#131318]/70 border border-slate-800 rounded-2xl">
+            <div className="flex flex-wrap gap-1.5 p-1.5 cloudtix-admin-card bg-[#131318]/70 border border-slate-800 rounded-2xl">
               {(
                 [
                   ["pending", "Ausstehend"],
@@ -138,7 +138,7 @@ export function ApprovalsPanel({
             </div>
             <button
               onClick={load}
-              className="p-3 rounded-2xl bg-[#0e0e12] border border-slate-800 hover:bg-white/[0.06] transition-all"
+              className="p-3 rounded-2xl cloudtix-admin-field bg-[#0e0e12] border border-slate-800 hover:bg-white/[0.06] transition-all"
             >
               <RefreshCw className={cn("h-4 w-4 text-primary", loading && "animate-spin")} />
             </button>
@@ -166,7 +166,7 @@ export function ApprovalsPanel({
             return (
               <div
                 key={entry.id}
-                className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6"
+                className="cloudtix-admin-card bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6"
               >
                 <div className="flex items-start justify-between gap-4 flex-wrap">
                   <div className="min-w-0">

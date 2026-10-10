@@ -72,7 +72,7 @@ interface Zahlen {
   woche: number;
 }
 
-const KARTE = "rounded-3xl border border-slate-800 bg-[#131318]";
+const KARTE = "rounded-3xl border border-slate-800 cloudtix-admin-card bg-[#131318]";
 
 /** Datum und Uhrzeit — bei einem Nachweis zählt die Minute. */
 function zeitpunkt(unix: number) {
@@ -217,7 +217,7 @@ export function CookieConsentsPanel() {
         <button
           type="button"
           onClick={load}
-          className="flex shrink-0 items-center gap-2 rounded-xl border border-slate-800 bg-[#0e0e12] px-4 py-2.5 text-sm font-semibold text-slate-300 transition-colors hover:border-slate-700 hover:text-white"
+          className="flex shrink-0 items-center gap-2 rounded-xl border border-slate-800 cloudtix-admin-field bg-[#0e0e12] px-4 py-2.5 text-sm font-semibold text-slate-300 transition-colors hover:border-slate-700 hover:text-white"
         >
           <RefreshCw className="h-3.5 w-3.5" />
           Aktualisieren
@@ -253,7 +253,7 @@ export function CookieConsentsPanel() {
               Jeder Browser zählt einmal, am Tag seiner ersten Bestätigung.
             </p>
           </div>
-          <div className="flex gap-1 rounded-lg border border-slate-800 bg-[#0f0f13] p-1">
+          <div className="flex gap-1 rounded-lg border border-slate-800 cloudtix-admin-card bg-[#0f0f13] p-1">
             {([
               [7, "7 Tage"],
               [30, "30 Tage"],
@@ -298,7 +298,7 @@ export function CookieConsentsPanel() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Nach Name, Discord-ID oder Kennung suchen"
-            className="w-full rounded-xl border border-slate-800 bg-[#0e0e12] py-2.5 pl-10 pr-4 text-sm text-white placeholder:text-slate-600 transition-colors focus:border-slate-700 focus:outline-none"
+            className="w-full rounded-xl border border-slate-800 cloudtix-admin-field bg-[#0e0e12] py-2.5 pl-10 pr-4 text-sm text-white placeholder:text-slate-600 transition-colors focus:border-slate-700 focus:outline-none"
           />
         </div>
         <button
@@ -309,7 +309,7 @@ export function CookieConsentsPanel() {
             "rounded-xl border px-4 py-2.5 text-sm font-semibold transition-colors",
             nurKonto
               ? "border-indigo-500/30 bg-indigo-500/10 text-indigo-300"
-              : "border-slate-800 bg-[#0e0e12] text-slate-400 hover:border-slate-700 hover:text-white",
+              : "border-slate-800 cloudtix-admin-field bg-[#0e0e12] text-slate-400 hover:border-slate-700 hover:text-white",
           )}
         >
           Nur mit Discord-Konto
@@ -384,7 +384,7 @@ export function CookieConsentsPanel() {
                       onClick={() => kontoLoeschen(row)}
                       disabled={busy === row.besucher_id}
                       title="Alles zu diesem Discord-Konto löschen (Art. 17 DSGVO)"
-                      className="flex items-center gap-1.5 rounded-lg border border-slate-800 bg-[#0e0e12] px-3 py-2 text-[12px] font-semibold text-slate-400 transition-colors hover:border-rose-500/30 hover:text-rose-300 disabled:opacity-40"
+                      className="flex items-center gap-1.5 rounded-lg border border-slate-800 cloudtix-admin-field bg-[#0e0e12] px-3 py-2 text-[12px] font-semibold text-slate-400 transition-colors hover:border-rose-500/30 hover:text-rose-300 disabled:opacity-40"
                     >
                       <UserX className="h-3.5 w-3.5" />
                       Konto
@@ -397,7 +397,7 @@ export function CookieConsentsPanel() {
                     onClick={() => zeileLoeschen(row)}
                     disabled={busy === row.besucher_id}
                     title="Nur diesen Eintrag löschen"
-                    className="flex items-center gap-1.5 rounded-lg border border-slate-800 bg-[#0e0e12] px-3 py-2 text-[12px] font-semibold text-slate-400 transition-colors hover:border-rose-500/30 hover:text-rose-300 disabled:opacity-40"
+                    className="flex items-center gap-1.5 rounded-lg border border-slate-800 cloudtix-admin-field bg-[#0e0e12] px-3 py-2 text-[12px] font-semibold text-slate-400 transition-colors hover:border-rose-500/30 hover:text-rose-300 disabled:opacity-40"
                   >
                     {busy === row.besucher_id ? (
                       <Loader2 className="h-3.5 w-3.5 animate-spin" />

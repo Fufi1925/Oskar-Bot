@@ -74,10 +74,10 @@ type Bereich = "codes" | "konten" | "server" | "probewochen" | "archiv";
 /* ── Hilfen ────────────────────────────────────────────────────────── */
 
 const INPUT =
-  "w-full rounded-lg border border-white/[.07] bg-[#191a1f] px-3.5 py-2.5 text-sm text-white " +
+  "w-full rounded-lg border border-white/[.07] cloudtix-admin-field bg-[#191a1f] px-3.5 py-2.5 text-sm text-white " +
   "placeholder:text-slate-600 focus:border-primary/40 focus:outline-none transition-colors";
 
-const CARD = "rounded-xl border border-white/[.06] bg-[#202126]";
+const CARD = "rounded-xl border border-white/[.06] cloudtix-admin-card bg-[#202126]";
 
 /** Deutsche Schreibweise. `toFixed`/`toString` liefern einen Punkt. */
 function datum(sekunden?: number | null): string {
@@ -120,7 +120,7 @@ function Zahl({
         "rounded-xl border p-4",
         ton === "gold"
           ? "border-amber-400/20 bg-amber-400/[0.06]"
-          : "border-white/[.06] bg-[#202126]"
+          : "border-white/[.06] cloudtix-admin-card bg-[#202126]"
       )}
     >
       <div className="flex items-center gap-2">
@@ -282,7 +282,7 @@ export function PremiumAdmin() {
   return (
     <div className="space-y-5">
       <PremiumRequestsAdmin />
-      <section className="overflow-hidden rounded-xl border border-white/[.06] bg-[#202126]">
+      <section className="overflow-hidden rounded-xl border border-white/[.06] cloudtix-admin-card bg-[#202126]">
         <div className="flex flex-col gap-4 border-b border-white/[.06] px-5 py-4 sm:flex-row sm:items-center">
           <div className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-amber-400/10">
             <Crown className="h-5 w-5 text-amber-300" />
@@ -291,7 +291,7 @@ export function PremiumAdmin() {
             <h2 className="text-base font-semibold text-white">Premium-Zentrale</h2>
             <p className="mt-1 text-xs text-slate-500">Codes, Konten und Testzugänge an einem übersichtlichen Ort.</p>
           </div>
-          <button onClick={() => laden()} disabled={laedt} className="inline-flex items-center justify-center gap-2 rounded-lg border border-white/[.07] bg-[#191a1f] px-3.5 py-2.5 text-xs font-medium text-slate-400 transition hover:border-white/[.12] hover:text-white disabled:opacity-40">
+          <button onClick={() => laden()} disabled={laedt} className="inline-flex items-center justify-center gap-2 rounded-lg border border-white/[.07] cloudtix-admin-field bg-[#191a1f] px-3.5 py-2.5 text-xs font-medium text-slate-400 transition hover:border-white/[.12] hover:text-white disabled:opacity-40">
             <RefreshCw className={cn("h-3.5 w-3.5", laedt && "animate-spin")} /> Daten aktualisieren
           </button>
         </div>
@@ -358,7 +358,7 @@ export function PremiumAdmin() {
                     "rounded-xl px-3 py-2 text-xs font-bold transition",
                     filter === f.id
                       ? "bg-primary text-white"
-                      : "border border-slate-800 bg-[#0f0f13] text-slate-400 hover:bg-white/[0.04]"
+                      : "border border-slate-800 cloudtix-admin-card bg-[#0f0f13] text-slate-400 hover:bg-white/[0.04]"
                   )}
                 >
                   {f.label}
@@ -370,7 +370,7 @@ export function PremiumAdmin() {
               <button
                 onClick={() => laden()}
                 disabled={laedt}
-                className="rounded-xl border border-slate-800 bg-[#0f0f13] p-2.5 text-slate-400 transition hover:bg-white/[0.04] disabled:opacity-40"
+                className="rounded-xl border border-slate-800 cloudtix-admin-card bg-[#0f0f13] p-2.5 text-slate-400 transition hover:bg-white/[0.04] disabled:opacity-40"
                 title="Neu laden"
               >
                 <RefreshCw className={cn("h-4 w-4", laedt && "animate-spin")} />
@@ -459,7 +459,7 @@ export function PremiumAdmin() {
       {/* ── Die Liste ───────────────────────────────────────────── */}
       <Reveal>
         <div className={cn(CARD, "overflow-hidden")}>
-          <div className="flex items-center justify-between border-b border-slate-800 bg-[#0f0f13] px-5 py-3">
+          <div className="flex items-center justify-between border-b border-slate-800 cloudtix-admin-card bg-[#0f0f13] px-5 py-3">
             <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">
               {gefiltert.length}{" "}
               {gefiltert.length === 1 ? "Konto" : "Konten"}
@@ -474,13 +474,13 @@ export function PremiumAdmin() {
               {[0, 1, 2].map((i) => (
                 <div
                   key={i}
-                  className="h-16 animate-pulse rounded-2xl bg-[#0f0f13]"
+                  className="h-16 animate-pulse rounded-2xl cloudtix-admin-card bg-[#0f0f13]"
                 />
               ))}
             </div>
           ) : gefiltert.length === 0 ? (
             <div className="px-5 py-12 text-center">
-              <div className="mx-auto mb-3 w-fit rounded-2xl bg-[#0f0f13] p-3">
+              <div className="mx-auto mb-3 w-fit rounded-2xl cloudtix-admin-card bg-[#0f0f13] p-3">
                 <Crown className="h-5 w-5 text-slate-700" />
               </div>
               <p className="text-sm font-bold text-slate-400">
@@ -511,7 +511,7 @@ export function PremiumAdmin() {
                     className="flex w-full items-center gap-3 px-5 py-3.5 text-left transition hover:bg-white/[0.02]"
                   >
                     {/* Bild */}
-                    <div className="h-9 w-9 shrink-0 overflow-hidden rounded-full border border-slate-800 bg-[#0f0f13]">
+                    <div className="h-9 w-9 shrink-0 overflow-hidden rounded-full border border-slate-800 cloudtix-admin-card bg-[#0f0f13]">
                       {k.avatar ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img
@@ -594,7 +594,7 @@ export function PremiumAdmin() {
 
                   {/* Aufgeklappt */}
                   {auf && (
-                    <div className="space-y-3 border-t border-slate-800 bg-[#0f0f13] px-5 py-4">
+                    <div className="space-y-3 border-t border-slate-800 cloudtix-admin-card bg-[#0f0f13] px-5 py-4">
                       <div className="grid gap-3 text-xs sm:grid-cols-3">
                         <div>
                           <div className="text-[10px] font-black uppercase tracking-widest text-slate-600">
@@ -680,7 +680,7 @@ export function PremiumAdmin() {
             onClick={() => setZeigeKeys((v) => !v)}
             className="flex w-full items-center gap-3 px-5 py-4 text-left transition hover:bg-white/[0.02]"
           >
-            <div className="rounded-xl bg-[#0f0f13] p-2">
+            <div className="rounded-xl cloudtix-admin-card bg-[#0f0f13] p-2">
               <KeyRound className="h-4 w-4 text-slate-500" />
             </div>
             <div className="min-w-0 flex-1">

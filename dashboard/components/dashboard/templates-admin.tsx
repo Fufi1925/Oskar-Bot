@@ -43,9 +43,9 @@ import { cn } from "@/lib/utils";
 import { Select } from "@/components/ui/select";
 
 const CARD =
-  "bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6";
+  "cloudtix-admin-card bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6";
 const INPUT =
-  "w-full bg-[#0e0e12] border border-slate-800 rounded-xl px-4 py-3 text-sm " +
+  "w-full cloudtix-admin-field bg-[#0e0e12] border border-slate-800 rounded-xl px-4 py-3 text-sm " +
   "text-white placeholder:text-slate-600 focus:outline-none " +
   "focus:border-primary/50 transition-colors";
 
@@ -53,7 +53,7 @@ const INPUT =
 const DELETE_DELAY_SECONDS = 10;
 
 /** Wiederkehrende Kästchen-Klassen, damit sie nicht achtmal dastehen. */
-const SUB = "rounded-2xl bg-[#0e0e12] border border-slate-800 p-4";
+const SUB = "rounded-2xl cloudtix-admin-field bg-[#0e0e12] border border-slate-800 p-4";
 
 /** Welches Zeichen vor welchem Kanaltyp steht. */
 const KIND_ICON: Record<string, string> = {
@@ -137,7 +137,7 @@ function bytes(value: number): string {
 function Stat({ label, value }: { label: string; value: React.ReactNode }) {
   useWebsiteLocale();
   return (
-    <div className="rounded-2xl bg-[#0e0e12] border border-slate-800 px-4 py-3">
+    <div className="rounded-2xl cloudtix-admin-field bg-[#0e0e12] border border-slate-800 px-4 py-3">
       <p className="text-[9px] font-black uppercase tracking-widest text-slate-600">
         {label}
       </p>
@@ -330,7 +330,7 @@ export function TemplatesAdmin() {
             <h2 className="text-xl font-black tracking-tight text-white">Vorlagen-Zentrale</h2>
             <p className="mt-1 max-w-2xl text-sm leading-relaxed text-slate-400">Community-Vorlagen prüfen, Herkunft und Inhalte nachvollziehen und problematische Einträge sicher sperren.</p>
           </div>
-          <button onClick={load} disabled={loading} className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-800 bg-[#0b0b0f] px-4 py-2.5 text-xs font-bold text-slate-300 transition hover:border-slate-700 hover:text-white disabled:opacity-40">
+          <button onClick={load} disabled={loading} className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-800 cloudtix-admin-field bg-[#0b0b0f] px-4 py-2.5 text-xs font-bold text-slate-300 transition hover:border-slate-700 hover:text-white disabled:opacity-40">
             <RefreshCcw className={cn("h-4 w-4", loading && "animate-spin")} /> Aktualisieren
           </button>
         </div>
@@ -349,7 +349,7 @@ export function TemplatesAdmin() {
       </section>
 
       {/* Suche, Sortierung und lokale Sichtbarkeitsfilter */}
-      <section className="rounded-2xl border border-slate-800 bg-[#131318] p-3">
+      <section className="rounded-2xl border border-slate-800 cloudtix-admin-card bg-[#131318] p-3">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
           <div className="relative min-w-0 flex-1">
             <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-600" />
@@ -360,7 +360,7 @@ export function TemplatesAdmin() {
         <div className="mt-3 flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {([
             ["alle", "Alle"], ["offen", "Öffentlich"], ["code", "Mit Code"], ["privat", "Privat"], ["gesperrt", "Gesperrt"],
-          ] as const).map(([id, label]) => <button key={id} onClick={() => setFilter(id)} className={cn("shrink-0 rounded-xl border px-3.5 py-2 text-xs font-bold transition", filter === id ? "border-violet-500/30 bg-violet-500/10 text-violet-300" : "border-slate-800 bg-[#0b0b0f] text-slate-500 hover:text-slate-300")}>{label}</button>)}
+          ] as const).map(([id, label]) => <button key={id} onClick={() => setFilter(id)} className={cn("shrink-0 rounded-xl border px-3.5 py-2 text-xs font-bold transition", filter === id ? "border-violet-500/30 bg-violet-500/10 text-violet-300" : "border-slate-800 cloudtix-admin-field bg-[#0b0b0f] text-slate-500 hover:text-slate-300")}>{label}</button>)}
         </div>
       </section>
 
@@ -393,7 +393,7 @@ export function TemplatesAdmin() {
   "rounded-3xl border transition-colors",
                   entry.blocked
                     ? "bg-red-500/[0.05] border-red-500/30"
-                    : "bg-[#131318] border-slate-800"
+                    : "cloudtix-admin-card bg-[#131318] border-slate-800"
                 )}
               >
                 {/* Kopfzeile */}
@@ -676,7 +676,7 @@ export function TemplatesAdmin() {
                           </p>
                         ) : entry.key ? (
                           <div className="flex items-center gap-2 flex-wrap">
-                            <code className="px-3 py-2 rounded-xl bg-[#131318] border border-amber-500/25 text-[15px] font-black tracking-[0.25em] text-amber-300">
+                            <code className="px-3 py-2 rounded-xl cloudtix-admin-card bg-[#131318] border border-amber-500/25 text-[15px] font-black tracking-[0.25em] text-amber-300">
                               {entry.key}
                             </code>
                             <button
@@ -750,7 +750,7 @@ export function TemplatesAdmin() {
                             ].map(([label, value]) => (
                               <div
                                 key={String(label)}
-                                className="rounded-xl bg-[#0e0e12] border border-slate-800 px-3 py-2"
+                                className="rounded-xl cloudtix-admin-field bg-[#0e0e12] border border-slate-800 px-3 py-2"
                               >
                                 <p className="text-[9px] font-black uppercase tracking-widest text-slate-600">
                                   {label}

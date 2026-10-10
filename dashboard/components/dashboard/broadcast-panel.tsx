@@ -29,7 +29,7 @@ import { EmojiText } from "@/components/dashboard/emoji-field";
 import { DiscordEmojiText } from "@/components/dashboard/discord-emoji";
 
 const INPUT =
-  "w-full bg-[#0e0e12] border border-slate-800 rounded-xl px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-primary/50 transition-colors";
+  "w-full cloudtix-admin-field bg-[#0e0e12] border border-slate-800 rounded-xl px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-primary/50 transition-colors";
 
 const TONES = [
   { id: "info", label: "Neutral", colour: "#3d7cff" },
@@ -201,7 +201,7 @@ export function BroadcastPanel({ guilds }: { guilds?: any[] }) {
       {/* ── Result dialog ────────────────────────────── */}
       {openResult && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="bg-[#131318] border border-slate-800 rounded-3xl w-full max-w-lg shadow-2xl max-h-[85vh] flex flex-col">
+          <div className="cloudtix-admin-card bg-[#131318] border border-slate-800 rounded-3xl w-full max-w-lg shadow-2xl max-h-[85vh] flex flex-col">
             <div className="p-5 border-b border-slate-800 flex items-center justify-between gap-3">
               <div className="min-w-0">
                 <h3 className="font-black text-white truncate">
@@ -270,7 +270,7 @@ export function BroadcastPanel({ guilds }: { guilds?: any[] }) {
       )}
 
       {/* ── Compose ──────────────────────────────────── */}
-      <div className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5">
+      <div className="cloudtix-admin-card bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5">
         <div className="flex items-center justify-between gap-4 flex-wrap">
           <div className="flex items-center gap-3">
             <div className="h-10 w-10 rounded-2xl bg-primary/15 grid place-items-center shrink-0">
@@ -285,7 +285,7 @@ export function BroadcastPanel({ guilds }: { guilds?: any[] }) {
           </div>
           <button
             onClick={load}
-            className="p-2.5 rounded-xl bg-[#0e0e12] border border-slate-800 hover:bg-white/[0.06]"
+            className="p-2.5 rounded-xl cloudtix-admin-field bg-[#0e0e12] border border-slate-800 hover:bg-white/[0.06]"
           >
             <RefreshCw className="h-4 w-4 text-primary" />
           </button>
@@ -321,7 +321,7 @@ export function BroadcastPanel({ guilds }: { guilds?: any[] }) {
   "flex items-center gap-2 px-3 h-11 rounded-xl text-xs font-bold border transition-all",
                     tone === t.id
                       ? "border-primary/40 bg-primary/10 text-white"
-                      : "bg-[#0e0e12] border-slate-800 text-slate-400 hover:text-slate-200"
+                      : "cloudtix-admin-field bg-[#0e0e12] border-slate-800 text-slate-400 hover:text-slate-200"
                   )}
                 >
                   <span
@@ -354,7 +354,7 @@ export function BroadcastPanel({ guilds }: { guilds?: any[] }) {
   "text-left rounded-2xl border p-4 transition-all",
                   target === t.id
                     ? "bg-primary/10 border-primary/40"
-                    : "bg-[#0e0e12] border-slate-800 hover:border-slate-700"
+                    : "cloudtix-admin-field bg-[#0e0e12] border-slate-800 hover:border-slate-700"
                 )}
               >
                 <Server className={cn(
@@ -368,7 +368,7 @@ export function BroadcastPanel({ guilds }: { guilds?: any[] }) {
         </Field>
 
         {/* Live preview of the card the servers will see */}
-        <div className="rounded-2xl bg-[#0b1626] border border-slate-800/70 p-4">
+        <div className="rounded-2xl cloudtix-admin-field bg-[#0b1626] border border-slate-800/70 p-4">
           <p className="text-[10px] font-black uppercase tracking-widest text-slate-600 mb-2 flex items-center gap-1">
             <Eye className="h-3 w-3" /> So kommt es an
           </p>
@@ -387,7 +387,7 @@ export function BroadcastPanel({ guilds }: { guilds?: any[] }) {
 
         {/* Where it would land */}
         {plan && (
-          <div className="rounded-2xl bg-[#0b1626] border border-slate-800/70 p-4 space-y-3">
+          <div className="rounded-2xl cloudtix-admin-field bg-[#0b1626] border border-slate-800/70 p-4 space-y-3">
             <p className="text-[10px] font-black uppercase tracking-widest text-slate-600">
               Vorschau — {plan.reachable} von {plan.guilds} Servern erreichbar
             </p>
@@ -426,7 +426,7 @@ export function BroadcastPanel({ guilds }: { guilds?: any[] }) {
           <button
             onClick={sendTest}
             disabled={busy || !ready || !testGuild}
-            className="h-[46px] px-5 rounded-xl bg-[#0e0e12] border border-slate-800 text-sm font-semibold text-slate-300 hover:text-primary hover:border-primary/30 disabled:opacity-40 transition-all"
+            className="h-[46px] px-5 rounded-xl cloudtix-admin-field bg-[#0e0e12] border border-slate-800 text-sm font-semibold text-slate-300 hover:text-primary hover:border-primary/30 disabled:opacity-40 transition-all"
           >
             Test senden
           </button>
@@ -448,7 +448,7 @@ export function BroadcastPanel({ guilds }: { guilds?: any[] }) {
           <button
             onClick={preview}
             disabled={busy || !ready}
-            className="flex-1 min-w-[160px] flex items-center justify-center gap-2 py-4 rounded-2xl bg-[#0e0e12] border border-slate-800 text-sm font-semibold text-slate-300 hover:text-primary hover:border-primary/30 disabled:opacity-40 transition-all"
+            className="flex-1 min-w-[160px] flex items-center justify-center gap-2 py-4 rounded-2xl cloudtix-admin-field bg-[#0e0e12] border border-slate-800 text-sm font-semibold text-slate-300 hover:text-primary hover:border-primary/30 disabled:opacity-40 transition-all"
           >
             {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Eye className="h-4 w-4" />}
             Wohin geht es?
@@ -489,7 +489,7 @@ export function BroadcastPanel({ guilds }: { guilds?: any[] }) {
             {data.broadcasts.map((b: any) => (
               <div
                 key={b.id}
-                className="bg-[#131318] border border-slate-800 rounded-2xl px-5 py-3.5 flex items-center gap-4 flex-wrap"
+                className="cloudtix-admin-card bg-[#131318] border border-slate-800 rounded-2xl px-5 py-3.5 flex items-center gap-4 flex-wrap"
               >
                 <button
                   onClick={() => openDetail(b.id)}
@@ -516,7 +516,7 @@ export function BroadcastPanel({ guilds }: { guilds?: any[] }) {
                       )
                     }
                     disabled={busy}
-                    className="px-4 py-2 rounded-xl bg-[#0e0e12] border border-slate-800 text-[11px] font-black uppercase tracking-widest text-slate-400 hover:text-red-400 disabled:opacity-40 transition-all shrink-0"
+                    className="px-4 py-2 rounded-xl cloudtix-admin-field bg-[#0e0e12] border border-slate-800 text-[11px] font-black uppercase tracking-widest text-slate-400 hover:text-red-400 disabled:opacity-40 transition-all shrink-0"
                   >
                     Zurücknehmen
                   </button>

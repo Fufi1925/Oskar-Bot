@@ -299,7 +299,7 @@ export function ServersPanel({ currentUserId }: { currentUserId?: string }) {
 
   if (loading) {
     return (
-      <div className="flex min-h-72 items-center justify-center rounded-3xl border border-slate-800 bg-[#131318]">
+      <div className="flex min-h-72 items-center justify-center rounded-3xl border border-slate-800 cloudtix-admin-card bg-[#131318]">
         <div className="text-center">
           <Loader2 className="mx-auto h-6 w-6 animate-spin text-indigo-400" />
           <p className="mt-3 text-xs font-bold text-slate-500">Server werden geladen …</p>
@@ -326,7 +326,7 @@ export function ServersPanel({ currentUserId }: { currentUserId?: string }) {
             <button onClick={copyInstallLink} className="inline-flex items-center justify-center gap-2 rounded-xl border border-indigo-500/25 bg-indigo-500/10 px-4 py-2.5 text-xs font-bold text-indigo-300 transition hover:bg-indigo-500/15">
               <Link2 className="h-4 w-4" /> Bot-Einladungslink
             </button>
-            <button onClick={() => load()} className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-800 bg-[#0b0b0f] px-4 py-2.5 text-xs font-bold text-slate-300 transition hover:border-slate-700 hover:text-white">
+            <button onClick={() => load()} className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-800 cloudtix-admin-field bg-[#0b0b0f] px-4 py-2.5 text-xs font-bold text-slate-300 transition hover:border-slate-700 hover:text-white">
               <RefreshCw className="h-4 w-4" /> Aktualisieren
             </button>
           </div>
@@ -347,14 +347,14 @@ export function ServersPanel({ currentUserId }: { currentUserId?: string }) {
       </section>
 
       {/* Suche und Filter stehen in einer Zeile; sekundäre Aktionen sind im Kopf. */}
-      <section className="rounded-2xl border border-slate-800 bg-[#131318] p-3">
+      <section className="rounded-2xl border border-slate-800 cloudtix-admin-card bg-[#131318] p-3">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
           <div className="relative min-w-0 flex-1">
             <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-600" />
-            <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Server, ID oder Besitzer suchen …" className="w-full rounded-xl border border-slate-800 bg-[#0b0b0f] py-2.5 pl-10 pr-4 text-sm text-white outline-none transition placeholder:text-slate-600 focus:border-indigo-500/35" />
+            <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Server, ID oder Besitzer suchen …" className="w-full rounded-xl border border-slate-800 cloudtix-admin-field bg-[#0b0b0f] py-2.5 pl-10 pr-4 text-sm text-white outline-none transition placeholder:text-slate-600 focus:border-indigo-500/35" />
           </div>
           <div className="w-full lg:w-56"><Select value={sort} onValueChange={setSort} options={SORTS} /></div>
-          <button onClick={() => setOnlyProblems(!onlyProblems)} aria-pressed={onlyProblems} className={cn("inline-flex items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-xs font-bold transition", onlyProblems ? "border-rose-500/30 bg-rose-500/10 text-rose-300" : "border-slate-800 bg-[#0b0b0f] text-slate-400 hover:text-white")}>
+          <button onClick={() => setOnlyProblems(!onlyProblems)} aria-pressed={onlyProblems} className={cn("inline-flex items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-xs font-bold transition", onlyProblems ? "border-rose-500/30 bg-rose-500/10 text-rose-300" : "border-slate-800 cloudtix-admin-field bg-[#0b0b0f] text-slate-400 hover:text-white")}>
             <AlertTriangle className="h-4 w-4" /> Nur Probleme
           </button>
         </div>
@@ -366,7 +366,7 @@ export function ServersPanel({ currentUserId }: { currentUserId?: string }) {
       </div>
 
       {visible.length === 0 ? (
-        <section className="rounded-3xl border border-dashed border-slate-800 bg-[#111116] px-5 py-16 text-center">
+        <section className="rounded-3xl border border-dashed border-slate-800 cloudtix-admin-card bg-[#111116] px-5 py-16 text-center">
           <span className="mx-auto grid h-12 w-12 place-items-center rounded-2xl bg-slate-800/50"><Search className="h-5 w-5 text-slate-600" /></span>
           <p className="mt-4 text-sm font-bold text-slate-300">Kein Server gefunden</p>
           <p className="mt-1 text-xs text-slate-600">Passe die Suche oder den Problemfilter an.</p>
@@ -376,7 +376,7 @@ export function ServersPanel({ currentUserId }: { currentUserId?: string }) {
           const open = expanded === server.id;
           const warn = server.permissions.missing.length > 0;
           const botFarm = server.bot_ratio > 0.5 && server.member_count > 20;
-          return <article key={server.id} className={cn("overflow-hidden rounded-2xl border bg-[#131318] transition-colors", server.blacklisted ? "border-rose-500/30" : warn ? "border-amber-500/20" : "border-slate-800")}>
+          return <article key={server.id} className={cn("overflow-hidden rounded-2xl border cloudtix-admin-card bg-[#131318] transition-colors", server.blacklisted ? "border-rose-500/30" : warn ? "border-amber-500/20" : "border-slate-800")}>
             <div className="p-4">
               <div className="flex items-start gap-3">
                 {server.icon_url ? <img src={server.icon_url} alt="" className="h-11 w-11 shrink-0 rounded-xl border border-white/10 object-cover" /> : <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-slate-800"><Shield className="h-5 w-5 text-slate-500" /></span>}
@@ -391,7 +391,7 @@ export function ServersPanel({ currentUserId }: { currentUserId?: string }) {
                 </div>
               </div>
 
-              <div className="mt-4 grid grid-cols-3 overflow-hidden rounded-xl border border-slate-800 bg-[#0c0c10]">
+              <div className="mt-4 grid grid-cols-3 overflow-hidden rounded-xl border border-slate-800 cloudtix-admin-field bg-[#0c0c10]">
                 <div className="px-3 py-2.5"><p className="text-sm font-black text-white">{server.member_count.toLocaleString()}</p><p className="text-[9px] uppercase tracking-wider text-slate-600">Mitglieder</p></div>
                 <div className="border-l border-slate-800 px-3 py-2.5"><p className="text-sm font-black text-white">{server.channel_count}</p><p className="text-[9px] uppercase tracking-wider text-slate-600">Kanäle</p></div>
                 <div className="border-l border-slate-800 px-3 py-2.5"><p className="text-sm font-black text-white">{server.boost_count}</p><p className="text-[9px] uppercase tracking-wider text-slate-600">Boosts</p></div>
@@ -399,15 +399,15 @@ export function ServersPanel({ currentUserId }: { currentUserId?: string }) {
 
               <div className="mt-3 grid grid-cols-4 gap-2">
                 <button onClick={() => copyInvite(server)} disabled={busy === `invite-${server.id}`} title="Einladung kopieren" className="grid place-items-center rounded-xl border border-indigo-500/20 bg-indigo-500/10 py-2.5 text-indigo-300 hover:bg-indigo-500/15 disabled:opacity-40">{busy === `invite-${server.id}` ? <Loader2 className="h-4 w-4 animate-spin" /> : <Copy className="h-4 w-4" />}</button>
-                <button onClick={() => openRoleDialog(server)} title="Rolle vergeben" className="grid place-items-center rounded-xl border border-slate-800 bg-[#0c0c10] py-2.5 text-slate-400 hover:text-white"><UserPlus className="h-4 w-4" /></button>
-                <Link href={`/dashboard/guild/${server.id}`} title="Server verwalten" className="grid place-items-center rounded-xl border border-slate-800 bg-[#0c0c10] py-2.5 text-slate-400 hover:text-white"><ArrowUpRight className="h-4 w-4" /></Link>
-                <button onClick={() => setExpanded(open ? null : server.id)} aria-expanded={open} title="Details" className="grid place-items-center rounded-xl border border-slate-800 bg-[#0c0c10] py-2.5 text-slate-400 hover:text-white"><ChevronDown className={cn("h-4 w-4 transition-transform", open && "rotate-180")} /></button>
+                <button onClick={() => openRoleDialog(server)} title="Rolle vergeben" className="grid place-items-center rounded-xl border border-slate-800 cloudtix-admin-field bg-[#0c0c10] py-2.5 text-slate-400 hover:text-white"><UserPlus className="h-4 w-4" /></button>
+                <Link href={`/dashboard/guild/${server.id}`} title="Server verwalten" className="grid place-items-center rounded-xl border border-slate-800 cloudtix-admin-field bg-[#0c0c10] py-2.5 text-slate-400 hover:text-white"><ArrowUpRight className="h-4 w-4" /></Link>
+                <button onClick={() => setExpanded(open ? null : server.id)} aria-expanded={open} title="Details" className="grid place-items-center rounded-xl border border-slate-800 cloudtix-admin-field bg-[#0c0c10] py-2.5 text-slate-400 hover:text-white"><ChevronDown className={cn("h-4 w-4 transition-transform", open && "rotate-180")} /></button>
               </div>
             </div>
 
-            {open && <div className="space-y-3 border-t border-slate-800 bg-[#0c0c10]/70 p-4">
+            {open && <div className="space-y-3 border-t border-slate-800 cloudtix-admin-field bg-[#0c0c10]/70 p-4">
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                {[{ label: "Menschen", value: server.human_count.toLocaleString() }, { label: "Bots", value: server.bot_count.toLocaleString() }, { label: "Rollen", value: server.role_count }, { label: "Boost-Level", value: server.boost_level }].map(stat => <div key={stat.label} className="rounded-xl border border-slate-800 bg-[#101014] p-2.5"><p className="text-sm font-black text-white">{stat.value}</p><p className="text-[9px] uppercase tracking-wider text-slate-600">{stat.label}</p></div>)}
+                {[{ label: "Menschen", value: server.human_count.toLocaleString() }, { label: "Bots", value: server.bot_count.toLocaleString() }, { label: "Rollen", value: server.role_count }, { label: "Boost-Level", value: server.boost_level }].map(stat => <div key={stat.label} className="rounded-xl border border-slate-800 cloudtix-admin-field bg-[#101014] p-2.5"><p className="text-sm font-black text-white">{stat.value}</p><p className="text-[9px] uppercase tracking-wider text-slate-600">{stat.label}</p></div>)}
               </div>
               <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-slate-500">
                 <button onClick={() => { navigator.clipboard?.writeText(server.id); toast.success("Server-ID kopiert."); }} className="inline-flex items-center gap-1 font-mono hover:text-white">{server.id}<Copy className="h-3 w-3" /></button>
@@ -425,7 +425,7 @@ export function ServersPanel({ currentUserId }: { currentUserId?: string }) {
       {/* Leave dialog */}
       {leaveTarget && (
         <div className="fixed inset-0 z-[60] overflow-y-auto bg-black/70 backdrop-blur-sm p-4 sm:p-6">
-          <div className="w-full max-w-lg mx-auto my-8 bg-[#131318] border border-slate-800 rounded-3xl overflow-hidden">
+          <div className="w-full max-w-lg mx-auto my-8 cloudtix-admin-card bg-[#131318] border border-slate-800 rounded-3xl overflow-hidden">
             <div className="p-6 border-b border-slate-800 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="h-10 w-10 rounded-2xl bg-rose-500/15 border border-rose-500/25 flex items-center justify-center">
@@ -455,7 +455,7 @@ export function ServersPanel({ currentUserId }: { currentUserId?: string }) {
                   value={leaveConfirm}
                   onChange={(e) => setLeaveConfirm(e.target.value)}
                   placeholder={leaveTarget.name}
-                  className="w-full bg-[#0e0e12] border border-slate-800 rounded-2xl px-4 py-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-rose-500/40"
+                  className="w-full cloudtix-admin-field bg-[#0e0e12] border border-slate-800 rounded-2xl px-4 py-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-rose-500/40"
                 />
               </label>
 
@@ -467,7 +467,7 @@ export function ServersPanel({ currentUserId }: { currentUserId?: string }) {
                   value={leaveMessage}
                   onChange={(e) => setLeaveMessage(e.target.value)}
                   placeholder="Wird vor dem Verlassen in den Systemkanal gesendet"
-                  className="w-full h-20 bg-[#0e0e12] border border-slate-800 rounded-2xl px-4 py-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-primary"
+                  className="w-full h-20 cloudtix-admin-field bg-[#0e0e12] border border-slate-800 rounded-2xl px-4 py-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-primary"
                 />
               </label>
 
@@ -478,7 +478,7 @@ export function ServersPanel({ currentUserId }: { currentUserId?: string }) {
                 <input
                   value={leaveReason}
                   onChange={(e) => setLeaveReason(e.target.value)}
-                  className="w-full bg-[#0e0e12] border border-slate-800 rounded-2xl px-4 py-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-primary"
+                  className="w-full cloudtix-admin-field bg-[#0e0e12] border border-slate-800 rounded-2xl px-4 py-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-primary"
                 />
               </label>
 
@@ -496,7 +496,7 @@ export function ServersPanel({ currentUserId }: { currentUserId?: string }) {
             <div className="p-6 border-t border-slate-800 flex gap-3">
               <button
                 onClick={closeLeaveDialog}
-                className="flex-1 py-3 rounded-2xl bg-[#0e0e12] border border-slate-800 text-sm font-bold text-slate-300 hover:bg-white/[0.06]"
+                className="flex-1 py-3 rounded-2xl cloudtix-admin-field bg-[#0e0e12] border border-slate-800 text-sm font-bold text-slate-300 hover:bg-white/[0.06]"
               >
                 Abbrechen
               </button>
@@ -515,7 +515,7 @@ export function ServersPanel({ currentUserId }: { currentUserId?: string }) {
       {/* Role dialog */}
       {roleTarget && (
         <div className="fixed inset-0 z-[60] overflow-y-auto bg-black/70 backdrop-blur-sm p-4 sm:p-6">
-          <div className="w-full max-w-xl mx-auto my-8 bg-[#131318] border border-slate-800 rounded-3xl overflow-hidden">
+          <div className="w-full max-w-xl mx-auto my-8 cloudtix-admin-card bg-[#131318] border border-slate-800 rounded-3xl overflow-hidden">
             <div className="p-6 border-b border-slate-800 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="h-10 w-10 rounded-2xl bg-primary/15 border border-primary/25 flex items-center justify-center">
@@ -539,7 +539,7 @@ export function ServersPanel({ currentUserId }: { currentUserId?: string }) {
                     value={roleUserId}
                     onChange={(e) => setRoleUserId(e.target.value)}
                     placeholder="Discord-Nutzer-ID"
-                    className="flex-1 bg-[#0e0e12] border border-slate-800 rounded-2xl px-4 py-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-primary"
+                    className="flex-1 cloudtix-admin-field bg-[#0e0e12] border border-slate-800 rounded-2xl px-4 py-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-primary"
                   />
                   {currentUserId && (
                     <button
@@ -550,7 +550,7 @@ export function ServersPanel({ currentUserId }: { currentUserId?: string }) {
                           setMemberRoles(member.in_guild ? member.roles : null);
                         } catch { /* ignore */ }
                       }}
-                      className="px-4 rounded-2xl bg-[#0e0e12] border border-slate-800 text-xs font-bold text-slate-300 hover:bg-white/[0.06] whitespace-nowrap"
+                      className="px-4 rounded-2xl cloudtix-admin-field bg-[#0e0e12] border border-slate-800 text-xs font-bold text-slate-300 hover:bg-white/[0.06] whitespace-nowrap"
                     >
                       Ich
                     </button>
@@ -586,7 +586,7 @@ export function ServersPanel({ currentUserId }: { currentUserId?: string }) {
                 </div>
               )}
 
-              <div className="flex gap-2 p-1.5 bg-[#0e0e12] border border-slate-800 rounded-2xl">
+              <div className="flex gap-2 p-1.5 cloudtix-admin-field bg-[#0e0e12] border border-slate-800 rounded-2xl">
                 {(["existing", "new"] as const).map((mode) => (
                   <button
                     key={mode}
@@ -654,7 +654,7 @@ export function ServersPanel({ currentUserId }: { currentUserId?: string }) {
                       value={newRoleName}
                       onChange={(e) => setNewRoleName(e.target.value)}
                       placeholder="z. B. Bot-Team"
-                      className="w-full bg-[#0e0e12] border border-slate-800 rounded-2xl px-4 py-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-primary"
+                      className="w-full cloudtix-admin-field bg-[#0e0e12] border border-slate-800 rounded-2xl px-4 py-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-primary"
                     />
                   </label>
                   <label className="flex items-center gap-3 text-sm text-slate-300 cursor-pointer">
@@ -685,7 +685,7 @@ export function ServersPanel({ currentUserId }: { currentUserId?: string }) {
             <div className="p-6 border-t border-slate-800 flex gap-3">
               <button
                 onClick={closeRoleDialog}
-                className="flex-1 py-3 rounded-2xl bg-[#0e0e12] border border-slate-800 text-sm font-bold text-slate-300 hover:bg-white/[0.06]"
+                className="flex-1 py-3 rounded-2xl cloudtix-admin-field bg-[#0e0e12] border border-slate-800 text-sm font-bold text-slate-300 hover:bg-white/[0.06]"
               >
                 Schließen
               </button>

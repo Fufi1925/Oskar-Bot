@@ -54,6 +54,8 @@ import { FirewallPanel } from "@/components/dashboard/firewall-panel";
 import { SupportRequestsAdmin } from "@/components/dashboard/support-requests-admin";
 import { SupportRankingsAdmin } from "@/components/dashboard/support-rankings-admin";
 import { HomepageServersAdmin } from "@/components/dashboard/homepage-servers-admin";
+import { AdminNavigation } from "./admin-navigation";
+import { ADMIN_TAB_DETAILS } from "./admin-tab-details";
 import { AdminOverview, type AdminOverviewData } from "@/components/dashboard/admin-overview";
 
 
@@ -299,10 +301,10 @@ const quickActions: QuickAction[] = [
 ];
 /** Tabs that render on their own, without the input sidebar. */
 const FULL_WIDTH_TABS = new Set<TabId>([
-  "overview", "features", "health", "firewall", "team", "access",
+  "overview", "features", "health", "firewall", "team", "access", "owner", "support", "support-rankings",
   "reports", "audit", "approvals", "botsettings", "backups", "warnings", "usage",
   "dashusers", "dashboard-settings", "userlookup", "louckup", "servers", "homepage-servers", "premium", "ticketai", "speedrun", "tester", "templates",
-  "webapply", "ideas", "cookies", "privacy", "trustedbots",
+  "webapply", "ideas", "cookies", "privacy", "trustedbots", "beta", "designunlock", "pingreactions",
 ]);
 
 /** Beschriftung über einem Eingabefeld. */
@@ -332,7 +334,7 @@ function TextInput({ label, value, setValue, placeholder, type = "text" }: { lab
         onChange={(e) => setValue(e.target.value)}
         type={type}
         placeholder={placeholder || label}
-        className="w-full rounded-xl border border-slate-800 bg-[#0a0a0c] px-4 py-3 text-[14px] text-white placeholder:text-slate-600 transition-colors focus:border-slate-700 focus:outline-none"
+        className="w-full rounded-xl border border-slate-800 cloudtix-admin-field bg-[#0a0a0c] px-4 py-3 text-[14px] text-white placeholder:text-slate-600 transition-colors focus:border-slate-700 focus:outline-none"
       />
     </label>
   );
@@ -602,19 +604,6 @@ export function AdminContent({
     }
   }, [visibleTabs, activeTab]);
 
-  // The tabs shown for the open group, in render order. The proximity
-  // effect needs the same order and the same count as the DOM, so it is
-  // derived once here instead of being rebuilt inside the JSX.
-  const shownTabs = useMemo(
-    () =>
-      TAB_GROUPS.filter((group) => group.ids.includes(activeTab))
-        .flatMap((group) => group.ids)
-        .map((id) => visibleTabs.find((tab) => tab.id === id))
-        .filter(Boolean) as typeof visibleTabs,
-    [activeTab, visibleTabs]
-  );
-
-
   /**
    * Darf der Nutzer diese Aktion überhaupt?
    *
@@ -718,9 +707,9 @@ export function AdminContent({
 
   if (loading) {
     return (
-      <div className="flex min-h-[400px] items-center justify-center">
-        <RefreshCw className="h-6 w-6 animate-spin text-indigo-400 opacity-50" />
-      </div>
+      <div className="cloudtix-admin-workspace"><AdminNavigation tabs={[]} groups={TAB_GROUPS} active="overview" onOpen={() => {}} role="CloudTIX Team" loading /><div className="cloudtix-admin-loading"><span className="cloudtix-admin-loading-icon"><Shield size={24} /></span><h1>Dein Admin-Workspace</h1><p>CloudTIX wird geladen …</p>
+        <RefreshCw className="h-5 w-5 animate-spin text-slate-500" />
+      </div></div>
     );
   }
 
@@ -732,10 +721,10 @@ export function AdminContent({
   // wieder verschwinden.
   if (!access) {
     return (
-      <div className="flex min-h-[400px] flex-col items-center justify-center gap-3">
+      <div className="cloudtix-admin-workspace"><AdminNavigation tabs={[]} groups={TAB_GROUPS} active="overview" onOpen={() => {}} role="CloudTIX Team" loading /><div className="cloudtix-admin-loading">
         <RefreshCw className="h-5 w-5 animate-spin text-indigo-400 opacity-50" />
         <p className="text-[13px] text-slate-500">Berechtigungen werden geprüft …</p>
-      </div>
+      </div></div>
     );
   }
 
@@ -747,7 +736,7 @@ export function AdminContent({
   // dann einen Satz lesen statt einer leeren Fläche.
   if (!access.is_owner && (access.roles?.length ?? 0) === 0) {
     return (
-      <div className="mx-auto max-w-lg rounded-2xl border border-slate-800 bg-[#131318] px-6 py-10 text-center">
+      <div className="mx-auto max-w-lg rounded-2xl border border-slate-800 cloudtix-admin-card bg-[#131318] px-6 py-10 text-center">
         <Lock className="mx-auto mb-3 h-7 w-7 text-slate-700" />
         <p className="text-[15px] text-slate-300">
           Für den Admin-Bereich fehlt dir eine Rolle.
@@ -766,109 +755,26 @@ export function AdminContent({
     );
   }
 
+  const currentTab = tabs.find(tab => tab.id === activeTab)!;
+  const CurrentIcon = currentTab.icon;
+  const currentGroup = TAB_GROUPS.find(group => group.ids.includes(activeTab));
+  const details = ADMIN_TAB_DETAILS[activeTab];
+  const hasActionContext = ["members", "channels", "server", "scans"].includes(activeTab);
+  const openTab = (id: string) => {
+    if (!visibleTabs.some(tab => tab.id === id)) return;
+    setActiveTab(id as TabId);
+    window.history.replaceState(null, "", `#${id}`);
+  };
+
   return (
-    <div className="admin-dashboard-theme space-y-5">
-      {/*
-        Der Kopf.
-
-        Er war eine Glaskarte mit Farbverlauf, 64px-Symbolkachel,
-        4xl-Ueberschrift in Versalien und einem Knopf, auf dem
-        "Real-time Mode" stand -- obwohl die Daten alle 30 Sekunden
-        geholt werden. Das war keine Beschreibung, sondern ein
-        Versprechen.
-
-        Jetzt: eine Zeile. Titel, Untertitel, ein Knopf, der sagt,
-        was er tut.
-      */}
-      <div className="flex flex-wrap items-center gap-4 border-b border-white/[.06] pb-4">
-        <Shield className="h-5 w-5 shrink-0 text-blue-300" />
-        <div className="min-w-0 flex-1">
-          <h1 className="text-[22px] font-semibold tracking-tight text-white">
-            Admin Panel
-          </h1>
-          <p className="mt-0.5 text-[13px] text-slate-500">
-            Übersicht, Verwaltung und Systemkontrolle an einem Ort.
-          </p>
-        </div>
-
-        <button
-          type="button"
-          onClick={() => fetchData(true)}
-          disabled={refreshing}
-          className="flex shrink-0 items-center gap-2 rounded-lg border border-white/[.07] bg-[#202126] px-3.5 py-2 text-[12px] text-slate-400 transition-colors hover:border-white/[.12] hover:text-white disabled:opacity-50"
-        >
-          <RefreshCw className={cn("h-3.5 w-3.5", refreshing && "animate-spin")} />
-          {refreshing ? "Lädt …" : "Aktualisieren"}
-          <DataAge since={lastLoaded} />
-        </button>
-      </div>
-
-      {/* Mobile: kompakte zweistufige Navigation. Auf großen Bildschirmen
-          übernimmt die feste Bereichsleiste links. */}
-      <div className="lg:hidden">
-        <div className="flex gap-2 overflow-x-auto pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          {TAB_GROUPS.map((group) => {
-            const available = group.ids.filter((id) => visibleTabs.some((tab) => tab.id === id));
-            if (!available.length) return null;
-            const open = group.ids.includes(activeTab);
-            const GroupIcon = group.icon;
-            return (
-              <button key={group.name} type="button" onClick={() => { setActiveTab(available[0]); window.history.replaceState(null, "", `#${available[0]}`); }} className={cn("flex shrink-0 items-center gap-2 rounded-xl border px-3 py-2.5 text-[12px] font-semibold transition-colors", open ? cn(group.active, "text-white") : "border-slate-800 bg-[#131318] text-slate-500")}>
-                <GroupIcon className={cn("h-3.5 w-3.5", group.color)} />
-                {group.shortName}<span className="text-[10px] opacity-50">{available.length}</span>
-              </button>
-            );
-          })}
-        </div>
-        <div className="grid grid-cols-2 gap-1.5 rounded-xl border border-white/[.06] bg-[#202126] p-2 sm:flex sm:flex-wrap">
-          {shownTabs.map((tab) => {
-            const group = TAB_GROUPS.find((entry) => entry.ids.includes(tab.id))!;
-            const active = tab.id === activeTab;
-            const Icon = tab.icon;
-            return (
-              <button key={tab.id} type="button" onClick={() => { setActiveTab(tab.id); window.history.replaceState(null, "", `#${tab.id}`); }} className={cn("flex min-w-0 items-center gap-2 rounded-xl border px-3 py-2.5 text-left text-[12px] transition-colors", active ? cn(group.active, "font-semibold text-white") : "border-transparent text-slate-500 hover:bg-white/[0.03] hover:text-slate-300")}>
-                <Icon className={cn("h-3.5 w-3.5 shrink-0", group.color)} /><span className="truncate">{tab.label}</span>
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      <div className="grid items-start gap-5 lg:grid-cols-[260px_minmax(0,1fr)]">
-        {/* Desktop: dieselbe Seitenstruktur wie im Server-Dashboard,
-            aber als kompaktes Accordion. Nur der aktuelle Bereich ist offen. */}
-        <aside className="sticky top-24 hidden max-h-[calc(100vh-7rem)] overflow-y-auto rounded-xl border border-white/[.06] bg-[#202126] p-2.5 lg:block [scrollbar-width:thin]">
-          <div className="mb-2 px-2 pb-2 pt-1">
-            <p className="text-[11px] font-semibold text-slate-500">Bereiche</p>
-          </div>
-          <nav className="space-y-1.5" aria-label="Admin-Bereiche">
-            {TAB_GROUPS.map((group) => {
-              const availableTabs = group.ids.map((id) => visibleTabs.find((tab) => tab.id === id)).filter(Boolean) as typeof visibleTabs;
-              if (!availableTabs.length) return null;
-              const open = group.ids.includes(activeTab);
-              const GroupIcon = group.icon;
-              return (
-                <div key={group.name} className={cn("overflow-hidden rounded-xl border transition-colors", open ? group.active : "border-transparent")}>
-                  <button type="button" onClick={() => { setActiveTab(availableTabs[0].id); window.history.replaceState(null, "", `#${availableTabs[0].id}`); }} aria-expanded={open} className={cn("flex w-full items-center gap-3 px-3 py-3 text-left transition-colors", open ? "text-white" : "text-slate-400 hover:bg-white/[0.03] hover:text-slate-200")}>
-                    <span className={cn("grid h-8 w-8 shrink-0 place-items-center rounded-lg", group.iconBg)}><GroupIcon className={cn("h-4 w-4", group.color)} /></span>
-                    <span className="min-w-0 flex-1 truncate text-[13px] font-semibold">{group.name}</span>
-                    <span className={cn("text-[10px] tabular-nums", open ? group.color : "text-slate-600")}>{availableTabs.length}</span>
-                  </button>
-                  {open && <div className="space-y-1 px-2 pb-2">
-                    {availableTabs.map((tab) => {
-                      const active = tab.id === activeTab;
-                      const Icon = tab.icon;
-                      return <button key={tab.id} type="button" onClick={() => { setActiveTab(tab.id); window.history.replaceState(null, "", `#${tab.id}`); }} aria-current={active ? "page" : undefined} className={cn("flex w-full items-center gap-2.5 rounded-lg border px-3 py-2.5 text-left text-[13px] transition-colors", active ? "border-white/10 bg-black/20 font-semibold text-white" : "border-transparent text-slate-500 hover:bg-black/10 hover:text-slate-300")}>
-                        <Icon className={cn("h-3.5 w-3.5 shrink-0", active ? group.color : "text-slate-600")} /><span className="truncate">{tab.label}</span>
-                      </button>;
-                    })}
-                  </div>}
-                </div>
-              );
-            })}
-          </nav>
-        </aside>
-        <div className="min-w-0 space-y-5">
+    <div className="cloudtix-admin-workspace">
+      <AdminNavigation tabs={visibleTabs} groups={TAB_GROUPS} active={activeTab} onOpen={openTab} role={access.is_owner ? "Owner" : access.roles.map(role => role.label).join(" · ")} />
+      <section className="cloudtix-admin-tab" data-admin-tab={activeTab} data-admin-layout={details.layout} aria-labelledby="admin-tab-title">
+        <header className="cloudtix-admin-tab-heading">
+          <div><p className="cloudtix-admin-eyebrow">{currentGroup?.name}</p><div className="cloudtix-admin-tab-title"><span><CurrentIcon size={22} /></span><h1 id="admin-tab-title">{currentTab.label}</h1></div><p className="cloudtix-admin-tab-description">{details.description}</p></div>
+          <button type="button" className="cloudtix-admin-refresh" onClick={() => fetchData(true)} disabled={refreshing}><RefreshCw size={15} className={cn(refreshing && "animate-spin")} /><span>{refreshing ? "Lädt …" : "Aktualisieren"}</span><DataAge since={lastLoaded} /></button>
+        </header>
+        <div className="cloudtix-admin-tab-body">
       {/* The overview is deliberately the first tab: opening the admin panel
           should answer "what changed?" before offering individual tools. */}
       {activeTab === "overview" && (
@@ -943,7 +849,7 @@ export function AdminContent({
       {activeTab === "botsettings" && <BotSettingsPanel />}
       {activeTab === "warnings" && (
         <div className="space-y-4">
-          <div className="rounded-2xl border border-slate-800 bg-[#131318] p-5">
+          <div className="rounded-2xl border border-slate-800 cloudtix-admin-card bg-[#131318] p-5">
             <h3 className="flex items-center gap-2 text-[15px] font-bold text-white">
               <AlertTriangle className="h-4 w-4 text-amber-400" />
               Warnungen
@@ -966,11 +872,8 @@ export function AdminContent({
       )}
 
       {!FULL_WIDTH_TABS.has(activeTab) && (
-        <div className="grid grid-cols-1 gap-4 xl:grid-cols-4">
-          {/* Die Eingabespalte. War eine Glaskarte mit 2rem-Rundung
-              und Versal-Beschriftungen; jetzt dieselbe Karte wie
-              überall sonst. */}
-          <aside className="h-fit space-y-3 rounded-2xl border border-slate-800 bg-[#131318] p-5 xl:col-span-1">
+        <div className={cn("grid grid-cols-1 gap-4", hasActionContext && "cloudtix-admin-action-workspace xl:grid-cols-4")}>
+          {hasActionContext && <aside className="cloudtix-admin-action-context h-fit space-y-3 rounded-2xl border border-slate-800 cloudtix-admin-card bg-[#131318] p-5 xl:col-span-1">
             <h3 className="text-[15px] font-bold text-white">Eingaben</h3>
 
             <div className="space-y-1.5">
@@ -1027,7 +930,7 @@ export function AdminContent({
                   value={reason}
                   onChange={(e) => setReason(e.target.value)}
                   rows={3}
-                  className="w-full resize-none rounded-xl border border-slate-800 bg-[#0a0a0c] px-4 py-3 text-[14px] text-white transition-colors focus:border-slate-700 focus:outline-none"
+                  className="w-full resize-none rounded-xl border border-slate-800 cloudtix-admin-field bg-[#0a0a0c] px-4 py-3 text-[14px] text-white transition-colors focus:border-slate-700 focus:outline-none"
                 />
               </label>
             )}
@@ -1040,19 +943,18 @@ export function AdminContent({
 
             <p className="flex gap-2 border-t border-slate-800 pt-3 text-[12px] leading-relaxed text-slate-500">
               <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-amber-500" />
-              Erst den Server wählen. Für Kick, Bann, Mute und Unmute
-              genügen Nutzer-ID, Dauer und Grund.
+              {activeTab === "members" ? "Wähle den Server und gib die Nutzer-ID ein. Dauer und Grund werden bei der gewählten Aktion verwendet." : activeTab === "scans" ? "Wähle einen Server und öffne die gewünschte Prüfung. Die Ergebnisse erscheinen hier." : "Wähle den Server und ergänze die Angaben für deine Aktion."}
             </p>
-          </aside>
+          </aside>}
 
-          <main className="space-y-4 xl:col-span-3">
+          <div className={cn("space-y-4 min-w-0", hasActionContext && "xl:col-span-3")}>
             {activeTab === "members" && (
               <section className="space-y-3">
                 {/* Keine einzige erlaubte Aktion: dann auch keinen
                     toten Knopf. Ein Satz sagt mehr als ein grauer
                     Balken, den man nicht drücken kann. */}
                 {sichtbareMemberActions.length === 0 ? (
-                  <div className="rounded-2xl border border-slate-800 bg-[#131318] px-6 py-8 text-center">
+                  <div className="rounded-2xl border border-slate-800 cloudtix-admin-card bg-[#131318] px-6 py-8 text-center">
                     <p className="text-[14px] text-slate-300">
                       Deine Rolle erlaubt hier keine Aktion.
                     </p>
@@ -1074,14 +976,14 @@ export function AdminContent({
                         className={cn(
                           "rounded-xl border p-4 text-left transition-colors",
                           active
-                            ? "border-indigo-500/40 bg-indigo-500/10"
-                            : "border-slate-800 bg-[#0f0f13] hover:border-slate-700",
+                            ? "border-white/40 bg-white/[.06]"
+                            : "border-slate-800 cloudtix-admin-card bg-[#0f0f13] hover:border-slate-700",
                         )}
                       >
                         <card.icon
                           className={cn(
                             "mb-2.5 h-[18px] w-[18px]",
-                            active ? "text-indigo-400" : "text-slate-600",
+                            active ? "text-white" : "text-slate-600",
                           )}
                         />
                         <p className="text-[14px] font-semibold text-white">
@@ -1117,7 +1019,7 @@ export function AdminContent({
                     type="button"
                     onClick={() => runQuickAction(action)}
                     disabled={saving}
-                    className="rounded-xl border border-slate-800 bg-[#0f0f13] p-4 text-left transition-colors hover:border-slate-700 disabled:opacity-50"
+                    className="rounded-xl border border-slate-800 cloudtix-admin-card bg-[#0f0f13] p-4 text-left transition-colors hover:border-slate-700 disabled:opacity-50"
                   >
                     <action.icon className="mb-2.5 h-[18px] w-[18px] text-slate-600" />
                     <h4 className="text-[14px] font-semibold text-white">
@@ -1140,7 +1042,7 @@ export function AdminContent({
 
             {activeTab === "system" && (
               <section className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-                <div className="rounded-2xl border border-slate-800 bg-[#131318] p-5 lg:col-span-2">
+                <div className="rounded-2xl border border-slate-800 cloudtix-admin-card bg-[#131318] p-5 lg:col-span-2">
                   <div className="mb-4 flex items-center justify-between gap-3">
                     <h3 className="flex items-center gap-2 text-[15px] font-bold text-white">
                       <Activity className="h-4 w-4 text-indigo-400" />
@@ -1164,7 +1066,7 @@ export function AdminContent({
                       return (
                         <div
                           key={node.name}
-                          className="flex items-center gap-3 rounded-xl border border-slate-800 bg-[#0f0f13] px-4 py-3"
+                          className="flex items-center gap-3 rounded-xl border border-slate-800 cloudtix-admin-card bg-[#0f0f13] px-4 py-3"
                         >
                           <Icon className="h-4 w-4 shrink-0 text-slate-600" />
                           <div className="min-w-0 flex-1">
@@ -1191,7 +1093,7 @@ export function AdminContent({
                   </div>
                 </div>
 
-                <div className="space-y-4 rounded-2xl border border-slate-800 bg-[#131318] p-5">
+                <div className="space-y-4 rounded-2xl border border-slate-800 cloudtix-admin-card bg-[#131318] p-5">
                   <h3 className="flex items-center gap-2 text-[15px] font-bold text-white">
                     <Settings className="h-4 w-4 text-indigo-400" />
                     Steuerung
@@ -1205,7 +1107,7 @@ export function AdminContent({
                       "w-full rounded-xl border px-4 py-3 text-left text-[14px] transition-colors",
                       config?.maintenance_mode
                         ? "border-amber-500/30 bg-amber-500/10 text-amber-300"
-                        : "border-slate-800 bg-[#0f0f13] text-slate-300 hover:border-slate-700",
+                        : "border-slate-800 cloudtix-admin-card bg-[#0f0f13] text-slate-300 hover:border-slate-700",
                     )}
                   >
                     {config?.maintenance_mode
@@ -1230,7 +1132,7 @@ export function AdminContent({
                       onChange={(e) => setNotification(e.target.value)}
                       rows={3}
                       placeholder="Leer lassen, um den Hinweis zu entfernen"
-                      className="w-full resize-none rounded-xl border border-slate-800 bg-[#0a0a0c] px-4 py-3 text-[14px] text-slate-200 placeholder:text-slate-600 transition-colors focus:border-slate-700 focus:outline-none"
+                      className="w-full resize-none rounded-xl border border-slate-800 cloudtix-admin-field bg-[#0a0a0c] px-4 py-3 text-[14px] text-slate-200 placeholder:text-slate-600 transition-colors focus:border-slate-700 focus:outline-none"
                     />
                     <button
                       type="button"
@@ -1244,12 +1146,12 @@ export function AdminContent({
                 </div>
               </section>
             )}
-          </main>
+          </div>
         </div>
       )}
 
         </div>
-      </div>
+      </section>
 
       <StickySaveBar
         id="admin-notice-save-bar"

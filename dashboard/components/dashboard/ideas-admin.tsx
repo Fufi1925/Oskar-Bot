@@ -19,7 +19,7 @@ const STATUS: Record<string, { label: string; style: string }> = {
   rejected: { label: "Abgelehnt", style: "border-red-500/25 bg-red-500/10 text-red-300" },
   needs_info: { label: "Infos benötigt", style: "border-orange-500/25 bg-orange-500/10 text-orange-300" },
 };
-const CARD = "rounded-xl border border-white/[.06] bg-[#202126]";
+const CARD = "rounded-xl border border-white/[.06] cloudtix-admin-card bg-[#202126]";
 
 export function IdeasAdmin() {
   const [data, setData] = useState<any>({ ideas: [], counts: {}, blacklisted: [] });
@@ -137,7 +137,7 @@ export function IdeasAdmin() {
 
       <div className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-white/[.06] bg-white/[.06] sm:grid-cols-3 lg:grid-cols-6">
         {cards.map(([label, value, Icon, color]) => (
-          <div key={label} className="flex items-center gap-3 bg-[#202126] px-3.5 py-3">
+          <div key={label} className="flex items-center gap-3 cloudtix-admin-card bg-[#202126] px-3.5 py-3">
             <Icon className={`h-3.5 w-3.5 shrink-0 ${color}`} />
             <div className="min-w-0">
               <p className="text-lg font-semibold leading-none tabular-nums text-white">{value}</p>
@@ -154,7 +154,7 @@ export function IdeasAdmin() {
               <Search className="absolute left-3.5 top-3.5 h-4 w-4 text-slate-500" />
               <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Titel, Text oder Ideen-ID suchen …" className="h-11 w-full rounded-xl border border-white/10 bg-black/20 pl-10 pr-4 text-sm text-white outline-none focus:border-indigo-500" />
             </div>
-            <WebsiteSelect value={filter} onChange={(e) => setFilter(e.target.value)} className="h-11 rounded-xl border border-white/10 bg-[#17171d] px-4 text-sm text-white outline-none">
+            <WebsiteSelect value={filter} onChange={(e) => setFilter(e.target.value)} className="h-11 rounded-xl border border-white/10 cloudtix-admin-card bg-[#17171d] px-4 text-sm text-white outline-none">
               <option value="">Alle Status</option>
               {Object.entries(STATUS).map(([key, item]) => <option key={key} value={key}>{item.label}</option>)}
             </WebsiteSelect>
@@ -211,7 +211,7 @@ export function IdeasAdmin() {
               {selected.images?.length ? <div className="grid grid-cols-3 gap-2">{selected.images.map((image: string) => <img key={image} src={image} alt="Referenz" className="h-20 w-full rounded-lg object-cover" />)}</div> : null}
 
               <label className="block text-xs font-bold text-slate-400">Status
-                <WebsiteSelect value={nextStatus} onChange={(e) => setNextStatus(e.target.value)} className="mt-2 h-11 w-full rounded-xl border border-white/10 bg-[#17171d] px-3 text-sm text-white">
+                <WebsiteSelect value={nextStatus} onChange={(e) => setNextStatus(e.target.value)} className="mt-2 h-11 w-full rounded-xl border border-white/10 cloudtix-admin-card bg-[#17171d] px-3 text-sm text-white">
                   {Object.entries(STATUS).map(([key, item]) => <option key={key} value={key}>{item.label}</option>)}
                 </WebsiteSelect>
               </label>

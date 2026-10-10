@@ -41,6 +41,8 @@ import { api } from "@/lib/api";
 import { AdminConfig } from "@/types/api";
 import { SUPPORT_INVITE } from "@/lib/legal";
 import { guildModuleFromHref } from "@/lib/guild-modules";
+import "@/components/dashboard/admin-workspace.css";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { DiscordIdInspector } from "@/components/dashboard/discord-id-inspector";
 
 export default function DashboardLayout({
@@ -51,6 +53,7 @@ export default function DashboardLayout({
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isProfilOpen, setIsProfilOpen] = useState(false);
   const pathname = usePathname();
+  const isAdminRoute = pathname === "/dashboard/admin" || pathname.startsWith("/dashboard/admin/");
   const { language } = useLanguage();
   const guildMatch = pathname.match(/\/dashboard\/guild\/([^\/]+)/);
   const currentGuildId = guildMatch ? guildMatch[1] : null;
@@ -465,7 +468,7 @@ export default function DashboardLayout({
     : allSidebarItems;
 
   return (
-    <div className="user-dashboard-theme min-h-screen bg-[#0a0a0c] text-slate-200">
+    <div className={cn("user-dashboard-theme min-h-screen bg-[#0a0a0c] text-slate-200", isAdminRoute && "cloudtix-admin-shell")}>
       <DiscordIdInspector />
       {/* Liquid Background Elements */}
       {/* Ein ruhiger Schein statt zwei pulsierender Flaechen. */}
@@ -474,7 +477,7 @@ export default function DashboardLayout({
       </div>
 
       {/* Mobile Sidebar Overlay */}
-      {isSidebarOpen && (
+      {isSidebarOpen && !isAdminRoute && (
         <div
           className="fixed inset-0 z-40 bg-[#02030a]/72 backdrop-blur-md lg:hidden"
           onClick={() => setIsSidebarOpen(false)}
@@ -483,7 +486,7 @@ export default function DashboardLayout({
 
       {/* Clean server navigation: flat surfaces, quiet monochrome icons and
           the same information order as the supplied reference. */}
-      <aside
+      {!isAdminRoute && <aside
         className={cn(
           "university-clean-sidebar fixed inset-y-0 left-0 z-50 flex w-[250px] flex-col border-r border-white/[.06] bg-[#191a1f] transition-transform duration-200 lg:translate-x-0",
           isSidebarOpen ? "translate-x-0" : "-translate-x-full"
@@ -649,22 +652,24 @@ export default function DashboardLayout({
             })}
           </nav>
         </div>
-      </aside>
+      </aside>}
 
       {/* Main Content Area (unchanged) */}
-      <div className="relative z-10 flex min-h-screen flex-col bg-[#191a1f] lg:pl-[250px]">
+      <div className={cn("relative z-10 flex min-h-screen flex-col bg-[#191a1f] lg:pl-[250px]", isAdminRoute && "cloudtix-admin-frame")}>
         {/* Top Navbar (unchanged) */}
         <header className="dashboard-topbar sticky top-2 z-30 mx-3 mb-4 mt-3 flex h-16 isolate items-center justify-between gap-2 rounded-[24px] border border-white/[.1] bg-[#090b12]/78 px-2.5 shadow-[0_22px_70px_rgba(0,0,0,.32)] backdrop-blur-3xl lg:top-4 lg:mx-6 lg:mb-6 lg:mt-4 lg:h-[72px] lg:rounded-[28px] lg:px-4">
           <div className="dashboard-header-decoration pointer-events-none absolute inset-x-16 top-0 h-px bg-gradient-to-r from-transparent via-blue-300/35 to-transparent" />
           <div className="dashboard-header-decoration pointer-events-none absolute -top-20 right-28 h-40 w-64 rounded-full bg-blue-600/[.08] blur-3xl" />
           <button
             className="relative grid h-10 w-10 shrink-0 place-items-center rounded-2xl border border-white/[.08] bg-white/[.045] text-slate-400 transition hover:bg-white/[.09] hover:text-white lg:hidden"
-            aria-label="Navigation öffnen"
-            onClick={() => setIsSidebarOpen(true)}
+            aria-label={isAdminRoute ? "Admin-Navigation öffnen" : "Navigation öffnen"}
+            aria-controls={isAdminRoute ? "cloudtix-admin-navigation" : undefined}
+            onClick={() => isAdminRoute ? window.dispatchEvent(new Event("cloudtix-admin-navigation-toggle")) : setIsSidebarOpen(true)}
           >
             <Menu className="h-6 w-6" />
           </button>
 
+          {isAdminRoute && <span className="cloudtix-admin-top-label"><Shield size={15} />Administration</span>}
           {!currentGuildId && <GlobalSearch />}
 
           <div className="relative ml-auto flex items-center gap-1.5 lg:gap-2">
@@ -749,6 +754,7 @@ export default function DashboardLayout({
                 sind. Auf schmalen Bildschirmen zeigt der Knopf nur die
                 Flagge, damit Glocke, Profil und Suche Platz behalten. */}
             <LanguageSwitcher />
+            {isAdminRoute && <ThemeToggle embedded />}
 
             {/* Profil Dropdown (unchanged) */}
             <div className="relative" ref={profileRef}>
@@ -868,7 +874,7 @@ export default function DashboardLayout({
         </header>
 
         {/* Content Area */}
-        <main className="flex-1 p-3 sm:p-6 lg:p-10 animate-in fade-in duration-700 relative z-10">
+        <main className={cn("flex-1 p-3 sm:p-6 lg:p-10 animate-in fade-in duration-700 relative z-10", isAdminRoute && "cloudtix-admin-main")}>
           <div className="max-w-[1600px] mx-auto">
             {maintenance && (
               <div className="mb-6 flex items-center gap-3 rounded-2xl border border-amber-500/30 bg-amber-500/10 px-5 py-4">

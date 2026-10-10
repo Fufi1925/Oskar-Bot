@@ -28,7 +28,7 @@ import { toast } from "sonner";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
-const CARD = "bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6";
+const CARD = "cloudtix-admin-card bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6";
 
 interface Antrag {
   id: number;
@@ -156,7 +156,7 @@ export function BetaAdmin() {
           </div>
           <button
             onClick={laden}
-            className="rounded-2xl border border-slate-800 bg-[#0f0f13] p-3 text-slate-300 transition hover:bg-white/[0.04]"
+            className="rounded-2xl border border-slate-800 cloudtix-admin-card bg-[#0f0f13] p-3 text-slate-300 transition hover:bg-white/[0.04]"
             title="Neu laden"
           >
             <RefreshCw className="h-4 w-4" />
@@ -177,7 +177,7 @@ export function BetaAdmin() {
                 "rounded-xl border px-3 py-1.5 text-xs transition",
                 filter === f.id
                   ? "border-amber-400/50 bg-amber-400/15 text-amber-200"
-                  : "border-slate-800 bg-[#0f0f13] text-slate-400 hover:bg-white/[0.04]"
+                  : "border-slate-800 cloudtix-admin-card bg-[#0f0f13] text-slate-400 hover:bg-white/[0.04]"
               )}
             >
               {f.label}
@@ -246,7 +246,7 @@ export function BetaAdmin() {
                 .map(([titel, text]) => (
                   <div
                     key={titel}
-                    className="rounded-2xl border border-slate-800 bg-[#0f0f13] p-3"
+                    className="rounded-2xl border border-slate-800 cloudtix-admin-card bg-[#0f0f13] p-3"
                   >
                     <div className="text-xs font-semibold uppercase tracking-wider text-slate-500">
                       {titel}
@@ -276,7 +276,7 @@ export function BetaAdmin() {
             )}
 
             {a.grund && a.status === "abgelehnt" && (
-              <div className="mt-2 rounded-2xl border border-slate-800 bg-[#0f0f13] p-2.5 text-xs text-slate-400">
+              <div className="mt-2 rounded-2xl border border-slate-800 cloudtix-admin-card bg-[#0f0f13] p-2.5 text-xs text-slate-400">
                 <span className="text-slate-600">Begründung:</span> {a.grund}
               </div>
             )}
@@ -290,7 +290,7 @@ export function BetaAdmin() {
                     setGruende((g) => ({ ...g, [a.id]: e.target.value }))
                   }
                   placeholder="Begründung (Pflicht bei Ablehnung)"
-                  className="w-full rounded-2xl border border-slate-800 bg-[#0f0f13] px-4 py-2.5 text-sm text-white outline-none focus:border-amber-400/50"
+                  className="w-full rounded-2xl border border-slate-800 cloudtix-admin-card bg-[#0f0f13] px-4 py-2.5 text-sm text-white outline-none focus:border-amber-400/50"
                 />
                 <div className="flex flex-wrap gap-2">
                   <button
@@ -308,7 +308,7 @@ export function BetaAdmin() {
                   <button
                     onClick={() => entscheiden(a, false)}
                     disabled={beschaeftigt === a.id}
-                    className="inline-flex items-center gap-2 rounded-2xl border border-slate-800 bg-[#0f0f13] px-4 py-2.5 text-sm text-slate-300 transition hover:bg-red-500/10 hover:text-red-300 disabled:opacity-50"
+                    className="inline-flex items-center gap-2 rounded-2xl border border-slate-800 cloudtix-admin-card bg-[#0f0f13] px-4 py-2.5 text-sm text-slate-300 transition hover:bg-red-500/10 hover:text-red-300 disabled:opacity-50"
                   >
                     <XCircle className="h-4 w-4" />
                     Ablehnen
@@ -321,7 +321,7 @@ export function BetaAdmin() {
               <button
                 onClick={() => entziehen(a)}
                 disabled={beschaeftigt === a.id}
-                className="mt-4 inline-flex items-center gap-2 rounded-2xl border border-slate-800 bg-[#0f0f13] px-4 py-2.5 text-sm text-slate-400 transition hover:bg-red-500/10 hover:text-red-300 disabled:opacity-50"
+                className="mt-4 inline-flex items-center gap-2 rounded-2xl border border-slate-800 cloudtix-admin-card bg-[#0f0f13] px-4 py-2.5 text-sm text-slate-400 transition hover:bg-red-500/10 hover:text-red-300 disabled:opacity-50"
               >
                 {beschaeftigt === a.id ? (
                   <Loader2 className="h-4 w-4 animate-spin" />

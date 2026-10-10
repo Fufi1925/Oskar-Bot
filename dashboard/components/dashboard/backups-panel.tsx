@@ -146,7 +146,7 @@ export function BackupsPanel({
        * 0 angekommen, kein Fehler gemeldet). */}
       <UmzugPanel />
 
-      <div className="bg-[#131318] border border-slate-800 rounded-3xl p-5 sm:p-8">
+      <div className="cloudtix-admin-panel-header cloudtix-admin-card bg-[#131318] border border-slate-800 rounded-3xl p-5 sm:p-8">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
           <div className="flex items-center gap-4">
             <div className="h-12 w-12 rounded-2xl bg-primary/15 border border-primary/25 flex items-center justify-center">
@@ -196,7 +196,7 @@ export function BackupsPanel({
             </button>
             <button
               onClick={load}
-              className="p-3 rounded-2xl bg-[#0e0e12] border border-slate-800 hover:bg-white/[0.06] transition-all"
+              className="p-3 rounded-2xl cloudtix-admin-field bg-[#0e0e12] border border-slate-800 hover:bg-white/[0.06] transition-all"
             >
               <RefreshCw className={cn("h-4 w-4 text-primary", busy && "animate-spin")} />
             </button>
@@ -223,7 +223,7 @@ export function BackupsPanel({
       <FullBackupPanel />
 
       {/* Still useful for cloning one server's setup onto another. */}
-      <div className="bg-[#131318] border border-primary/25 rounded-3xl p-8">
+      <div className="cloudtix-admin-card bg-[#131318] border border-primary/25 rounded-3xl p-8">
         <div className="flex items-center gap-3 mb-3">
           <FileJson className="h-5 w-5 text-primary" />
           <h4 className="font-black text-white">Single server</h4>
@@ -259,7 +259,7 @@ export function BackupsPanel({
       </div>
 
       {live && (
-        <div className="bg-[#131318] border border-primary/25 rounded-3xl p-4 sm:p-6 flex items-center justify-between gap-4 flex-wrap">
+        <div className="cloudtix-admin-card bg-[#131318] border border-primary/25 rounded-3xl p-4 sm:p-6 flex items-center justify-between gap-4 flex-wrap">
           <div className="flex items-center gap-4">
             <HardDrive className="h-5 w-5 text-primary" />
             <div>
@@ -293,7 +293,7 @@ export function BackupsPanel({
           snapshots.map((snapshot) => (
             <div
               key={snapshot.name}
-              className="bg-[#131318] border border-slate-800 rounded-3xl p-5 flex items-center justify-between gap-4 flex-wrap"
+              className="cloudtix-admin-card bg-[#131318] border border-slate-800 rounded-3xl p-5 flex items-center justify-between gap-4 flex-wrap"
             >
               <div className="min-w-0">
                 <code className="font-black text-white font-mono text-sm">{snapshot.name}</code>
@@ -307,14 +307,14 @@ export function BackupsPanel({
                 <button
                   onClick={() => restore(snapshot.name)}
                   disabled={busy}
-                  className="p-2.5 rounded-xl bg-[#0e0e12] border border-slate-800 text-slate-400 hover:text-amber-400 hover:bg-amber-400/10 transition-all disabled:opacity-40"
+                  className="p-2.5 rounded-xl cloudtix-admin-field bg-[#0e0e12] border border-slate-800 text-slate-400 hover:text-amber-400 hover:bg-amber-400/10 transition-all disabled:opacity-40"
                   title="Restore this snapshot"
                 >
                   <RotateCcw className="h-4 w-4" />
                 </button>
                 <button
                   onClick={() => download(snapshot.name)}
-                  className="p-2.5 rounded-xl bg-[#0e0e12] border border-slate-800 text-slate-400 hover:text-primary hover:bg-primary/10 transition-all"
+                  className="p-2.5 rounded-xl cloudtix-admin-field bg-[#0e0e12] border border-slate-800 text-slate-400 hover:text-primary hover:bg-primary/10 transition-all"
                   title="Download as zip"
                 >
                   <Download className="h-4 w-4" />
@@ -322,7 +322,7 @@ export function BackupsPanel({
                 <button
                   onClick={() => remove(snapshot.name)}
                   disabled={busy}
-                  className="p-2.5 rounded-xl bg-[#0e0e12] border border-slate-800 text-slate-400 hover:text-red-400 hover:bg-red-400/10 transition-all disabled:opacity-40"
+                  className="p-2.5 rounded-xl cloudtix-admin-field bg-[#0e0e12] border border-slate-800 text-slate-400 hover:text-red-400 hover:bg-red-400/10 transition-all disabled:opacity-40"
                   title="Delete"
                 >
                   <Trash2 className="h-4 w-4" />
