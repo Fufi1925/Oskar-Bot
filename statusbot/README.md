@@ -32,7 +32,7 @@ Beim **Status-Service** (nicht beim Hauptbot):
 | Variable | Wert | Pflicht |
 |---|---|---|
 | `STATUS_BOT_TOKEN` | Token der zweiten Discord-Application | ja |
-| `MAIN_BOT_URL` | Öffentliche URL des **Hauptbots**, z.B. `https://xyz.up.railway.app` | ja |
+| `MAIN_BOT_URL` | Öffentliche URL des **Hauptbots**, `https://cloudtix.up.railway.app` | ja |
 | `STATUS_CHANNEL_ID` | Kanal für die Live-Statusnachricht | ja |
 | `HOME_GUILD_ID` | `1530378233579704370` (Standard) | nein |
 | `DASHBOARD_API_KEY` | **derselbe** wie beim Hauptbot | nur fürs Senden |

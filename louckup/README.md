@@ -140,13 +140,13 @@ louckup/
 ## Einrichten
 
 1. **Eigene Discord-Application** anlegen (nicht die vom Hauptbot/Phantom)
-2. OAuth2 → Redirects: `https://<deine-url>/louckup/auth/callback`
+2. OAuth2 → Redirects: `https://cloudtix.up.railway.app/louckup/auth/callback`
 3. Client-ID/Secret nach `LOUCKUP_DISCORD_CLIENT_ID` / `..._SECRET`
 4. `LOUCKUP_OWNER_IDS` setzen (kommagetrennt) — leer bedeutet: es gilt
    `OWNER_IDS` aus der Hauptkonfiguration
 5. `LOUCKUP_SECRET_KEY` setzen (sonst: `DASHBOARD_API_KEY`)
 6. Redeploy — `start.sh` setzt `LOUCKUP_BASE_URL` automatisch aus
-   `RAILWAY_PUBLIC_DOMAIN`
+   `NEXTAUTH_URL` (`https://cloudtix.up.railway.app`)
 
 ## Absicherung
 

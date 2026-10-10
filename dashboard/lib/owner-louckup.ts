@@ -1,3 +1,4 @@
+import { websiteOrigin } from "./website";
 import { createHmac } from "crypto";
 
 export const LOUCKUP_COOKIE = "university-owner-louckup";
@@ -7,7 +8,7 @@ export function isLouckupOrigin(origin: string | null, requestOrigin: string): b
   // Behind the bot proxy the request URL points at localhost. NEXTAUTH_URL
   // defines the trusted public origin; never trust caller-supplied proxy headers.
   try {
-    const publicUrl = new URL(process.env.NEXTAUTH_URL || requestOrigin);
+    const publicUrl = new URL(websiteOrigin(requestOrigin));
     if (!["https:", "http:"].includes(publicUrl.protocol) || publicUrl.username || publicUrl.password) return false;
     return origin === publicUrl.origin;
   } catch { return false; }

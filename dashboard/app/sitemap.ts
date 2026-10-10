@@ -1,9 +1,10 @@
 import type { MetadataRoute } from 'next'
+import { websiteOrigin } from '@/lib/website'
 
-// WICHTIG: Passe die Basis-URL an, falls sie sich ändert
-const BASE_URL = 'https://universtiy-bot.up.railway.app'
+// The same public origin is used for login and absolute links.
 
 export default function sitemap(): MetadataRoute.Sitemap {
+  const BASE_URL = websiteOrigin()
   return [
     {
       url: `${BASE_URL}/`,

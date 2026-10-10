@@ -15,6 +15,7 @@
  */
 
 import type { Metadata, Viewport } from "next";
+import { websiteOrigin } from "@/lib/website";
 import { cookies } from "next/headers";
 import type { Language } from "@/lib/i18n/translations";
 import { brandAsset, normalisiereMarke } from "@/lib/brand";
@@ -32,6 +33,7 @@ const brandName = normalisiereMarke(process.env.NEXT_PUBLIC_BRAND_NAME);
 const footerEmail = process.env.FOOTER_EMAIL || "fufi1925@proton.me";
 
 export const metadata: Metadata = {
+  metadataBase: new URL(websiteOrigin()),
   // Der Name allein, kein Werbe-Anhaengsel. Frueher stand hier
   // „- Ultimate Discord Bot“ — eine erfundene Behauptung, die in
   // jedem Browser-Tab und in jedem Suchergebnis stand. Unterseiten

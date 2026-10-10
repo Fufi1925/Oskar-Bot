@@ -21,19 +21,43 @@ in without it, so if the site works, that value is correct.
 from __future__ import annotations
 
 import os
+from urllib.parse import urlsplit, urlunsplit
+
+
+PUBLIC_WEBSITE_URL = "https://cloudtix.up.railway.app"
+# Retained only to migrate URL settings from the former deployment.
+_LEGACY_WEBSITE_HOSTS = {"universtiy-bot.up.railway.app", "university-bot.up.railway.app"}
+
+
+def normalize_public_url(value: str | None, *, origin_only: bool = False) -> str:
+    """Normalize configured public URLs and migrate the former website host."""
+    raw = (value or "").strip().strip('"').strip("'")
+    if not raw:
+        return ""
+    try:
+        parts = urlsplit(raw)
+        host = (parts.hostname or "").lower()
+        if (parts.scheme not in {"http", "https"} or not host
+                or host.startswith(".") or parts.username or parts.password):
+            return ""
+        # Accessing port also rejects malformed port values.
+        _ = parts.port
+        scheme, netloc = parts.scheme, parts.netloc
+        if host in _LEGACY_WEBSITE_HOSTS:
+            scheme, netloc = "https", "cloudtix.up.railway.app"
+        return urlunsplit((scheme, netloc,
+                          "" if origin_only else parts.path.rstrip("/"),
+                          "" if origin_only else parts.query,
+                          "" if origin_only else parts.fragment))
+    except ValueError:
+        return ""
 
 
 def _clean(value: str | None) -> str:
-    text = (value or "").strip().rstrip("/")
-    # A bare scheme with no host, e.g. the old "https://.vercel.app",
-    # renders as a button that goes nowhere. Discord accepts the URL and
-    # the user gets a dead link, so it is treated as unset.
-    if not text or "://" not in text:
+    result = normalize_public_url(value, origin_only=True)
+    if not result or "." not in (urlsplit(result).hostname or ""):
         return ""
-    host = text.split("://", 1)[1]
-    if not host or host.startswith(".") or "." not in host:
-        return ""
-    return text
+    return result
 
 
 def dashboard_url() -> str:
@@ -45,10 +69,11 @@ def dashboard_url() -> str:
       1. ``DASHBOARD_URL``   -- explicit, wins when present
       2. ``NEXTAUTH_URL``    -- required for login, so it is always set
                                 and always right on a working deployment
-      3. ``CORS_ORIGINS``    -- first entry, set for the same reason
-      4. ``WEBSITE_URL``     -- what the status bot calls it
+      ``DASHBOARD_PUBLIC_URL`` is also accepted as an explicit override.
+      ``WEBSITE_URL``, ``CORS_ORIGINS`` and ``RAILWAY_PUBLIC_DOMAIN``
+      provide fallbacks for services without NextAuth.
     """
-    for name in ("DASHBOARD_URL", "NEXTAUTH_URL", "WEBSITE_URL"):
+    for name in ("DASHBOARD_URL", "DASHBOARD_PUBLIC_URL", "NEXTAUTH_URL", "WEBSITE_URL"):
         found = _clean(os.getenv(name))
         if found:
             return found
@@ -59,7 +84,8 @@ def dashboard_url() -> str:
         if found:
             return found
 
-    return ""
+    domain = (os.getenv("RAILWAY_PUBLIC_DOMAIN") or "").strip()
+    return _clean(f"https://{domain}") if domain else ""
 
 
 def guild_dashboard_url(guild_id: int | str, tab: str = "") -> str:

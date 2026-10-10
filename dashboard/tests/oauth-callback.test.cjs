@@ -22,7 +22,7 @@ test.after(() => {
 });
 const { AuthHandler } = require(path.join(root, 'node_modules/next-auth/core/index.js'));
 const { DISCORD_USER_SCOPES } = require('../lib/discord-oauth.ts');
-const origin = 'https://universtiy-bot.up.railway.app';
+const origin = 'https://cloudtix.up.railway.app';
 const callbackUrl = origin + '/auth/success?next=%2Fdashboard';
 const credentials = { id: 'test-client', secret: crypto.randomBytes(32).toString('hex') };
 process.env.NEXTAUTH_URL = origin;

@@ -9,6 +9,7 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 from starlette.responses import Response, RedirectResponse
 from utils.config import *
+from utils.links import PUBLIC_WEBSITE_URL, dashboard_url, normalize_public_url
 from api.routes import bot, guilds, admin, team, moderation, actions, access, guild_access, dashboard_ai, support_operations, servers, servertools, server_stats, tickets, giveaways, leveling, vanity, broadcast, anonchat, diagnose, compose, nukealert, memberperks, extras, voice, verify, automod, logging_cfg, antinuke, pingreactions, premium, privacy, cookies, speedrun, supportqueue, support, honeypot, design, beta, backup, tester, music, templates, teamlist, applications, teamupdate, webapply, ideas, firewall as firewall_route, commands as commands_route
 from api.routes import owner_louckup
 from api.routes import dashboard_settings
@@ -247,11 +248,15 @@ def create_app() -> FastAPI:
 
     app.add_exception_handler(Exception, unhandled_exception_handler)
 
-    _extra_origins = [o.strip() for o in os.getenv("CORS_ORIGINS", "").split(",") if o.strip()]
+    _extra_origins = [normalize_public_url(o, origin_only=True) or o.strip()
+                      for o in os.getenv("CORS_ORIGINS", "").split(",") if o.strip()]
     _railway_domain = os.getenv("RAILWAY_PUBLIC_DOMAIN", "")
+    _railway_origin = normalize_public_url(f"https://{_railway_domain}", origin_only=True)
     _allowed_origins = list(dict.fromkeys([
         "http://localhost:3000", "http://localhost:8080",
-        *([f"https://{_railway_domain}"] if _railway_domain else []),
+        PUBLIC_WEBSITE_URL,
+        *([dashboard_url()] if dashboard_url() else []),
+        *([_railway_origin] if _railway_origin else []),
         *(_extra_origins),
     ]))
     app.add_middleware(

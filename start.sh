@@ -5,13 +5,77 @@ export PORT=${PORT:-8080}
 export DASHBOARD_PORT=${DASHBOARD_PORT:-3000}
 export PHANTOM_PORT=${PHANTOM_PORT:-8787}
 
+# Set NEXTAUTH_URL automatically if not set
+if [ -z "${NEXTAUTH_URL:-}" ]; then
+  if [ -n "${RAILWAY_PUBLIC_DOMAIN:-}" ]; then
+    export NEXTAUTH_URL="https://$RAILWAY_PUBLIC_DOMAIN"
+  elif [ -n "${RAILWAY_ENVIRONMENT_ID:-${RAILWAY_PROJECT_ID:-}}" ]; then
+    export NEXTAUTH_URL="https://cloudtix.up.railway.app"
+  else
+    export NEXTAUTH_URL="http://localhost:$PORT"
+  fi
+  echo "🌐 NEXTAUTH_URL set to: $NEXTAUTH_URL"
+fi
+
+# OAuth is extremely strict about redirect_uri. A trailing callback path,
+# whitespace, localhost on Railway or a trailing slash can make Discord accept
+# the consent and then reject the token exchange. Normalize to one public
+# origin before Next.js starts, while keeping intentional custom domains.
+NORMALIZED_NEXTAUTH_URL="$(python - "$NEXTAUTH_URL" "${RAILWAY_PUBLIC_DOMAIN:-}" "$(dirname "$0")/bot" <<'PY'
+import sys
+from urllib.parse import urlsplit
+sys.path.insert(0, sys.argv[3])
+from utils.links import normalize_public_url
+raw = (sys.argv[1] or "").strip().strip('"').strip("'")
+railway = (sys.argv[2] or "").strip()
+if raw and "://" not in raw:
+    raw = "https://" + raw
+parts = urlsplit(raw)
+host = (parts.hostname or "").lower()
+if railway and host in {"localhost", "127.0.0.1", "0.0.0.0", ""}:
+    print(normalize_public_url("https://" + railway, origin_only=True))
+elif parts.scheme in {"http", "https"} and parts.netloc:
+    print(normalize_public_url(raw, origin_only=True))
+else:
+    print("")
+PY
+)"
+if [ -n "$NORMALIZED_NEXTAUTH_URL" ]; then
+  if [ "$NORMALIZED_NEXTAUTH_URL" != "$NEXTAUTH_URL" ]; then
+    echo "🛠️ NEXTAUTH_URL normalized: $NEXTAUTH_URL -> $NORMALIZED_NEXTAUTH_URL"
+  fi
+  export NEXTAUTH_URL="$NORMALIZED_NEXTAUTH_URL"
+else
+  echo "❌ NEXTAUTH_URL is invalid; Discord OAuth cannot start"
+fi
+export NEXTAUTH_URL_INTERNAL="${NEXTAUTH_URL_INTERNAL:-http://127.0.0.1:$DASHBOARD_PORT}"
+echo "🔁 CloudTIX OAuth callback: $NEXTAUTH_URL/api/auth/callback/discord"
+
+# Migrate explicitly configured public links, including isolated OAuth areas.
+# Each export is a quoted name=value string; environment contents are not code.
+while IFS= read -r public_setting; do
+  export "$public_setting"
+done < <(python - "$(dirname "$0")/bot" <<'PY'
+import os
+import sys
+sys.path.insert(0, sys.argv[1])
+from utils.links import normalize_public_url
+
+for name in ("DASHBOARD_URL", "DASHBOARD_PUBLIC_URL", "WEBSITE_URL", "PUBLIC_BASE_URL",
+             "PHANTOM_BASE_URL", "LOUCKUP_BASE_URL", "LBOST_SHOP_BASE_URL"):
+    value = normalize_public_url(os.getenv(name))
+    if value:
+        print(f"{name}={value}")
+if os.getenv("CORS_ORIGINS"):
+    origins = [normalize_public_url(value, origin_only=True) or value.strip()
+               for value in os.environ["CORS_ORIGINS"].split(",")]
+    print("CORS_ORIGINS=" + ",".join(origins))
+PY
+)
+
 # Phantom public URL (isolated under /phantom on same domain)
 if [ -z "${PHANTOM_BASE_URL:-}" ]; then
-  if [ -n "${RAILWAY_PUBLIC_DOMAIN:-}" ]; then
-    export PHANTOM_BASE_URL="https://$RAILWAY_PUBLIC_DOMAIN/phantom"
-  else
-    export PHANTOM_BASE_URL="http://localhost:$PORT/phantom"
-  fi
+  export PHANTOM_BASE_URL="$NEXTAUTH_URL/phantom"
   echo "👻 PHANTOM_BASE_URL set to: $PHANTOM_BASE_URL"
 fi
 export PHANTOM_COOKIE_PATH="${PHANTOM_COOKIE_PATH:-/phantom}"
@@ -24,11 +88,7 @@ fi
 # Eigener Bereich mit eigener Discord-Application. Nichts davon haengt
 # an Phantom — nur die Domain teilen sie sich.
 if [ -z "${LOUCKUP_BASE_URL:-}" ]; then
-  if [ -n "${RAILWAY_PUBLIC_DOMAIN:-}" ]; then
-    export LOUCKUP_BASE_URL="https://$RAILWAY_PUBLIC_DOMAIN/louckup"
-  else
-    export LOUCKUP_BASE_URL="http://localhost:$PORT/louckup"
-  fi
+  export LOUCKUP_BASE_URL="$NEXTAUTH_URL/louckup"
   echo "🔒 LOUCKUP_BASE_URL set to: $LOUCKUP_BASE_URL"
 fi
 export LOUCKUP_COOKIE_PATH="${LOUCKUP_COOKIE_PATH:-/louckup}"
@@ -52,11 +112,7 @@ fi
 # Eigene Discord-Application, eigener Session-Schluessel, eigene
 # Freigabeliste und bereits reservierter Token fuer den spaeteren Shop-Bot.
 if [ -z "${LBOST_SHOP_BASE_URL:-}" ]; then
-  if [ -n "${RAILWAY_PUBLIC_DOMAIN:-}" ]; then
-    export LBOST_SHOP_BASE_URL="https://$RAILWAY_PUBLIC_DOMAIN/lbost-shop"
-  else
-    export LBOST_SHOP_BASE_URL="http://localhost:$PORT/lbost-shop"
-  fi
+  export LBOST_SHOP_BASE_URL="$NEXTAUTH_URL/lbost-shop"
   echo "🛍️ LBOST_SHOP_BASE_URL set to: $LBOST_SHOP_BASE_URL"
 fi
 export LBOST_SHOP_COOKIE_PATH="${LBOST_SHOP_COOKIE_PATH:-/lbost-shop}"
@@ -69,48 +125,6 @@ fi
 if [ -z "${LBOST_SHOP_OWNER_IDS:-}" ] && [ -n "${OWNER_IDS:-}" ]; then
   export LBOST_SHOP_OWNER_IDS="$OWNER_IDS"
 fi
-
-# Set NEXTAUTH_URL automatically if not set
-if [ -z "${NEXTAUTH_URL:-}" ]; then
-  if [ -n "${RAILWAY_PUBLIC_DOMAIN:-}" ]; then
-    export NEXTAUTH_URL="https://$RAILWAY_PUBLIC_DOMAIN"
-  else
-    export NEXTAUTH_URL="http://localhost:$PORT"
-  fi
-  echo "🌐 NEXTAUTH_URL set to: $NEXTAUTH_URL"
-fi
-
-# OAuth is extremely strict about redirect_uri. A trailing callback path,
-# whitespace, localhost on Railway or a trailing slash can make Discord accept
-# the consent and then reject the token exchange. Normalize to one public
-# origin before Next.js starts, while keeping intentional custom domains.
-NORMALIZED_NEXTAUTH_URL="$(python - "$NEXTAUTH_URL" "${RAILWAY_PUBLIC_DOMAIN:-}" <<'PY'
-import sys
-from urllib.parse import urlsplit
-raw = (sys.argv[1] or "").strip().strip('"').strip("'")
-railway = (sys.argv[2] or "").strip()
-if raw and "://" not in raw:
-    raw = "https://" + raw
-parts = urlsplit(raw)
-host = (parts.hostname or "").lower()
-if railway and host in {"localhost", "127.0.0.1", "0.0.0.0", ""}:
-    print("https://" + railway)
-elif parts.scheme in {"http", "https"} and parts.netloc:
-    print(f"{parts.scheme}://{parts.netloc}")
-else:
-    print("")
-PY
-)"
-if [ -n "$NORMALIZED_NEXTAUTH_URL" ]; then
-  if [ "$NORMALIZED_NEXTAUTH_URL" != "$NEXTAUTH_URL" ]; then
-    echo "🛠️ NEXTAUTH_URL normalized: $NEXTAUTH_URL -> $NORMALIZED_NEXTAUTH_URL"
-  fi
-  export NEXTAUTH_URL="$NORMALIZED_NEXTAUTH_URL"
-else
-  echo "❌ NEXTAUTH_URL is invalid; Discord OAuth cannot start"
-fi
-export NEXTAUTH_URL_INTERNAL="${NEXTAUTH_URL_INTERNAL:-http://127.0.0.1:$DASHBOARD_PORT}"
-echo "🔁 CloudTIX OAuth callback: $NEXTAUTH_URL/api/auth/callback/discord"
 
 # The main dashboard may use new dedicated names or the legacy variables.
 # Dedicated values also repair every older main-dashboard OAuth route that

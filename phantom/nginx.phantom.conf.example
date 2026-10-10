@@ -16,7 +16,7 @@ location /phantom/ {
 }
 
 # Wichtig in Discord Developer Portal → OAuth2 Redirects:
-#   https://DEINE-DOMAIN/phantom/auth/callback
+#   https://cloudtix.up.railway.app/phantom/auth/callback
 #
 # Und in .env:
-#   PHANTOM_BASE_URL=https://DEINE-DOMAIN/phantom
+#   PHANTOM_BASE_URL=https://cloudtix.up.railway.app/phantom

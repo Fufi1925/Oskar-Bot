@@ -2,6 +2,13 @@ import DiscordProvider from "next-auth/providers/discord";
 import { AuthOptions } from "next-auth";
 import { getAuthSecret } from "@/lib/auth-session";
 import { DASHBOARD_AUTH_VERSION, DISCORD_USER_SCOPES, hasDashboardConsent } from "@/lib/discord-oauth";
+import { websiteOrigin } from "@/lib/website";
+
+// NextAuth reads this variable itself when it creates Discord redirect URIs.
+// Normalize it here as well for dashboard starts outside start.sh.
+if (process.env.NEXTAUTH_URL || process.env.RAILWAY_PUBLIC_DOMAIN || process.env.NODE_ENV === "production") {
+  process.env.NEXTAUTH_URL = websiteOrigin();
+}
 
 // Keep the CloudTIX OAuth application isolated from LBoost Shop and every
 // other bot. Dedicated names win; the old variables remain supported so

@@ -64,14 +64,14 @@ cp .env.example .env
 4. **OAuth2** → Client ID + Secret → `PHANTOM_DISCORD_CLIENT_ID` / `PHANTOM_DISCORD_CLIENT_SECRET`
 5. Redirects hinzufügen:
    ```text
-   https://DEINE-DOMAIN.de/phantom/auth/callback
+   https://cloudtix.up.railway.app/phantom/auth/callback
    ```
 6. Bot einladen (Scopes: `bot applications.commands`, Rechte: Channels verwalten, Nachrichten, Rollen lesen …)
 
 ### 3) `.env` füllen
 
 ```env
-PHANTOM_BASE_URL=https://DEINE-DOMAIN.de/phantom
+PHANTOM_BASE_URL=https://cloudtix.up.railway.app/phantom
 PHANTOM_SECRET_KEY=irgendein-langes-zufaelliges-secret
 PHANTOM_DISCORD_CLIENT_ID=...
 PHANTOM_DISCORD_CLIENT_SECRET=...
@@ -105,9 +105,9 @@ http://127.0.0.1:8787/login
 
 ### 5) Production unter `/phantom`
 
-- `PHANTOM_BASE_URL=https://deine-domain.de/phantom`
+- `PHANTOM_BASE_URL=https://cloudtix.up.railway.app/phantom`
 - Nginx: siehe `nginx.phantom.conf.example`
-- OAuth Redirect: `https://deine-domain.de/phantom/auth/callback`
+- OAuth Redirect: `https://cloudtix.up.railway.app/phantom/auth/callback`
 
 ---
 

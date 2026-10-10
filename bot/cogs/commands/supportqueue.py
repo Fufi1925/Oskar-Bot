@@ -97,15 +97,13 @@ def _music_url() -> str:
     """Die vollstaendige Adresse der Wartemusik.
 
     `PUBLIC_BASE_URL` erlaubt es, die Datei woanders zu hosten. Sonst
-    wird die Railway-Domain genommen; lokal der eigene Port.
+    wird die öffentliche Dashboard-Adresse genommen; lokal der eigene Port.
     """
-    basis = (os.getenv("PUBLIC_BASE_URL") or "").strip().rstrip("/")
+    from utils.links import dashboard_url, normalize_public_url
+
+    basis = normalize_public_url(os.getenv("PUBLIC_BASE_URL")) or dashboard_url()
     if not basis:
-        domain = (os.getenv("RAILWAY_PUBLIC_DOMAIN") or "").strip()
-        if domain:
-            basis = f"https://{domain}"
-        else:
-            basis = f"http://127.0.0.1:{os.getenv('PORT', '8080')}"
+        basis = f"http://127.0.0.1:{os.getenv('PORT', '8080')}"
     return f"{basis}/{MUSIC_FILE}"
 
 

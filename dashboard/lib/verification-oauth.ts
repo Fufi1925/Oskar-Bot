@@ -71,10 +71,4 @@ export function readVerifyResult(token: string): VerifyResult | null {
   return readSigned<VerifyResult>(token);
 }
 
-export function websiteOrigin(): string {
-  return (
-    process.env.NEXTAUTH_URL ||
-    process.env.WEBSITE_URL ||
-    "http://localhost:3000"
-  ).replace(/\/$/, "");
-}
+export { websiteOrigin } from "./website";

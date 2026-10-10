@@ -74,9 +74,9 @@ Create a `.env.local` file in this folder:
 
 ```env
 # ── Bot API ───────────────────────────────────────────────────────
-# Use the Cloudflare Tunnel URL from the bot's console output
-NEXT_PUBLIC_API_URL           = https://api.yourdomain.com/api/v1
-NEXT_PUBLIC_DASHBOARD_API_KEY = your_shared_api_key   # must match bot's DASHBOARD_API_KEY
+# Server-side connection to the local bot API
+API_BASE_URL                  = http://127.0.0.1:8080/api/v1
+DASHBOARD_API_KEY             = your_shared_api_key   # must match the bot
 
 # ── NextAuth ──────────────────────────────────────────────────────
 NEXTAUTH_URL                  = http://localhost:3000
@@ -89,7 +89,7 @@ DISCORD_CLIENT_SECRET         = your_discord_oauth_client_secret
 # ── Branding ──────────────────────────────────────────────────────
 NEXT_PUBLIC_ADMIN_IDS         = your_discord_user_id
 NEXT_PUBLIC_BRAND_NAME        = "CloudTIX"
-NEXT_PUBLIC_BRAND_NAME_WORD   = "ZX"
+NEXT_PUBLIC_BRAND_NAME_WORD   = "CloudTIX"
 ```
 
 ### 3 — Run locally
@@ -106,67 +106,57 @@ Open [http://localhost:3000](http://localhost:3000)
 
 | Variable | Description |
 |---|---|
-| `NEXT_PUBLIC_API_URL` | Full URL to the bot's FastAPI backend — use the Cloudflare Tunnel URL |
-| `NEXT_PUBLIC_DASHBOARD_API_KEY` | Must exactly match `DASHBOARD_API_KEY` in the bot `.env` |
-| `NEXTAUTH_URL` | Your dashboard's public URL (Vercel domain in production) |
+| `API_BASE_URL` | Server-side URL to the bot API; set automatically by start.sh on Railway |
+| `DASHBOARD_API_KEY` | Shared server-side API key, matching the bot configuration |
+| `NEXTAUTH_URL` | `https://cloudtix.up.railway.app` in production |
 | `NEXTAUTH_SECRET` | Random secret for NextAuth session signing |
 | `DISCORD_CLIENT_ID` | Discord OAuth2 client ID |
 | `DISCORD_CLIENT_SECRET` | Discord OAuth2 client secret |
 | `NEXT_PUBLIC_ADMIN_IDS` | Comma-separated Discord user IDs with admin panel access |
 | `NEXT_PUBLIC_BRAND_NAME` | Bot name shown in the dashboard UI |
-| `NEXT_PUBLIC_BRAND_NAME_WORD` | Short abbreviation shown in the dashboard (e.g. `ZX`) |
+| `NEXT_PUBLIC_BRAND_NAME_WORD` | Wordmark, default `CloudTIX` |
 
 ---
 
-## ✦ Deployment (Vercel)
+## ✦ Deployment (Railway)
 
-**Step 1 — Connect your repo**
+CloudTIX runs at **https://cloudtix.up.railway.app**. The root `Dockerfile`
+builds Next.js and starts the dashboard together with the main bot through
+`start.sh`. Use [the Railway deployment guide](../RAILWAY_DEPLOYMENT.md)
+for the complete configuration and the isolated applications.
 
-Go to [vercel.com](https://vercel.com) → **Add New Project** → connect your GitHub repo → set root directory to `dashboard/`
+Set `NEXTAUTH_URL=https://cloudtix.up.railway.app`, a stable
+`NEXTAUTH_SECRET`, the main application's Discord OAuth credentials and
+`DASHBOARD_API_KEY` in the main Railway service.
 
-Vercel auto-detects Next.js — no build settings needed.
+Add both redirects to the main application's **OAuth2 → Redirects** in
+the Discord Developer Portal:
 
-**Step 2 — Add environment variables**
-
-In **Settings → Environment Variables**, add all keys from the table above.
-
-| Variable | Production Value |
-|---|---|
-| `NEXT_PUBLIC_API_URL` | `https://api.yourdomain.com/api/v1` |
-| `NEXTAUTH_URL` | `https://your-app.vercel.app` |
-| `NEXTAUTH_SECRET` | [generate one](https://generate-secret.vercel.app/32) |
-| `DISCORD_CLIENT_ID` | from [Discord Developer Portal](https://discord.com/developers/applications) |
-
-**Step 3 — Add redirect URI in Discord**
-
-In your Discord app → **OAuth2 → Redirects** → add:
-
-```
-https://your-app.vercel.app/api/auth/callback/discord
+```text
+https://cloudtix.up.railway.app/api/auth/callback/discord
+https://cloudtix.up.railway.app/api/verify/callback
 ```
 
-**Step 4 — Deploy**
-
-Hit **Deploy**. Vercel builds and publishes automatically. ✓
+The public URL helper normalizes the origin and migrates the former
+website host. `start.sh` applies the same address to Phantom, Louckup and
+LBoost Shop unless a separate base URL is explicitly configured.
 
 ---
 
 ## ✦ Connecting to the Bot API
 
-The dashboard reads the API URL from `NEXT_PUBLIC_API_URL`.
+Browser requests use the relative `/api/bot` proxy. The proxy checks the
+logged-in user's permissions and attaches `DASHBOARD_API_KEY` on the
+server. Keep this key in server-side environment variables.
 
-| Environment | Value |
+| Environment | Server-side API_BASE_URL |
 |---|---|
-| Local dev | `http://localhost:8000/api/v1` |
-| Production | `https://api.yourdomain.com/api/v1` (Cloudflare Tunnel URL) |
+| Local dev | `http://127.0.0.1:8080/api/v1` |
+| Railway | `http://127.0.0.1:$PORT/api/v1` (exported by start.sh) |
 
-The bot prints the confirmed URL on every startup:
-```
-◈ Tunnel: API is live at  https://api.yourdomain.com
-  ↳ NEXT_PUBLIC_API_URL = https://api.yourdomain.com/api/v1
-```
-
-This URL is permanent — it never changes between restarts as long as the Cloudflare Tunnel token stays the same.
+The bot's public proxy serves the dashboard on the same domain. Internal
+Next.js traffic goes to `http://127.0.0.1:$DASHBOARD_PORT`; public OAuth
+redirects and links use `https://cloudtix.up.railway.app`.
 
 ---
 
@@ -175,11 +165,11 @@ This URL is permanent — it never changes between restarts as long as the Cloud
 | Problem | Fix |
 |---|---|
 | Auth error on login | Check Discord OAuth client ID/secret and redirect URI in Developer Portal |
-| Dashboard can't load data | Confirm bot is running with `API_ENABLED=true` and `NEXT_PUBLIC_API_URL` is correct |
-| CORS error in browser | Add your Vercel URL to `CORS_ORIGINS` in the bot's `.env` |
+| Dashboard can't load data | Confirm bot is running with `API_ENABLED=true` and `API_BASE_URL` is correct |
+| CORS error in browser | Use `https://cloudtix.up.railway.app` in `CORS_ORIGINS` |
 | `NEXTAUTH_SECRET` error | Make sure `NEXTAUTH_SECRET` is set and non-empty |
-| API key rejected (401) | `NEXT_PUBLIC_DASHBOARD_API_KEY` must exactly match `DASHBOARD_API_KEY` in the bot |
-| Tunnel URL changed | Cloudflare named tunnels always produce the same URL — check `CF_TUNNEL_TOKEN` is valid |
+| API key rejected (401) | The server-side `DASHBOARD_API_KEY` must match the bot |
+| Login redirects to an old address | Redeploy and check `NEXTAUTH_URL` and the Discord Redirects list |
 
 ---
 

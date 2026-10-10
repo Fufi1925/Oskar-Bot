@@ -147,7 +147,7 @@ Gehe zu deinem Service → **Variables** und füge ALLE Variablen aus `.env.exam
 | `DISCORD_CLIENT_ID` | Discord OAuth2 Client ID | ✅ |
 | `DISCORD_CLIENT_SECRET` | Discord OAuth2 Client Secret | ✅ |
 | `NEXTAUTH_SECRET` | Langer Random String ([Generator](https://generate-secret.vercel.app/32)) | ✅ |
-| `NEXTAUTH_URL` | Wird automatisch gesetzt (Railway URL) | ⚡ Auto |
+| `NEXTAUTH_URL` | `https://cloudtix.up.railway.app` (Origin ohne abschließenden Pfad) | ✅ |
 | `ADMIN_IDS` | Discord IDs mit Admin-Zugang (serverseitige Prüfung) | ✅ |
 | `NEXT_PUBLIC_ADMIN_IDS` | Gleiche IDs, nur für die Anzeige im UI | ✅ |
 | `NEXT_PUBLIC_BRAND_NAME` | `CloudTIX` | ✅ |
@@ -210,7 +210,8 @@ Dashboard-Reiter „Anti-Nuke“ — dort pro Aktion einstellbar.
 4. **OAuth2** → General:
    - Copy **Client ID** → `DISCORD_CLIENT_ID`
    - Copy **Client Secret** → `DISCORD_CLIENT_SECRET`
-   - **Add Redirect:** `https://DEINE-RAILWAY-URL.up.railway.app/api/auth/callback/discord`
+   - **Add Redirect:** `https://cloudtix.up.railway.app/api/auth/callback/discord`
+   - **Add Redirect:** `https://cloudtix.up.railway.app/api/verify/callback`
 5. **Bot** → Privileged Gateway Intents:
    - ✅ SERVER MEMBERS INTENT
    - ✅ PRESENCE INTENT
@@ -219,8 +220,8 @@ Dashboard-Reiter „Anti-Nuke“ — dort pro Aktion einstellbar.
 #### 5️⃣ Domain generieren
 
 1. Gehe zu deinem Railway Service → **Settings** → **Networking**
-2. **Generate Domain** → Du bekommst eine URL wie `https://university-bot-xxx.up.railway.app`
-3. Diese URL ist dein `NEXTAUTH_URL` (wird meist automatisch gesetzt)
+2. Verwende die Domain `cloudtix.up.railway.app`.
+3. Setze `NEXTAUTH_URL=https://cloudtix.up.railway.app`. `start.sh` normalisiert diese Adresse vor dem Start und leitet die Basisadressen der Unterbereiche daraus ab.
 
 #### 6️⃣ Fertig! 🎉
 
@@ -276,3 +277,28 @@ wenn die geschätzte Kopie einschließlich WAL-Dateien und eine Reserve von
 mindestens 64 MiB (bei größeren Kopien 10 %) auf das Ziel-Dateisystem passen.
 Diese Schutzmaßnahmen schaffen keinen zusätzlichen Platz auf einem bereits
 vollen Volume.
+
+### CloudTIX: Adressen nach dem Domainwechsel
+
+Öffentliche Website: **https://cloudtix.up.railway.app**. Beim Start werden
+bekannte frühere Website-Hosts in URL-Variablen automatisch umgestellt.
+Eigene Domains und lokale Adressen bleiben weiterhin konfigurierbar.
+Die internen Adressen von FastAPI und Next.js bleiben auf `127.0.0.1`.
+
+Die folgenden Redirects müssen im **Discord Developer Portal** unter
+**OAuth2 → Redirects** bei der jeweils zugehörigen Application eingetragen
+sein. Code und Railway können die Liste im Portal nicht ändern:
+
+| Application | Redirect-URI |
+|---|---|
+| Hauptbot: Dashboard-Login | `https://cloudtix.up.railway.app/api/auth/callback/discord` |
+| Hauptbot: Verifizierung | `https://cloudtix.up.railway.app/api/verify/callback` |
+| Phantom | `https://cloudtix.up.railway.app/phantom/auth/callback` |
+| Louckup | `https://cloudtix.up.railway.app/louckup/auth/callback` |
+| LBoost Shop | `https://cloudtix.up.railway.app/lbost-shop/auth/callback` |
+
+Für den separaten Status-Service gilt
+`MAIN_BOT_URL=https://cloudtix.up.railway.app` und
+`WEBSITE_URL=https://cloudtix.up.railway.app`. Bereits gesetzte alte Hosts
+werden dort ebenfalls normalisiert. Nach dem Domainwechsel ist eine neue
+Anmeldung nötig, weil Browser Cookies an die jeweilige Domain binden.

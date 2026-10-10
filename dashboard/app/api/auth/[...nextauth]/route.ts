@@ -1,3 +1,4 @@
+import { websiteOrigin } from "@/lib/website";
 import NextAuth from "next-auth";
 import { NextRequest, NextResponse } from "next/server";
 import { authOptions, createAuthOptions } from "@/lib/auth";
@@ -12,7 +13,7 @@ async function handler(request: NextRequest, context: { params: { nextauth: stri
       request.nextUrl.searchParams.delete("scope");
       return NextAuth(createAuthOptions(scopes))(request, context);
     } catch {
-      return NextResponse.redirect(new URL("/auth/error?error=OAuthSignin", process.env.NEXTAUTH_URL || request.url));
+      return NextResponse.redirect(new URL("/auth/error?error=OAuthSignin", websiteOrigin(new URL(request.url).origin)));
     }
   }
   return NextAuth(authOptions)(request, context);
@@ -28,7 +29,7 @@ export async function GET(
   );
   if (errorPath) {
     return NextResponse.redirect(
-      new URL(errorPath, process.env.NEXTAUTH_URL || request.url),
+      new URL(errorPath, websiteOrigin(new URL(request.url).origin)),
     );
   }
   return handler(request, context);

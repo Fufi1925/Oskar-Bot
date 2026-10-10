@@ -33,7 +33,7 @@ BOT = os.path.dirname(HERE)
 sys.path.insert(0, BOT)
 
 GUILD = 1520714989860814992
-LIVE = "https://universtiy-bot.up.railway.app"
+LIVE = "https://cloudtix.up.railway.app"
 
 failures: list[str] = []
 
@@ -47,7 +47,8 @@ def check(name, ok, extra=""):
 
 
 def clear_env():
-    for name in ("DASHBOARD_URL", "NEXTAUTH_URL", "WEBSITE_URL",
+    for name in ("DASHBOARD_URL", "DASHBOARD_PUBLIC_URL", "NEXTAUTH_URL", "WEBSITE_URL",
+                 "RAILWAY_PUBLIC_DOMAIN",
                  "CORS_ORIGINS", "SUPPORT_INVITE_URL"):
         os.environ.pop(name, None)
 

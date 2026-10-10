@@ -1,3 +1,4 @@
+import { websiteOrigin } from "@/lib/website";
 /**
  * Route protection.
  *
@@ -156,7 +157,7 @@ const authGate = withAuth(
       if (request.nextUrl.pathname.startsWith("/api/")) {
         return NextResponse.json({ detail: "Session revoked." }, { status: 401 });
       }
-      const url = new URL("/", process.env.NEXTAUTH_URL || request.url);
+      const url = new URL("/", websiteOrigin(new URL(request.url).origin));
       url.searchParams.set("error", "SessionRevoked");
       return NextResponse.redirect(url);
     }
@@ -302,7 +303,7 @@ export default async function middleware(request: NextRequest, event: any) {
     ["OAuthSignin", "OAuthCallback", "OAuthAccountNotLinked", "Callback"].includes(error || "")
   ) {
     return NextResponse.redirect(
-      new URL(authErrorPath("signin", error)!, process.env.NEXTAUTH_URL || request.url),
+      new URL(authErrorPath("signin", error)!, websiteOrigin(new URL(request.url).origin)),
     );
   }
 

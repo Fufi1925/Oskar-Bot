@@ -76,7 +76,7 @@ Gruppen-DM-Scopes sind nicht enthalten. Private Direktnachrichten werden nicht g
 Redirect-URI:
 
 ```text
-https://DEINE-DOMAIN/lbost-shop/auth/callback
+https://cloudtix.up.railway.app/lbost-shop/auth/callback
 ```
 
 ## Railway-Variablen

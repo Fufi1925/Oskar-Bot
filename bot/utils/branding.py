@@ -12,7 +12,7 @@ import aiosqlite
 import discord
 
 from utils.config import BRAND_NAME
-from utils.links import dashboard_url
+from utils.links import PUBLIC_WEBSITE_URL, dashboard_url
 
 
 BRAND_ASSET_VERSION = "26d55bf24aa4"
@@ -23,9 +23,7 @@ logger = logging.getLogger(__name__)
 
 def brand_logo_url() -> str:
     """Use the deployed artwork, with a public fallback for standalone bots."""
-    base = dashboard_url() or (
-        "https://raw.githubusercontent.com/Fufi1925/Oskar-Bot/main/dashboard/public"
-    )
+    base = dashboard_url() or PUBLIC_WEBSITE_URL
     return f"{base}/{quote(BRAND_FILENAME)}?v={BRAND_ASSET_VERSION}"
 
 

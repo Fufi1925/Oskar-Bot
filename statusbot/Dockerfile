@@ -14,6 +14,8 @@ COPY statusbot/requirements.txt ./requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY statusbot/ ./statusbot/
+# Public URL normalization also migrates existing settings to the new domain.
+COPY bot/utils/links.py ./statusbot/public_links.py
 
 # The message builder is shared with the main bot rather than copied.
 # Two versions of "how do we turn dashboard JSON into a Discord message"

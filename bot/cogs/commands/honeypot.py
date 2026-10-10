@@ -42,6 +42,7 @@ import logging
 import os
 
 from utils.branding import brand_logo_url
+from utils.links import PUBLIC_WEBSITE_URL, dashboard_url
 import discord
 from discord.ext import commands
 from discord.ext.commands import Cog
@@ -80,9 +81,7 @@ class KicksButton(discord.ui.View):
             await interaction.followup.send(view=disabled_card("honeypot", interaction.user), ephemeral=True)
             return
         stats = await store.statistics(await cog._db())
-        site = (os.getenv("NEXTAUTH_URL") or "https://universtiy-bot.up.railway.app").rstrip("/")
-        if not site.startswith(("https://", "http://")):
-            site = "https://universtiy-bot.up.railway.app"
+        site = dashboard_url() or PUBLIC_WEBSITE_URL
         app_id = getattr(getattr(bot, "user", None), "id", None) or os.getenv("DISCORD_CLIENT_ID") or "1530349205372145715"
         logo = brand_logo_url()
         view = discord.ui.LayoutView(timeout=None)

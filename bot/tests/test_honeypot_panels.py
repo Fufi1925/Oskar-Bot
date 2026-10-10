@@ -15,7 +15,7 @@ def text_of(view):
 
 def test_persistent_button_opens_private_real_statistics_with_own_brand(tmp_path, monkeypatch):
     monkeypatch.setattr(store, "DB_PATH", str(tmp_path / "honeypot.db"))
-    monkeypatch.setenv("NEXTAUTH_URL", "https://universtiy-bot.up.railway.app")
+    monkeypatch.setenv("NEXTAUTH_URL", "https://cloudtix.up.railway.app")
     async def scenario():
         views = []
         bot = SimpleNamespace(guilds=[1, 2, 3], add_view=views.append,
@@ -40,8 +40,8 @@ def test_persistent_button_opens_private_real_statistics_with_own_brand(tmp_path
             assert "Total moderated in this server: `2`" in body and "Total moderations: `5`" in body
             assert "Total servers: `3`" in body
             links = [item.url for item in reply["view"].walk_children() if isinstance(item, discord.ui.Button)]
-            assert "https://universtiy-bot.up.railway.app/docs" in links
-            assert "https://universtiy-bot.up.railway.app/honeypot/stats" in links
+            assert "https://cloudtix.up.railway.app/docs" in links
+            assert "https://cloudtix.up.railway.app/honeypot/stats" in links
             assert any("client_id=1530349205372145715" in link for link in links)
             assert all("riskymh" not in link for link in links)
             # Existing warning customizations must never override the fixed text.

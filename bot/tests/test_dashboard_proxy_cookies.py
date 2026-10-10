@@ -28,11 +28,11 @@ async def check():
         assert cookies["__Secure-next-auth.session-token.0"].value == "part-0"
         assert cookies["__Secure-next-auth.session-token.1"].value == "part-1"
         assert request.url.params["state"] == "state-test"
-        assert request.headers["x-forwarded-host"] == "universtiy-bot.up.railway.app"
+        assert request.headers["x-forwarded-host"] == "cloudtix.up.railway.app"
         assert request.headers["x-forwarded-proto"] == "https"
         assert request.headers["x-forwarded-port"] == "443"
         return httpx.Response(302, headers=[
-            ("Location", "https://universtiy-bot.up.railway.app/auth/success?next=%2Fdashboard"),
+            ("Location", "https://cloudtix.up.railway.app/auth/success?next=%2Fdashboard"),
             ("Set-Cookie", "__Secure-next-auth.state=; Path=/; Max-Age=0; Secure; HttpOnly"),
             ("Set-Cookie", "__Secure-next-auth.session-token=session-test; Path=/; Secure; HttpOnly"),
         ])
@@ -49,8 +49,8 @@ async def check():
     ]
     for split in [False, True]:
         headers = [
-            (b"host", b"universtiy-bot.up.railway.app"),
-            (b"x-forwarded-host", b"universtiy-bot.up.railway.app, internal"),
+            (b"host", b"cloudtix.up.railway.app"),
+            (b"x-forwarded-host", b"cloudtix.up.railway.app, internal"),
             (b"x-forwarded-proto", b"https, http"),
         ]
         headers.extend((b"cookie", value.encode()) for value in (parts if split else ["; ".join(parts)]))
@@ -64,7 +64,7 @@ async def check():
         assert response.status_code == 302
         cookies = [value for name, value in response.raw_headers if name.lower() == b"set-cookie"]
         assert len(cookies) == 2, "callback cookie deletion and new session must stay separate"
-        assert next(value for name, value in response.raw_headers if name.lower() == b"location").decode().startswith("https://universtiy-bot.up.railway.app/auth/success")
+        assert next(value for name, value in response.raw_headers if name.lower() == b"location").decode().startswith("https://cloudtix.up.railway.app/auth/success")
     assert len(calls) == 2
 
 

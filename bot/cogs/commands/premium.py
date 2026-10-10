@@ -119,7 +119,9 @@ class Premium(commands.Cog):
         daneben -- die Kombination ist Discord-Fehler 50035, und
         Erwaehnungen muessen deshalb in die Karte.
         """
-        url = (os.getenv("NEXTAUTH_URL") or "").strip().rstrip("/")
+        from utils.links import dashboard_url
+
+        url = dashboard_url()
         ziel = f"{url}/dashboard/premium" if url else "das Dashboard"
 
         view = discord.ui.LayoutView()

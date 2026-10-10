@@ -288,8 +288,8 @@ python university_bot.py
 |---|---|
 | Bot fails to start | Check `TOKEN` and gateway intents in Developer Portal |
 | Music not working | Verify `LAVALINK_HOST`, `LAVALINK_SECURE`, `LAVALINK_PORT` |
-| Dashboard can't reach API | Check `API_ENABLED=true` and `NEXT_PUBLIC_API_URL` in dashboard |
-| CORS errors | Add your Vercel URL to `CORS_ORIGINS` in `.env` |
+| Dashboard can't reach API | Check `API_ENABLED=true` and the server-side `API_BASE_URL` in the dashboard |
+| CORS errors | Use `https://cloudtix.up.railway.app` in `CORS_ORIGINS` |
 | Emojis showing as plain text | Run once with `EMOJI_SYNC=true` to upload and patch IDs |
 | Tunnel not starting | Check `CF_TUNNEL_TOKEN` is valid and `pycloudflared` is installed |
 | Want to add an owner | Add their ID to `OWNER_IDS` in `.env` — no code changes needed |

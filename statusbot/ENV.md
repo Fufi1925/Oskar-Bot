@@ -10,15 +10,15 @@ Beim **Status-Service** eintragen (Variables → Raw Editor):
 
 ```
 STATUS_BOT_TOKEN="<Token der ZWEITEN Discord-Application>"
-MAIN_BOT_URL="https://universtiy-bot.up.railway.app"
+MAIN_BOT_URL="https://cloudtix.up.railway.app"
 STATUS_CHANNEL_ID="<ID des Status-Kanals>"
 HOME_GUILD_ID="1530378233579704370"
 DASHBOARD_API_KEY="<derselbe wie beim Hauptbot>"
 NEXT_PUBLIC_BRAND_NAME="CloudTIX"
 
-# Knöpfe unter dem Panel. Jeder erscheint nur, wenn gesetzt.
+# Dashboard-Link: standardmäßig CloudTIX; Einladungslink nur, wenn gesetzt.
 # Kein Support-Link: das Panel steht bereits im Support-Server.
-WEBSITE_URL="https://universtiy-bot.up.railway.app"
+WEBSITE_URL="https://cloudtix.up.railway.app"
 BOT_INVITE_URL="<Einladungslink des Hauptbots>"
 
 # Für das Profilbild des Hauptbots im Panel. Meist schon gesetzt.
@@ -62,7 +62,7 @@ PORT="8080"
 | `STATUS_FAILURES_BEFORE_DOWN` | nein | Fehlversuche bis „Störung", Standard `3`. Mit 30 Sekunden Abstand also nach ca. 1,5 Minuten. |
 | `MAIN_BOT_CLIENT_ID` | nein | Nur fürs Profilbild des Hauptbots im Panel. Ersatzweise wird `DISCORD_CLIENT_ID` genommen. |
 | `BOT_INVITE_URL` | nein | Knopf „Einladen" beim Hauptbot. |
-| `WEBSITE_URL` | nein | Knopf „Dashboard" beim Hauptbot. |
+| `WEBSITE_URL` | nein | Knopf „Dashboard" beim Hauptbot. Standard: `https://cloudtix.up.railway.app`. |
 | `PARTNER_BOT_INVITE_URL` | nein | Einladungslink des Template-Bots. Ohne die Variable wird er aus seiner ID gebaut. |
 | `PORT` | nein | Railway setzt das meist selbst. |
 
@@ -171,6 +171,10 @@ Reihenfolge gesucht:
 2. `NEXTAUTH_URL` — **hast du bereits gesetzt**, wird genommen
 3. `WEBSITE_URL`
 4. `CORS_ORIGINS` (erster Eintrag)
+5. `RAILWAY_PUBLIC_DOMAIN`
+
+`DASHBOARD_PUBLIC_URL` wird ebenfalls als explizite Adresse akzeptiert.
+Alte Website-Adressen werden automatisch auf `https://cloudtix.up.railway.app` umgestellt.
 
 Findet er keine gültige Adresse, erscheint **kein** Knopf — statt eines
 Links, der ins Leere führt.

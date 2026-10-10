@@ -1,3 +1,4 @@
+import { websiteOrigin } from "@/lib/website";
 /**
  * Backend-for-Frontend proxy.
  *
@@ -1221,7 +1222,7 @@ async function authorize(
       );
       if (!valid) return { ok: false, response: deny(404, "Unknown Premium slot action.") };
       const origin = request.headers.get("origin");
-      const expected = new URL(process.env.NEXTAUTH_URL || request.url).origin;
+      const expected = new URL(websiteOrigin(new URL(request.url).origin)).origin;
       if (origin !== expected) return { ok: false, response: deny(403, "Invalid request origin.") };
       return { ok: true };
     }

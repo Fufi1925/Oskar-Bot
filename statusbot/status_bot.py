@@ -39,6 +39,7 @@ import random
 import sys
 import time
 from datetime import datetime, timezone
+from pathlib import Path
 
 import aiohttp
 import discord
@@ -47,13 +48,21 @@ import emojis
 import history
 from view import HistoryView
 
+# The deployment copies this stdlib-only URL helper from the main bot.
+# A checkout can import the same source directly.
+try:
+    from public_links import PUBLIC_WEBSITE_URL, normalize_public_url
+except ModuleNotFoundError:
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "bot"))
+    from utils.links import PUBLIC_WEBSITE_URL, normalize_public_url
+
 # ── Configuration, all from the environment ───────────────────────────
 
 TOKEN = os.getenv("STATUS_BOT_TOKEN", "").strip()
 
 # The main bot's public URL. Railway gives every service its own domain;
 # this must be the *main* one, not this service's.
-MAIN_URL = (os.getenv("MAIN_BOT_URL") or "").strip().rstrip("/")
+MAIN_URL = normalize_public_url(os.getenv("MAIN_BOT_URL"))
 
 # Where the live status message lives.
 STATUS_CHANNEL_ID = int(os.getenv("STATUS_CHANNEL_ID") or 0)
@@ -122,12 +131,12 @@ FAILURES_BEFORE_DOWN = int(os.getenv("STATUS_FAILURES_BEFORE_DOWN") or 3)
 
 REQUEST_TIMEOUT = aiohttp.ClientTimeout(total=10)
 
-# Links shown as buttons under the panel. Each one only appears when it
-# is configured -- a button that goes nowhere is worse than no button.
+# Public buttons under the panel. The website defaults to CloudTIX;
+# the invite button appears when its URL is configured.
 #
 # No support button: the panel lives in the support server, so a link
 # back to it would only point at the channel it is already in.
-WEBSITE_URL = (os.getenv("WEBSITE_URL") or os.getenv("NEXTAUTH_URL") or "").strip()
+WEBSITE_URL = normalize_public_url(os.getenv("WEBSITE_URL") or os.getenv("NEXTAUTH_URL"), origin_only=True) or PUBLIC_WEBSITE_URL
 INVITE_URL = (os.getenv("BOT_INVITE_URL") or "").strip()
 
 # The main bot's own application id, used only to fetch its avatar for

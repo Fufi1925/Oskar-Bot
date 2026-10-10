@@ -112,8 +112,8 @@ def test_deployment_wiring():
     start = read(os.path.join(ROOT, "start.sh"))
     check("start.sh setzt LOUCKUP_BASE_URL", "LOUCKUP_BASE_URL" in start)
     check(
-        "start.sh leitet sie aus RAILWAY_PUBLIC_DOMAIN ab",
-        'LOUCKUP_BASE_URL="https://$RAILWAY_PUBLIC_DOMAIN/louckup"' in start,
+        "start.sh leitet sie aus der normalisierten NEXTAUTH_URL ab",
+        'LOUCKUP_BASE_URL="$NEXTAUTH_URL/louckup"' in start,
     )
     check("start.sh setzt Cookie-Pfad", 'LOUCKUP_COOKIE_PATH="${LOUCKUP_COOKIE_PATH:-/louckup}"' in start)
     check(

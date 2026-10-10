@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from api.dependencies import get_bot
 from utils import dashboard_roles, ideas_store as store, emoji
 from utils.panels import Panel
+from utils.links import PUBLIC_WEBSITE_URL, dashboard_url
 
 router=APIRouter()
 
@@ -107,7 +108,7 @@ async def admin_decide(idea_id:str,data:dict,bot=Depends(get_bot)):
     title="Deine Idee wurde angenommen" if accepted else "Update zu deiner Idee"
     if status=="rejected":title="Deine Idee wurde abgelehnt"
     if item.get("reward_granted"):title="Deine Idee wurde angenommen und belohnt"
-    link=(os.getenv("DASHBOARD_PUBLIC_URL") or os.getenv("NEXTAUTH_URL") or "https://universtiy-bot.up.railway.app").rstrip("/")+"/ideas/me?tab=rewards"
+    link=(dashboard_url() or PUBLIC_WEBSITE_URL)+"/ideas/me?tab=rewards"
     status_name={"open":"Offen","planned":"Geplant","working":"In Bearbeitung","implemented":"Umgesetzt","rejected":"Abgelehnt","needs_info":"Informationen benötigt"}.get(status,status)
     text=f"**{item['title']}**\n\nStatus: **{status_name}**"
     if item.get("admin_note"):text+=f"\n\n{item['admin_note']}"
