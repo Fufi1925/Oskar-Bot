@@ -1,224 +1,1077 @@
 "use client";
 
-import { websiteLocale, useWebsiteLocale } from "@/lib/i18n/locale";
 import React from "react";
-import { AlertTriangle, Check, CheckCircle2, Clock3, Eye, LifeBuoy, LockKeyhole, Loader2, ScanSearch, ShieldCheck, Star, UserCheck, X } from "lucide-react";
+import Link from "next/link";
+import { createPortal } from "react-dom";
+import {
+  ArrowUpRight,
+  BookOpen,
+  Check,
+  CheckCircle2,
+  ChevronDown,
+  Clock3,
+  Eye,
+  FileText,
+  LifeBuoy,
+  LockKeyhole,
+  Loader2,
+  MessageSquare,
+  RefreshCw,
+  Search,
+  Send,
+  Settings2,
+  ShieldCheck,
+  Star,
+  Terminal,
+  X,
+  type LucideIcon,
+} from "lucide-react";
+import { websiteLocale, useWebsiteLocale } from "@/lib/i18n/locale";
+import { useLanguage } from "@/lib/i18n/LanguageContext";
+import { translateWebsiteText } from "@/lib/i18n/dom-translations";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
+import {
+  SecurityCard,
+  SecurityMetrics,
+  SecurityTabs,
+} from "@/components/dashboard/security-workspace";
 
-const STATUS: Record<string, { label: string; color: string }> = {
-  pending: { label: "Wartet auf deine Entscheidung", color: "text-amber-300 border-amber-400/20 bg-amber-400/10" },
-  accepted: { label: "Support-Zugriff aktiv", color: "text-emerald-300 border-emerald-400/20 bg-emerald-400/10" },
-  declined: { label: "Abgelehnt", color: "text-rose-300 border-rose-400/20 bg-rose-400/10" },
-  closed: { label: "Geschlossen", color: "text-slate-400 border-slate-700 bg-slate-800/50" },
+const STATUS: Record<string, { label: string; order: number }> = {
+  pending: { label: "Entscheidung offen", order: 0 },
+  accepted: { label: "Zugriff aktiv", order: 1 },
+  declined: { label: "Abgelehnt", order: 2 },
+  closed: { label: "Geschlossen", order: 3 },
 };
+
+const QUESTIONS = [
+  {
+    question: "CloudTIX reagiert nicht. Was kann ich prüfen?",
+    answer:
+      "Prüfe, ob der Bot auf deinem Server ist und das gewünschte Modul eingeschaltet ist. In den Kanalrechten muss CloudTIX den Kanal sehen und Nachrichten senden dürfen. Für Rollenaktionen muss die Bot-Rolle über der zu vergebenden Rolle stehen.",
+    tab: "settings",
+    link: "Servereinstellungen öffnen",
+  },
+  {
+    question: "Warum fehlt ein Server in meiner Serverliste?",
+    answer:
+      "Du brauchst dort „Server verwalten“, Administratorrechte oder eine Dashboard-Freigabe. Prüfe auch, ob du mit dem richtigen Discord-Konto angemeldet bist. Server ohne CloudTIX können in der Liste direkt zur Bot-Einladung geöffnet werden.",
+    href: "/dashboard/guilds",
+    link: "Deine Server ansehen",
+  },
+  {
+    question: "Warum fehlen Kanäle oder Rollen in der Auswahl?",
+    answer:
+      "CloudTIX muss die Kanäle sehen können. Nicht jedes Modul unterstützt jeden Kanaltyp. Prüfe die Rechte auf Discord und aktualisiere den Status im Serverkopf. Rollen, die über der Bot-Rolle stehen, kann der Bot nicht vergeben.",
+    tab: "settings",
+    link: "Einstellungen prüfen",
+  },
+  {
+    question: "Meine Änderungen werden nicht gespeichert. Was jetzt?",
+    answer:
+      "Beachte die Fehlermeldung beim Speichern und prüfe die markierten Werte. Manche Funktionen benötigen Premium oder zusätzliche Bot-Rechte. Speichere oder verwirf offene Änderungen, bevor du den Tab wechselst.",
+    tab: "logging",
+    link: "Bot-Logs öffnen",
+  },
+  {
+    question: "Warum greift AutoMod bei manchen Mitgliedern nicht?",
+    answer:
+      "Serverinhaber und Mitglieder mit „Administrator“ oder „Nachrichten verwalten“ sind automatisch ausgenommen. Prüfe außerdem die Rollen- und Kanal-Ausnahmen sowie den Hauptschalter im AutoMod-Tab. Der Live-Status zeigt die gespeicherte Konfiguration.",
+    tab: "automod",
+    link: "AutoMod öffnen",
+  },
+  {
+    question: "Wie erhalte ich persönliche Hilfe?",
+    answer:
+      "Öffne unseren Discord-Support und beschreibe das Problem mit Server-ID, betroffenem Modul und Fehlermeldung. Wenn ein Supporter eine Dashboard-Freigabe benötigt, erscheint seine Anfrage unter „Supportfälle“. Der Serverinhaber kann sie prüfen und annehmen oder ablehnen.",
+  },
+  {
+    question: "Wie beende ich einen Support-Zugriff?",
+    answer:
+      "Öffne unter „Supportfälle“ den aktiven Fall und wähle „Zugriff beenden“. Nach deiner Bewertung von 1 bis 10 wird der Fall geschlossen und der durch diesen Supportfall erteilte Dashboard-Zugriff sofort entzogen.",
+  },
+];
 
 function zeit(value: number) {
   return value ? new Date(value * 1000).toLocaleString(websiteLocale()) : "—";
 }
 
-export function GuildSupportPanel({ guildId }: { guildId: string }) {
+function SupportDialog({
+  title,
+  description,
+  icon: Icon,
+  busy,
+  onClose,
+  children,
+}: {
+  title: string;
+  description: React.ReactNode;
+  icon: LucideIcon;
+  busy: boolean;
+  onClose: () => void;
+  children: React.ReactNode;
+}) {
+  const ref = React.useRef<HTMLDivElement>(null);
+  const titleId = React.useId();
+  const descriptionId = React.useId();
+  const closeRef = React.useRef(onClose);
+  const busyRef = React.useRef(busy);
+  closeRef.current = onClose;
+  busyRef.current = busy;
+  React.useEffect(() => {
+    const previous = document.activeElement as HTMLElement | null;
+    const overflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    ref.current?.focus();
+    const keyboard = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        if (!busyRef.current) closeRef.current();
+      }
+      if (event.key !== "Tab" || !ref.current) return;
+      const controls = Array.from(
+        ref.current.querySelectorAll<HTMLElement>(
+          "button:not(:disabled), textarea:not(:disabled), input:not(:disabled), a[href]",
+        ),
+      );
+      const first = controls[0],
+        last = controls[controls.length - 1];
+      if (!first) {
+        event.preventDefault();
+        ref.current.focus();
+        return;
+      }
+      if (
+        event.shiftKey &&
+        (document.activeElement === first ||
+          document.activeElement === ref.current)
+      ) {
+        event.preventDefault();
+        last.focus();
+      } else if (
+        !event.shiftKey &&
+        (document.activeElement === last ||
+          document.activeElement === ref.current)
+      ) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    document.addEventListener("keydown", keyboard);
+    return () => {
+      document.body.style.overflow = overflow;
+      document.removeEventListener("keydown", keyboard);
+      previous?.focus();
+    };
+  }, []);
+  if (typeof document === "undefined") return null;
+  return createPortal(
+    <div className="cloudtix-help-dialog-backdrop">
+      <div
+        ref={ref}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        aria-describedby={descriptionId}
+        tabIndex={-1}
+        className="cloudtix-help-dialog"
+      >
+        <header>
+          <span>
+            <Icon size={23} />
+          </span>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={onClose}
+            aria-label="Dialog schließen"
+          >
+            <X size={19} />
+          </button>
+        </header>
+        <h2 id={titleId}>{title}</h2>
+        <div id={descriptionId} className="cloudtix-help-dialog-description">
+          {description}
+        </div>
+        {children}
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
+export function GuildSupportPanel({
+  guildId,
+  supportUrl,
+}: {
+  guildId: string;
+  supportUrl: string;
+}) {
   useWebsiteLocale();
+  const { language } = useLanguage();
   const [cases, setCases] = React.useState<any[]>([]);
   const [owner, setOwner] = React.useState<boolean | null>(null);
   const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState<string | null>(null);
   const [busy, setBusy] = React.useState<number | null>(null);
-  const [decision, setDecision] = React.useState<{ id: number; type: "accepted" | "declined" } | null>(null);
+  const [view, setView] = React.useState("help");
+  const [query, setQuery] = React.useState("");
+  const [caseFilter, setCaseFilter] = React.useState("open");
+  const [expanded, setExpanded] = React.useState<number | null>(null);
+  const [messages, setMessages] = React.useState<Record<number, string>>({});
+  const [decision, setDecision] = React.useState<{
+    id: number;
+    type: "accepted" | "declined";
+  } | null>(null);
   const [acceptedName, setAcceptedName] = React.useState("");
   const [closeId, setCloseId] = React.useState<number | null>(null);
   const [rating, setRating] = React.useState(0);
   const [ratingNote, setRatingNote] = React.useState("");
+  const loadVersion = React.useRef(0);
 
   const laden = React.useCallback(async () => {
+    const version = ++loadVersion.current;
+    setLoading(true);
+    setError(null);
     try {
       const data = await api.getGuildSupportCases(guildId);
+      if (version !== loadVersion.current) return;
       setCases(data.cases || []);
       setOwner(true);
     } catch (error: any) {
-      if (error?.status === 403) setOwner(false);
-      else toast.error(error?.message || "Support-Anfragen konnten nicht geladen werden.");
+      if (version !== loadVersion.current) return;
+      if (error?.status === 403) {
+        setOwner(false);
+        setCases([]);
+      } else
+        setError(
+          error?.message || "Supportfälle konnten nicht geladen werden.",
+        );
     } finally {
-      setLoading(false);
+      if (version === loadVersion.current) setLoading(false);
     }
   }, [guildId]);
 
-  React.useEffect(() => { laden(); }, [laden]);
+  React.useEffect(() => {
+    setCases([]);
+    setOwner(null);
+    setDecision(null);
+    setAcceptedName("");
+    setCloseId(null);
+    setMessages({});
+    setExpanded(null);
+    void laden();
+    return () => {
+      loadVersion.current++;
+    };
+  }, [laden]);
 
   const antworten = async () => {
-    if (!decision) return;
+    if (!decision || busy !== null) return;
     const target = cases.find((fall) => fall.id === decision.id);
     setBusy(decision.id);
     try {
       await api.respondGuildSupportCase(guildId, decision.id, decision.type);
-      if (decision.type === "accepted") setAcceptedName(target?.supporter_name || "Ein Admin");
+      if (decision.type === "accepted")
+        setAcceptedName(target?.supporter_name || "Der Supporter");
       else toast.success("Die Support-Anfrage wurde abgelehnt.");
       setDecision(null);
       await laden();
-    } catch (error: any) { toast.error(error?.message || "Aktion fehlgeschlagen."); }
-    finally { setBusy(null); }
+    } catch (error: any) {
+      toast.error(error?.message || "Aktion fehlgeschlagen.");
+    } finally {
+      setBusy(null);
+    }
   };
 
   const schliessen = async () => {
-    if (!closeId || rating < 1) return;
+    if (closeId === null || rating < 1 || busy !== null) return;
     setBusy(closeId);
     try {
       await api.closeGuildSupportCase(guildId, closeId, rating, ratingNote);
-      toast.success("Supportfall geschlossen. Der Dashboard-Zugriff wurde sofort entzogen.");
-      setCloseId(null); setRating(0); setRatingNote("");
+      toast.success(
+        "Supportfall geschlossen. Der Support-Zugriff wurde entzogen.",
+      );
+      setCloseId(null);
+      setRating(0);
+      setRatingNote("");
       await laden();
-    } catch (error: any) { toast.error(error?.message || "Supportfall konnte nicht geschlossen werden."); }
-    finally { setBusy(null); }
+    } catch (error: any) {
+      toast.error(
+        error?.message || "Supportfall konnte nicht geschlossen werden.",
+      );
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const senden = async (caseId: number) => {
+    const message = (messages[caseId] || "").trim();
+    if (!message || busy !== null) return;
+    setBusy(caseId);
+    try {
+      await api.addGuildSupportMessage(guildId, caseId, message);
+      setMessages((old) => ({ ...old, [caseId]: "" }));
+      toast.success("Nachricht gesendet.");
+      await laden();
+    } catch (error: any) {
+      toast.error(error?.message || "Nachricht konnte nicht gesendet werden.");
+    } finally {
+      setBusy(null);
+    }
   };
 
   const pendingCount = cases.filter((fall) => fall.status === "pending").length;
   const activeCount = cases.filter((fall) => fall.status === "accepted").length;
   const closedCount = cases.filter((fall) => fall.status === "closed").length;
-  const shownCases = [...cases].sort((a, b) => ({ pending: 0, accepted: 1, declined: 2, closed: 3 }[a.status as "pending" | "accepted" | "declined" | "closed"] ?? 4) - ({ pending: 0, accepted: 1, declined: 2, closed: 3 }[b.status as "pending" | "accepted" | "declined" | "closed"] ?? 4) || Number(b.updated_at || 0) - Number(a.updated_at || 0));
+  const shownCases = cases
+    .filter(
+      (fall) =>
+        caseFilter === "all" ||
+        (caseFilter === "open"
+          ? ["pending", "accepted"].includes(fall.status)
+          : ["declined", "closed"].includes(fall.status)),
+    )
+    .sort(
+      (a, b) =>
+        (STATUS[a.status]?.order ?? 4) - (STATUS[b.status]?.order ?? 4) ||
+        Number(b.updated_at || 0) - Number(a.updated_at || 0),
+    );
+  const needle = query.trim().toLocaleLowerCase();
+  const questions = QUESTIONS.filter((item) =>
+    `${item.question} ${item.answer} ${translateWebsiteText(item.question, language)} ${translateWebsiteText(item.answer, language)}`
+      .toLocaleLowerCase()
+      .includes(needle),
+  );
+  const root = `/dashboard/guild/${guildId}`;
 
   return (
-    <div className="space-y-5">
-      <section className="relative overflow-hidden rounded-3xl border border-indigo-400/20 bg-[linear-gradient(135deg,rgba(79,70,229,.17),rgba(15,23,42,.82)_52%,rgba(8,12,24,.94))] p-6 sm:p-8">
-        <div aria-hidden className="absolute -right-16 -top-20 h-64 w-64 rounded-full bg-indigo-400/10 blur-3xl" />
-        <div className="relative flex flex-wrap items-start gap-5">
-          <span className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl border border-indigo-300/20 bg-indigo-400/10 text-indigo-200 shadow-[inset_0_1px_rgba(255,255,255,.08)]"><LifeBuoy className="h-7 w-7" /></span>
-          <div className="min-w-0 flex-1">
-            <p className="text-xs font-black uppercase tracking-[.16em] text-indigo-300">CloudTIX Support</p>
-            <h1 className="mt-2 text-2xl font-black tracking-tight text-white sm:text-3xl">Hilfe und sicherer Admin-Zugriff</h1>
-            <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-300/80">Hier entscheidest ausschließlich du als tatsächlicher Serverinhaber, ob ein Supporter deinen Server untersuchen darf. Ohne deine Zustimmung bleibt das Dashboard gesperrt.</p>
-          </div>
-          {owner && <div className="flex flex-wrap gap-2"><span className="rounded-full border border-amber-400/20 bg-amber-400/10 px-3 py-1.5 text-xs font-bold text-amber-200">{pendingCount} offen</span><span className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1.5 text-xs font-bold text-emerald-200">{activeCount} aktiv</span></div>}
+    <section className="cloudtix-settings-page cloudtix-help-page">
+      <header className="cloudtix-settings-heading">
+        <div>
+          <p className="cloudtix-workspace-eyebrow">DEIN SERVER / HILFE</p>
+          <h1>Hilfe & Support</h1>
+          <p>
+            Finde Antworten, richte deinen Server ein und behalte persönliche
+            Support-Freigaben im Blick.
+          </p>
         </div>
-      </section>
-
-      <section className="grid gap-3 sm:grid-cols-3">
-        {[
-          [Clock3, "1. Anfrage prüfen", "Du siehst Name, Profilbild, Dashboard-Rolle und Nachricht des Supporters."],
-          [UserCheck, "2. Selbst entscheiden", "Nur du kannst die Hilfe annehmen oder ablehnen. Es gibt keinen automatischen Zugriff."],
-          [LockKeyhole, "3. Jederzeit beenden", "Beim Schließen wird der Zugriff sofort entzogen und du bewertest die Hilfe."],
-        ].map(([Icon, title, text]) => { const I = Icon as React.ElementType; return <div key={String(title)} className="rounded-2xl border border-slate-800 cloudtix-workspace-card bg-[#111116] p-5"><I className="h-5 w-5 text-indigo-300" /><h2 className="mt-4 text-sm font-black text-white">{title as string}</h2><p className="mt-2 text-xs leading-5 text-slate-500">{text as string}</p></div>; })}
-      </section>
-
-      <section className="grid overflow-hidden rounded-2xl border border-slate-800 cloudtix-workspace-card bg-[#111116] lg:grid-cols-2">
-        <div className="border-b border-slate-800 p-5 lg:border-b-0 lg:border-r"><h2 className="flex items-center gap-2 text-sm font-black text-white"><ScanSearch className="h-4 w-4 text-emerald-300" />Was ein angenommener Supporter darf</h2><ul className="mt-3 space-y-2 text-xs leading-5 text-slate-400"><li>• Server-Dashboard und aktuelle Einstellungen öffnen</li><li>• schreibgeschützte Dashboard- und Discord-Diagnosen starten</li><li>• Probleme mit Bot-Rechten, Rollen, Webhooks und Verbindungen prüfen</li></ul></div>
-        <div className="p-5"><h2 className="flex items-center gap-2 text-sm font-black text-white"><Eye className="h-4 w-4 text-rose-300" />Was weiterhin geschützt bleibt</h2><ul className="mt-3 space-y-2 text-xs leading-5 text-slate-400"><li>• Niemand erhält Zugriff ohne deine ausdrückliche Annahme</li><li>• Owner-only-Bereiche und die Vergabe von Dashboard-Zugriff bleiben geschützt</li><li>• Support-Scans führen niemals automatisch Änderungen aus</li></ul></div>
-      </section>
-
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div><h2 className="text-xl font-black text-white">Deine Supportfälle</h2><p className="mt-1 text-sm text-slate-500">Offene Entscheidungen zuerst, danach aktive Fälle und Verlauf.</p></div>
-        {owner && cases.length > 0 && <span className="text-xs text-slate-600">{cases.length} insgesamt · {closedCount} geschlossen</span>}
-      </div>
-
-      {loading && <div className="grid min-h-32 place-items-center"><Loader2 className="h-5 w-5 animate-spin text-indigo-400" /></div>}
-      {!loading && owner === false && (
-        <div className="rounded-2xl border border-slate-800 cloudtix-workspace-card bg-[#111116] p-6 text-sm text-slate-400">
-          Support-Anfragen und Freigaben sind ausschließlich für den tatsächlichen Serverinhaber sichtbar.
-        </div>
-      )}
-      {!loading && owner && cases.length === 0 && (
-        <div className="rounded-2xl border border-dashed border-slate-800 cloudtix-workspace-field bg-[#0d0d11] p-8 text-center"><ShieldCheck className="mx-auto h-7 w-7 text-emerald-400/70" /><p className="mt-3 text-sm font-bold text-slate-300">Keine offene Admin-Anfrage</p><p className="mt-1 text-xs text-slate-600">Dein Server-Dashboard ist für das Support-Team gesperrt.</p></div>
-      )}
-
-      {owner && shownCases.map((fall) => {
-        const status = STATUS[fall.status] || STATUS.closed;
-        return (
-          <section key={fall.id} className={`overflow-hidden rounded-2xl border cloudtix-workspace-card bg-[#111116] ${fall.status === "pending" ? "border-amber-400/25 shadow-[0_16px_50px_rgba(245,158,11,.06)]" : fall.status === "accepted" ? "border-emerald-400/20" : "border-slate-800"}`}>
-            <div className="flex flex-wrap items-start justify-between gap-4 p-5 sm:p-6">
-              <div className="flex min-w-0 items-center gap-3">
-                {fall.supporter_avatar ? <img src={fall.supporter_avatar} alt="" className="h-12 w-12 rounded-full object-cover ring-2 ring-white/10" /> : <span className="grid h-12 w-12 place-items-center rounded-full bg-indigo-500/10"><ShieldCheck className="h-5 w-5 text-indigo-300" /></span>}
-                <div className="min-w-0">
-                  <p className="truncate font-bold text-white">{fall.supporter_name || `Discord ${fall.supporter_id}`}</p>
-                  <p className="text-xs font-semibold" style={{ color: fall.supporter_role_color }}>{fall.supporter_role}</p>
-                  <p className="mt-0.5 text-[11px] text-slate-600">Angefragt {zeit(fall.created_at)}</p>
-                </div>
-              </div>
-              <span className={`rounded-full border px-3 py-1 text-xs font-bold ${status.color}`}>{status.label}</span>
-            </div>
-
-            <div className="border-t border-slate-800 px-5 py-4 text-sm text-slate-300">
-              <strong>{fall.supporter_name || "Dieser Supporter"}</strong> ({fall.supporter_role}) will dir bei einem Problem helfen.
-            </div>
-
-            {fall.status === "pending" && (
-              <div className="flex flex-wrap gap-3 border-t border-slate-800 p-5">
-                <button disabled={busy === fall.id} onClick={() => setDecision({ id: fall.id, type: "accepted" })} className="inline-flex items-center gap-2 rounded-xl bg-emerald-500 px-4 py-2.5 text-sm font-bold text-slate-950 disabled:opacity-50"><Check className="h-4 w-4" />Annehmen</button>
-                <button disabled={busy === fall.id} onClick={() => setDecision({ id: fall.id, type: "declined" })} className="inline-flex items-center gap-2 rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-2.5 text-sm font-bold text-rose-300 disabled:opacity-50"><X className="h-4 w-4" />Ablehnen</button>
-              </div>
-            )}
-
-            {fall.messages?.length > 0 && (
-              <div className="space-y-3 border-t border-slate-800 p-5">
-                {fall.messages.map((eintrag: any) => (
-                  <div key={eintrag.id} className="rounded-xl border border-slate-800 bg-black/20 p-3">
-                    <div className="flex items-center justify-between gap-3"><span className="text-xs font-bold text-slate-300">{eintrag.actor_name || eintrag.actor_role} · {eintrag.actor_role}</span><span className="text-[10px] text-slate-600">{zeit(eintrag.created_at)}</span></div>
-                    <p className="mt-1.5 whitespace-pre-wrap text-sm leading-6 text-slate-400">{eintrag.message}</p>
+        <a
+          href={supportUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="cloudtix-workspace-action"
+        >
+          <MessageSquare size={16} />
+          Discord-Support
+          <ArrowUpRight size={14} />
+        </a>
+      </header>
+      <SecurityTabs
+        value={view}
+        onChange={setView}
+        label="Hilfe-Bereiche"
+        items={[
+          ["help", "Start & Antworten", LifeBuoy],
+          [
+            "cases",
+            pendingCount
+              ? `Supportfälle (${pendingCount} offen)`
+              : "Supportfälle",
+            ShieldCheck,
+          ],
+        ]}
+      />
+      <div hidden={view !== "help"} className="cloudtix-help-layout">
+        <div className="space-y-5">
+          <SecurityCard
+            icon={BookOpen}
+            title="Direkt zum richtigen Bereich"
+            subtitle="Die wichtigsten Anlaufstellen für deinen Server."
+          >
+            <div className="cloudtix-help-quicklinks">
+              {[
+                {
+                  title: "Dokumentation",
+                  description: "Module und Einrichtung verständlich erklärt.",
+                  href: "/docs",
+                  icon: BookOpen,
+                },
+                {
+                  title: "Befehle",
+                  description: "Finde den passenden CloudTIX-Befehl.",
+                  href: "/commands",
+                  icon: Terminal,
+                },
+                {
+                  title: "Servereinstellungen",
+                  description: "Grundlagen und Bot-Konfiguration verwalten.",
+                  href: `${root}/settings`,
+                  icon: Settings2,
+                },
+                {
+                  title: "Bot-Logs",
+                  description: "Protokolle und Log-Kanäle konfigurieren.",
+                  href: `${root}/logging`,
+                  icon: FileText,
+                },
+              ].map((item) => (
+                <Link key={item.href} href={item.href}>
+                  <item.icon size={18} />
+                  <div>
+                    <strong>{item.title}</strong>
+                    <p>{item.description}</p>
                   </div>
-                ))}
-              </div>
-            )}
-
-            {fall.status === "accepted" && (
-              <div className="border-t border-slate-800 p-5">
-                <button onClick={() => { setCloseId(fall.id); setRating(0); setRatingNote(""); }} disabled={busy === fall.id} className="rounded-xl border border-rose-500/25 bg-rose-500/10 px-4 py-2.5 text-sm font-bold text-rose-200 disabled:opacity-50">Supportfall schließen</button>
-              </div>
-            )}
-            {fall.status === "closed" && fall.rating > 0 && (
-              <div className="flex items-center gap-2 border-t border-slate-800 px-5 py-4 text-sm text-amber-300"><Star className="h-4 w-4 fill-amber-300" />Bewertung: {fall.rating}/10</div>
-            )}
-          </section>
-        );
-      })}
-
-      {decision && (
-        <div role="dialog" aria-modal="true" className="fixed inset-0 z-[10050] grid place-items-center bg-black/80 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-md rounded-3xl border border-slate-700 cloudtix-workspace-card bg-[#131318] p-6 shadow-2xl">
-            <span className={`grid h-12 w-12 place-items-center rounded-2xl ${decision.type === "declined" ? "bg-amber-500/10" : "bg-emerald-500/10"}`}>
-              {decision.type === "declined" ? <AlertTriangle className="h-6 w-6 text-amber-300" /> : <ShieldCheck className="h-6 w-6 text-emerald-300" />}
-            </span>
-            <h3 className="mt-4 text-xl font-black text-white">{decision.type === "declined" ? "Support-Anfrage ablehnen?" : "Support-Hilfe annehmen?"}</h3>
-            <p className="mt-2 text-sm leading-6 text-slate-400">
-              {decision.type === "declined"
-                ? "Bist du sicher? Es kann sich um ein ernstes Problem handeln. Bei einer Ablehnung erhält der Admin keinen Zugriff auf dein Server-Dashboard."
-                : "Der Supporter erhält bis zum Schließen dieses Falls Zugriff auf dein Server-Dashboard und darf dort Fehler prüfen und Server-Scans ausführen."}
-            </p>
-            <div className="mt-6 grid grid-cols-2 gap-3">
-              <button onClick={() => setDecision(null)} className="rounded-xl border border-slate-700 py-3 text-sm font-bold text-slate-300">Abbrechen</button>
-              <button onClick={antworten} disabled={busy === decision.id} className={`rounded-xl py-3 text-sm font-black disabled:opacity-50 ${decision.type === "declined" ? "bg-rose-500 text-white" : "bg-emerald-500 text-slate-950"}`}>{decision.type === "declined" ? "Trotzdem ablehnen" : "Hilfe annehmen"}</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {acceptedName && (
-        <div role="dialog" aria-modal="true" className="fixed inset-0 z-[10060] grid place-items-center bg-black/80 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-md rounded-3xl border border-emerald-400/25 cloudtix-workspace-card bg-[#131318] p-6 text-center shadow-2xl">
-            <span className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-emerald-500/10"><CheckCircle2 className="h-7 w-7 text-emerald-300" /></span>
-            <h3 className="mt-4 text-xl font-black text-white">Du hast die Hilfe angenommen</h3>
-            <p className="mt-2 text-sm leading-6 text-slate-400"><strong className="text-white">{acceptedName}</strong> wird sich nun um dein Problem kümmern. Der Admin kann deinen Server scannen, nach Dashboard- und Discord-Problemen suchen und bis zum Schließen auf das Server-Dashboard zugreifen.</p>
-            <button onClick={() => setAcceptedName("")} className="mt-6 w-full rounded-xl bg-emerald-500 py-3 text-sm font-black text-slate-950">Verstanden</button>
-          </div>
-        </div>
-      )}
-
-      {closeId !== null && (
-        <div role="dialog" aria-modal="true" className="fixed inset-0 z-[10050] grid place-items-center bg-black/80 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-lg rounded-3xl border border-slate-700 cloudtix-workspace-card bg-[#131318] p-6 shadow-2xl">
-            <span className="grid h-12 w-12 place-items-center rounded-2xl bg-amber-500/10"><Star className="h-6 w-6 text-amber-300" /></span>
-            <h3 className="mt-4 text-xl font-black text-white">Diesen Supportfall schließen?</h3>
-            <p className="mt-2 text-sm leading-6 text-slate-400">Der Admin-Zugriff wird sofort entzogen. Bitte bewerte unseren Admin von 1 bis 10 Sternen.</p>
-            <div className="mt-5 grid grid-cols-5 gap-2 sm:grid-cols-10">
-              {Array.from({ length: 10 }, (_, index) => index + 1).map((stern) => (
-                <button key={stern} onClick={() => setRating(stern)} aria-label={`${stern} von 10 Sternen`} className={`grid aspect-square place-items-center rounded-xl border text-sm font-black transition ${stern <= rating ? "border-amber-400/40 bg-amber-400/15 text-amber-300" : "border-slate-700 text-slate-500 hover:border-slate-500"}`}>{stern}</button>
+                  <ArrowUpRight size={14} />
+                </Link>
               ))}
             </div>
-            <p className="mt-2 text-center text-xs font-bold text-amber-300">{rating ? `${rating}/10 Sterne` : "Bitte Bewertung auswählen"}</p>
-            <textarea value={ratingNote} onChange={(e) => setRatingNote(e.target.value)} maxLength={1000} rows={3} placeholder="Optional: Was war gut oder was können wir verbessern?" className="mt-4 w-full resize-none rounded-xl border border-slate-800 cloudtix-workspace-field bg-[#09090c] px-4 py-3 text-sm text-white outline-none focus:border-amber-500/40" />
-            <div className="mt-5 grid grid-cols-2 gap-3">
-              <button onClick={() => { setCloseId(null); setRating(0); setRatingNote(""); }} className="rounded-xl border border-slate-700 py-3 text-sm font-bold text-slate-300">Abbrechen</button>
-              <button onClick={schliessen} disabled={!rating || busy === closeId} className="rounded-xl bg-rose-500 py-3 text-sm font-black text-white disabled:opacity-40">Bewerten und schließen</button>
+          </SecurityCard>
+          <SecurityCard
+            icon={Settings2}
+            title="Dein Einstieg in CloudTIX"
+            subtitle="Drei Schritte, die dir bei der Einrichtung helfen."
+          >
+            <ol className="cloudtix-help-steps">
+              <li>
+                <span>01</span>
+                <div>
+                  <h3>Rechte prüfen</h3>
+                  <p>
+                    CloudTIX muss die gewünschten Kanäle sehen und für seine
+                    Aufgaben die passenden Discord-Rechte haben.
+                  </p>
+                </div>
+              </li>
+              <li>
+                <span>02</span>
+                <div>
+                  <h3>Module einrichten</h3>
+                  <p>
+                    Öffne einen Tab in der Sidebar, aktiviere das Modul und
+                    passe seine Einstellungen an.
+                  </p>
+                  <Link href={`${root}/automod`}>
+                    Mit AutoMod starten
+                    <ArrowUpRight size={12} />
+                  </Link>
+                </div>
+              </li>
+              <li>
+                <span>03</span>
+                <div>
+                  <h3>Speichern & nachvollziehen</h3>
+                  <p>
+                    Speichere deine Änderungen. Prüfe bei Problemen die
+                    angezeigten Hinweise und die Bot-Logs.
+                  </p>
+                </div>
+              </li>
+            </ol>
+          </SecurityCard>
+          <div className="cloudtix-help-contact">
+            <LifeBuoy size={25} />
+            <h2>Noch keine Lösung gefunden?</h2>
+            <p>
+              Schicke uns im Discord-Support die Server-ID, das betroffene Modul
+              und die Fehlermeldung. So können wir das Problem schneller
+              einordnen.
+            </p>
+            <div>
+              <span>Server-ID</span>
+              <code>{guildId}</code>
+              <button
+                type="button"
+                aria-label="Server-ID kopieren"
+                onClick={async () => {
+                  try {
+                    await navigator.clipboard.writeText(guildId);
+                    toast.success("Server-ID kopiert.");
+                  } catch {
+                    toast.error(
+                      "Kopieren nicht möglich. Du kannst die Server-ID markieren.",
+                    );
+                  }
+                }}
+              >
+                Kopieren
+              </button>
             </div>
+            <a
+              href={supportUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="cloudtix-workspace-action is-secondary"
+            >
+              Support öffnen
+              <ArrowUpRight size={14} />
+            </a>
           </div>
         </div>
+        <SecurityCard
+          icon={MessageSquare}
+          title="Häufige Fragen"
+          subtitle="Antworten auf typische Fragen zu Einrichtung und Zugriff."
+        >
+          <div className="cloudtix-settings-search">
+            <Search size={16} />
+            <input
+              aria-label="Hilfe durchsuchen"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Frage oder Stichwort suchen …"
+              className="cloudtix-security-input"
+            />
+          </div>
+          <div className="cloudtix-help-faq">
+            {questions.map((item) => (
+              <details key={item.question} open={needle ? true : undefined}>
+                <summary>
+                  {item.question}
+                  <ChevronDown size={16} />
+                </summary>
+                <div>
+                  <p>{item.answer}</p>
+                  {item.link && (
+                    <Link href={item.href || `${root}/${item.tab}`}>
+                      {item.link}
+                      <ArrowUpRight size={12} />
+                    </Link>
+                  )}
+                </div>
+              </details>
+            ))}
+          </div>
+          {!questions.length && (
+            <div className="cloudtix-settings-empty">
+              <Search size={25} />
+              <h3>Keine passende Antwort</h3>
+              <p>
+                Probiere ein anderes Stichwort oder öffne den Discord-Support.
+              </p>
+              <button
+                type="button"
+                onClick={() => setQuery("")}
+                className="cloudtix-security-text-button"
+              >
+                Suche zurücksetzen
+              </button>
+            </div>
+          )}
+        </SecurityCard>
+      </div>
+      <div hidden={view !== "cases"} className="space-y-6">
+        <SecurityMetrics
+          items={[
+            {
+              label: "Offene Anfragen",
+              value: owner ? pendingCount : "—",
+              icon: Clock3,
+              note: "Warten auf deine Entscheidung",
+            },
+            {
+              label: "Aktive Supportfälle",
+              value: owner ? activeCount : "—",
+              icon: Eye,
+              note: "Temporärer Dashboard-Zugriff",
+            },
+            {
+              label: "Abgeschlossene Fälle",
+              value: owner ? closedCount : "—",
+              icon: CheckCircle2,
+              note: "Geschlossen und Zugriff entzogen",
+            },
+          ]}
+        />
+        <div className="cloudtix-help-case-toolbar">
+          <div>
+            <h2>Deine Supportfälle</h2>
+            <p>Offene Entscheidungen stehen zuerst.</p>
+          </div>
+          <div className="cloudtix-security-button-row">
+            <div
+              className="cloudtix-workspace-segmented"
+              aria-label="Supportfälle filtern"
+            >
+              {[
+                ["open", "Offen"],
+                ["history", "Verlauf"],
+                ["all", "Alle"],
+              ].map(([id, label]) => (
+                <button
+                  key={id}
+                  type="button"
+                  aria-pressed={caseFilter === id}
+                  onClick={() => setCaseFilter(id)}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            <button
+              type="button"
+              className="cloudtix-settings-icon-button"
+              onClick={() => void laden()}
+              disabled={loading || busy !== null}
+              aria-label="Supportfälle aktualisieren"
+            >
+              <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
+            </button>
+          </div>
+        </div>
+        {loading ? (
+          <div role="status" className="cloudtix-settings-empty">
+            <Loader2 size={25} className="animate-spin" />
+            <p>Supportfälle werden geladen …</p>
+          </div>
+        ) : error ? (
+          <SecurityCard
+            icon={LifeBuoy}
+            title="Supportfälle konnten nicht geladen werden"
+          >
+            <p className="cloudtix-security-note">{error}</p>
+            <button
+              type="button"
+              onClick={() => void laden()}
+              className="cloudtix-workspace-action is-secondary"
+            >
+              Erneut laden
+            </button>
+          </SecurityCard>
+        ) : owner === false ? (
+          <div className="cloudtix-help-restricted">
+            <LockKeyhole size={25} />
+            <h2>Support-Freigaben sind Sache des Serverinhabers</h2>
+            <p>
+              Du kannst die Hilfe und den Discord-Support nutzen. Supportfälle
+              und Freigaben werden vom Serverinhaber verwaltet.
+            </p>
+          </div>
+        ) : !shownCases.length ? (
+          <div className="cloudtix-settings-card cloudtix-settings-empty">
+            <ShieldCheck size={29} />
+            <h3>
+              {caseFilter === "history"
+                ? "Noch kein Verlauf"
+                : "Keine offenen Supportfälle"}
+            </h3>
+            <p>
+              {caseFilter === "history"
+                ? "Abgeschlossene und abgelehnte Fälle erscheinen hier."
+                : "Neue Anfragen des Support-Teams erscheinen hier zur Prüfung."}
+            </p>
+          </div>
+        ) : (
+          <div className="cloudtix-help-cases">
+            {shownCases.map((fall) => {
+              const status = STATUS[fall.status];
+              const isOpen = ["pending", "accepted"].includes(fall.status);
+              const detailsOpen = expanded === fall.id;
+              return (
+                <article
+                  key={fall.id}
+                  className="cloudtix-help-case"
+                  data-status={fall.status}
+                >
+                  <header>
+                    {fall.supporter_avatar ? (
+                      <img src={fall.supporter_avatar} alt="" />
+                    ) : (
+                      <span className="cloudtix-help-supporter-avatar">
+                        <LifeBuoy size={20} />
+                      </span>
+                    )}
+                    <div>
+                      <h3>
+                        {fall.supporter_name || `Discord ${fall.supporter_id}`}
+                      </h3>
+                      <p>
+                        {fall.supporter_role || "Support-Team"} · Fall #
+                        {fall.id}
+                      </p>
+                    </div>
+                    <span className="cloudtix-help-case-status">
+                      {status?.label || "Status unbekannt"}
+                    </span>
+                  </header>
+                  <div className="cloudtix-help-case-content">
+                    <p>
+                      {fall.problem ||
+                        "Der Supporter möchte dir bei einem Problem auf diesem Server helfen."}
+                    </p>
+                    <div className="cloudtix-help-case-meta">
+                      <span>Angefragt: {zeit(fall.created_at)}</span>
+                      <span>Aktualisiert: {zeit(fall.updated_at)}</span>
+                      {fall.status === "closed" && fall.rating > 0 && (
+                        <span>
+                          <Star size={12} />
+                          {fall.rating}/10
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <footer>
+                    <button
+                      type="button"
+                      aria-expanded={detailsOpen}
+                      aria-controls={`support-case-${fall.id}`}
+                      onClick={() => setExpanded(detailsOpen ? null : fall.id)}
+                      className="cloudtix-workspace-action is-secondary"
+                    >
+                      <MessageSquare size={14} />
+                      Nachrichten ({fall.messages?.length || 0})
+                      <ChevronDown
+                        size={13}
+                        className={detailsOpen ? "rotate-180" : ""}
+                      />
+                    </button>
+                    <div className="cloudtix-security-button-row">
+                      {fall.status === "pending" && (
+                        <>
+                          <button
+                            type="button"
+                            disabled={busy !== null}
+                            onClick={() =>
+                              setDecision({ id: fall.id, type: "declined" })
+                            }
+                            className="cloudtix-workspace-action is-secondary"
+                          >
+                            Ablehnen
+                          </button>
+                          <button
+                            type="button"
+                            disabled={busy !== null}
+                            onClick={() =>
+                              setDecision({ id: fall.id, type: "accepted" })
+                            }
+                            className="cloudtix-workspace-action"
+                          >
+                            <Check size={14} />
+                            Annehmen
+                          </button>
+                        </>
+                      )}
+                      {fall.status === "accepted" && (
+                        <button
+                          type="button"
+                          disabled={busy !== null}
+                          onClick={() => {
+                            setCloseId(fall.id);
+                            setRating(0);
+                            setRatingNote("");
+                          }}
+                          className="cloudtix-workspace-action is-secondary"
+                        >
+                          <LockKeyhole size={14} />
+                          Zugriff beenden
+                        </button>
+                      )}
+                    </div>
+                  </footer>
+                  <div
+                    hidden={!detailsOpen}
+                    id={`support-case-${fall.id}`}
+                    className="cloudtix-help-case-thread"
+                  >
+                    {fall.messages?.length ? (
+                      fall.messages.map((entry: any) => (
+                        <div key={entry.id} className="cloudtix-help-message">
+                          <header>
+                            <strong>
+                              {entry.actor_name ||
+                                entry.actor_role ||
+                                "Support"}
+                            </strong>
+                            <time>{zeit(entry.created_at)}</time>
+                          </header>
+                          <small>{entry.actor_role}</small>
+                          <p>{entry.message}</p>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="cloudtix-security-note">
+                        Noch keine Nachrichten in diesem Fall.
+                      </p>
+                    )}
+                    {fall.status === "closed" && fall.rating_note && (
+                      <div className="cloudtix-help-message">
+                        <strong>Dein Feedback</strong>
+                        <p>{fall.rating_note}</p>
+                      </div>
+                    )}
+                    {isOpen && (
+                      <form
+                        onSubmit={(e) => {
+                          e.preventDefault();
+                          void senden(fall.id);
+                        }}
+                        className="cloudtix-help-reply"
+                      >
+                        <label htmlFor={`support-reply-${fall.id}`}>
+                          Nachricht an das Support-Team
+                        </label>
+                        <textarea
+                          id={`support-reply-${fall.id}`}
+                          className="cloudtix-security-input"
+                          rows={3}
+                          maxLength={2000}
+                          disabled={busy !== null}
+                          value={messages[fall.id] || ""}
+                          onChange={(e) =>
+                            setMessages((old) => ({
+                              ...old,
+                              [fall.id]: e.target.value,
+                            }))
+                          }
+                          placeholder="Beschreibe das Problem oder ergänze weitere Informationen …"
+                        />
+                        <div>
+                          <small>{(messages[fall.id] || "").length}/2000</small>
+                          <button
+                            type="submit"
+                            disabled={
+                              busy !== null || !(messages[fall.id] || "").trim()
+                            }
+                            className="cloudtix-workspace-action"
+                          >
+                            {busy === fall.id ? (
+                              <Loader2 size={14} className="animate-spin" />
+                            ) : (
+                              <Send size={14} />
+                            )}
+                            Senden
+                          </button>
+                        </div>
+                      </form>
+                    )}
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        )}
+        <div className="cloudtix-settings-grid">
+          <SecurityCard
+            icon={ShieldCheck}
+            title="Du kontrollierst die Freigabe"
+            subtitle="Der Serverinhaber prüft und beantwortet Support-Anfragen."
+          >
+            <ol className="cloudtix-help-steps">
+              <li>
+                <span>01</span>
+                <div>
+                  <h3>Anfrage prüfen</h3>
+                  <p>
+                    Name, Rolle und Nachrichten des Supporters zeigen dir, worum
+                    es geht.
+                  </p>
+                </div>
+              </li>
+              <li>
+                <span>02</span>
+                <div>
+                  <h3>Bewusst entscheiden</h3>
+                  <p>
+                    Mit „Annehmen“ erteilst du den Zugriff für diesen Fall. Eine
+                    Ablehnung erteilt keine Freigabe.
+                  </p>
+                </div>
+              </li>
+              <li>
+                <span>03</span>
+                <div>
+                  <h3>Zugriff beenden</h3>
+                  <p>
+                    Schließe den Fall, wenn die Hilfe beendet ist. Die
+                    Support-Freigabe endet sofort.
+                  </p>
+                </div>
+              </li>
+            </ol>
+          </SecurityCard>
+          <SecurityCard icon={LockKeyhole} title="Was die Freigabe bedeutet">
+            <ul className="cloudtix-help-access">
+              <li>
+                <Check size={15} />
+                <div>
+                  <strong>Server-Dashboard & Diagnosen</strong>
+                  <p>
+                    Der zugewiesene Supporter kann die Servereinstellungen
+                    einsehen und Probleme untersuchen.
+                  </p>
+                </div>
+              </li>
+              <li>
+                <Check size={15} />
+                <div>
+                  <strong>Scans ändern nichts automatisch</strong>
+                  <p>
+                    Diagnosen prüfen beispielsweise Bot-Rechte, Rollen und
+                    Verbindungen.
+                  </p>
+                </div>
+              </li>
+              <li>
+                <LockKeyhole size={15} />
+                <div>
+                  <strong>Geschützte Inhaber-Bereiche</strong>
+                  <p>
+                    Die Vergabe von Dashboard-Zugriff und Inhaber-Bereiche
+                    bleiben geschützt.
+                  </p>
+                </div>
+              </li>
+            </ul>
+            <p className="cloudtix-security-note">
+              Eine Support-Freigabe vergibt keine Discord-Rolle.
+            </p>
+          </SecurityCard>
+        </div>
+      </div>
+      {decision && (
+        <SupportDialog
+          icon={decision.type === "accepted" ? ShieldCheck : X}
+          title={
+            decision.type === "accepted"
+              ? "Support-Zugriff freigeben?"
+              : "Anfrage ablehnen?"
+          }
+          description={
+            decision.type === "accepted" ? (
+              <p>
+                <strong>
+                  {cases.find((fall) => fall.id === decision.id)
+                    ?.supporter_name || "Der Supporter"}
+                </strong>{" "}
+                erhält für diesen Fall Zugriff auf dein Server-Dashboard und
+                kann Einstellungen prüfen sowie Diagnosen ausführen. Du kannst
+                die Freigabe durch Schließen des Falls beenden.
+              </p>
+            ) : (
+              <p>
+                Der Supporter erhält durch diese Anfrage keinen
+                Dashboard-Zugriff. Prüfe seine Nachricht, bevor du entscheidest.
+              </p>
+            )
+          }
+          busy={busy !== null}
+          onClose={() => setDecision(null)}
+        >
+          <div className="cloudtix-help-dialog-actions">
+            <button
+              type="button"
+              disabled={busy !== null}
+              onClick={() => setDecision(null)}
+              className="cloudtix-workspace-action is-secondary"
+            >
+              Abbrechen
+            </button>
+            <button
+              type="button"
+              disabled={busy !== null}
+              onClick={() => void antworten()}
+              className="cloudtix-workspace-action"
+            >
+              {busy !== null && <Loader2 size={14} className="animate-spin" />}
+              {decision.type === "accepted"
+                ? "Zugriff freigeben"
+                : "Anfrage ablehnen"}
+            </button>
+          </div>
+        </SupportDialog>
       )}
-    </div>
+      {acceptedName && (
+        <SupportDialog
+          icon={CheckCircle2}
+          title="Support-Zugriff freigegeben"
+          description={
+            <p>
+              <strong>{acceptedName}</strong> kann deinen Server jetzt im
+              Dashboard untersuchen. Öffne den aktiven Supportfall für
+              Nachrichten oder um den Zugriff wieder zu beenden.
+            </p>
+          }
+          busy={false}
+          onClose={() => setAcceptedName("")}
+        >
+          <button
+            type="button"
+            onClick={() => {
+              setAcceptedName("");
+              setView("cases");
+            }}
+            className="cloudtix-workspace-action w-full mt-6"
+          >
+            Zu den Supportfällen
+          </button>
+        </SupportDialog>
+      )}
+      {closeId !== null && (
+        <SupportDialog
+          icon={Star}
+          title="Supportfall abschließen"
+          description={
+            <p>
+              Mit dem Schließen endet der Support-Zugriff. Bewerte die Hilfe von
+              1 bis 10 und gib optional Feedback.
+            </p>
+          }
+          busy={busy !== null}
+          onClose={() => setCloseId(null)}
+        >
+          <fieldset disabled={busy !== null} className="cloudtix-help-rating">
+            <legend>Deine Bewertung</legend>
+            <div>
+              {Array.from({ length: 10 }, (_, i) => i + 1).map((value) => (
+                <button
+                  key={value}
+                  type="button"
+                  aria-label={`${value} von 10`}
+                  aria-pressed={rating === value}
+                  data-selected={value <= rating}
+                  onClick={() => setRating(value)}
+                >
+                  {value}
+                </button>
+              ))}
+            </div>
+            <p>
+              {rating
+                ? `${rating}/10 · ausgewählte Bewertung`
+                : "Bitte eine Bewertung auswählen"}
+            </p>
+            <label htmlFor="support-rating-note">Feedback (optional)</label>
+            <textarea
+              id="support-rating-note"
+              value={ratingNote}
+              onChange={(e) => setRatingNote(e.target.value)}
+              maxLength={1000}
+              rows={3}
+              placeholder="Was hat dir geholfen? Was können wir besser machen?"
+              className="cloudtix-security-input"
+            />
+          </fieldset>
+          <div className="cloudtix-help-dialog-actions">
+            <button
+              type="button"
+              disabled={busy !== null}
+              onClick={() => setCloseId(null)}
+              className="cloudtix-workspace-action is-secondary"
+            >
+              Abbrechen
+            </button>
+            <button
+              type="button"
+              onClick={() => void schliessen()}
+              disabled={!rating || busy !== null}
+              className="cloudtix-workspace-action"
+            >
+              {busy !== null && <Loader2 size={14} className="animate-spin" />}
+              Bewerten & schließen
+            </button>
+          </div>
+        </SupportDialog>
+      )}
+    </section>
   );
 }

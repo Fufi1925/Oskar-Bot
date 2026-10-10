@@ -548,3 +548,115 @@ body:has(.cloudtix-workspace-shell) [data-dashboard-surface="true"] :is([class~=
 .cloudtix-security-live-row strong, .cloudtix-security-live-row p { overflow-wrap: anywhere; }
 @media(max-width: 760px) { .cloudtix-security-subheading { align-items: start; flex-wrap: wrap; } }
 .cloudtix-security-page .cloudtix-settings-badge i[data-active="true"] { background: #8dd5a3; }
+
+/* Help centre and consent-based support cases. */
+.cloudtix-help-page [hidden] { display: none !important; }
+.cloudtix-help-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.35fr); gap: 22px; align-items: start; }
+.cloudtix-help-quicklinks { display: grid; gap: 9px; }
+.cloudtix-help-quicklinks > a { display: flex; align-items: center; gap: 13px; border: 1px solid #303030; border-radius: 12px; padding: 16px; background: #0a0a0a; transition: border-color .2s, background .2s; }
+.cloudtix-help-quicklinks > a:hover { border-color: #777; background: #191919; }
+.cloudtix-help-quicklinks svg { flex-shrink: 0; color: #aaa; }
+.cloudtix-help-quicklinks > a > div { flex: 1; min-width: 0; }
+.cloudtix-help-quicklinks strong { color: #ddd; font-size: 12px; }
+.cloudtix-help-quicklinks p { margin-top: 5px; color: #888; font-size: 11px; line-height: 1.8; }
+.cloudtix-help-steps { display: grid; gap: 23px; }
+.cloudtix-help-steps li { display: flex; gap: 15px; align-items: start; }
+.cloudtix-help-steps li > span { display: grid; width: 28px; height: 28px; place-items: center; flex-shrink: 0; border: 1px solid #393939; border-radius: 8px; color: #888; font-family: ui-monospace, monospace; font-size: 10px; }
+.cloudtix-help-steps h3 { color: #ddd; font-size: 12px; }
+.cloudtix-help-steps p { color: #909090; font-size: 11px; line-height: 1.9; margin-top: 7px; }
+.cloudtix-help-steps a, .cloudtix-help-faq a { display: inline-flex; align-items: center; gap: 7px; margin-top: 12px; color: #ccc; font-size: 11px; text-decoration: underline; text-underline-offset: 4px; }
+.cloudtix-help-contact { display: grid; justify-items: start; gap: 16px; border: 1px solid #414141; border-radius: 17px; padding: 25px; background: #111; }
+.cloudtix-help-contact > svg { color: #ccc; }
+.cloudtix-help-contact h2 { color: #ddd; font-size: 18px; }
+.cloudtix-help-contact p { color: #999; font-size: 12px; line-height: 1.9; }
+.cloudtix-help-contact > div { display: flex; flex-wrap: wrap; align-items: center; gap: 9px; width: 100%; border: 1px solid #333; border-radius: 10px; background: #090909; padding: 12px; }
+.cloudtix-help-contact > div > span { color: #777; font-size: 10px; }
+.cloudtix-help-contact code { color: #bbb; font-size: 11px; overflow-wrap: anywhere; }
+.cloudtix-help-contact > div > button { margin-left: auto; color: #ccc; font-size: 10px; }
+.cloudtix-help-faq { display: grid; gap: 11px; }
+.cloudtix-help-faq details { border: 1px solid #303030; border-radius: 12px; background: #0b0b0b; }
+.cloudtix-help-faq details[open] { border-color: #505050; }
+.cloudtix-help-faq summary { display: flex; align-items: center; justify-content: space-between; gap: 13px; padding: 19px 17px; color: #ccc; font-size: 13px; font-weight: 550; line-height: 1.7; cursor: pointer; list-style: none; }
+.cloudtix-help-faq summary::-webkit-details-marker { display: none; }
+.cloudtix-help-faq summary > svg { flex-shrink: 0; color: #777; transition: transform .2s; }
+.cloudtix-help-faq details[open] summary > svg { transform: rotate(180deg); }
+.cloudtix-help-faq details > div { border-top: 1px solid #272727; padding: 16px 17px 20px; }
+.cloudtix-help-faq details p { color: #999; font-size: 12px; line-height: 1.9; }
+.cloudtix-help-access { display: grid; gap: 22px; }
+.cloudtix-help-access > li { display: flex; align-items: start; gap: 11px; }
+.cloudtix-help-access svg { flex-shrink: 0; color: #aaa; margin-top: 3px; }
+.cloudtix-help-access strong { color: #ddd; font-size: 12px; }
+.cloudtix-help-access p { margin-top: 7px; color: #888; font-size: 11px; line-height: 1.8; }
+.cloudtix-help-case-toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; }
+.cloudtix-help-case-toolbar h2 { color: #ddd; font-size: 18px; }
+.cloudtix-help-case-toolbar p { margin-top: 8px; color: #888; font-size: 12px; }
+.cloudtix-help-restricted { display: grid; justify-items: center; gap: 15px; border: 1px solid #393939; border-radius: 16px; background: #101010; padding: 35px; text-align: center; }
+.cloudtix-help-restricted svg { color: #888; }
+.cloudtix-help-restricted h2 { color: #ccc; font-size: 17px; }
+.cloudtix-help-restricted p { max-width: 520px; color: #888; font-size: 12px; line-height: 1.9; }
+.cloudtix-help-cases { display: grid; gap: 18px; }
+.cloudtix-help-case { overflow: hidden; border: 1px solid #343434; border-radius: 17px; background: #0f0f0f; }
+.cloudtix-help-case[data-status="pending"] { border-color: #675c43; }
+.cloudtix-help-case[data-status="accepted"] { border-color: #456051; }
+.cloudtix-help-case > header { display: flex; flex-wrap: wrap; align-items: center; gap: 13px; padding: 23px; }
+.cloudtix-help-case > header > img, .cloudtix-help-supporter-avatar { width: 42px; height: 42px; flex-shrink: 0; border: 1px solid #444; border-radius: 50%; object-fit: cover; background: #202020; }
+.cloudtix-help-supporter-avatar { display: grid; place-items: center; color: #bbb; }
+.cloudtix-help-case > header > div { flex: 1; min-width: 150px; }
+.cloudtix-help-case h3 { color: #ddd; font-size: 14px; overflow-wrap: anywhere; }
+.cloudtix-help-case > header p { color: #888; font-size: 11px; margin-top: 5px; }
+.cloudtix-help-case-status { border: 1px solid #424242; border-radius: 7px; padding: 7px 10px; color: #aaa; font-size: 10px; }
+.cloudtix-help-case[data-status="pending"] .cloudtix-help-case-status { color: #c7b890; border-color: #675c43; }
+.cloudtix-help-case[data-status="accepted"] .cloudtix-help-case-status { color: #9ac9aa; border-color: #456051; }
+.cloudtix-help-case-content { border-top: 1px solid #292929; padding: 20px 23px; }
+.cloudtix-help-case-content > p { color: #bbb; font-size: 12px; line-height: 1.9; white-space: pre-wrap; overflow-wrap: anywhere; }
+.cloudtix-help-case-meta { display: flex; flex-wrap: wrap; gap: 12px 22px; margin-top: 15px; color: #777; font-size: 10px; }
+.cloudtix-help-case-meta > span { display: inline-flex; align-items: center; gap: 6px; }
+.cloudtix-help-case > footer { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; border-top: 1px solid #292929; padding: 17px 23px; }
+.cloudtix-help-case > footer .cloudtix-workspace-action { min-height: 38px; font-size: 11px; }
+.cloudtix-help-case-thread { display: grid; gap: 12px; border-top: 1px solid #292929; padding: 23px; }
+.cloudtix-help-message { border: 1px solid #303030; border-radius: 12px; background: #090909; padding: 16px; }
+.cloudtix-help-message header { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 9px; }
+.cloudtix-help-message strong { color: #bbb; font-size: 12px; }
+.cloudtix-help-message time, .cloudtix-help-message small { color: #777; font-size: 10px; }
+.cloudtix-help-message small { display: block; margin-top: 5px; }
+.cloudtix-help-message p { margin-top: 12px; color: #aaa; font-size: 12px; line-height: 1.9; white-space: pre-wrap; overflow-wrap: anywhere; }
+.cloudtix-help-reply { display: grid; gap: 12px; margin-top: 8px; }
+.cloudtix-help-reply label { color: #aaa; font-size: 12px; }
+.cloudtix-help-reply textarea { resize: vertical; min-height: 90px; }
+.cloudtix-help-reply > div { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.cloudtix-help-reply small { color: #777; font-size: 10px; }
+.cloudtix-help-page button:disabled { opacity: .45; cursor: not-allowed; }
+.cloudtix-help-dialog-backdrop { position: fixed; inset: 0; z-index: 10060; display: grid; align-items: center; justify-items: center; overflow-y: auto; padding: 24px; background: #000b; backdrop-filter: blur(8px); }
+.cloudtix-help-dialog { width: 100%; max-width: 490px; max-height: calc(100dvh - 48px); overflow-y: auto; border: 1px solid #454545; border-radius: 21px; background: #101010; padding: 28px; color: #ddd; box-shadow: 0 24px 100px #0008; outline: none; }
+.cloudtix-help-dialog header { display: flex; align-items: start; justify-content: space-between; gap: 20px; }
+.cloudtix-help-dialog header > span { display: grid; width: 48px; height: 48px; place-items: center; border: 1px solid #444; border-radius: 13px; background: #202020; color: #ccc; }
+.cloudtix-help-dialog header > button { display: grid; width: 30px; height: 30px; place-items: center; color: #888; }
+.cloudtix-help-dialog h2 { margin-top: 23px; color: #eee; font-size: 23px; font-weight: 600; letter-spacing: -.03em; }
+.cloudtix-help-dialog-description { color: #999; font-size: 13px; line-height: 1.9; margin-top: 12px; }
+.cloudtix-help-dialog-description strong { color: #ddd; }
+.cloudtix-help-dialog-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 25px; }
+.cloudtix-help-dialog .cloudtix-workspace-action { display: inline-flex; min-height: 42px; align-items: center; justify-content: center; gap: 8px; border: 1px solid #ddd; border-radius: 11px; background: #ededed; padding: 12px 15px; color: #111; font-size: 12px; font-weight: 600; }
+.cloudtix-help-dialog .cloudtix-workspace-action.is-secondary { border-color: #404040; background: #1b1b1b; color: #ccc; }
+.cloudtix-help-dialog button:disabled, .cloudtix-help-dialog fieldset:disabled { opacity: .5; cursor: not-allowed; }
+.cloudtix-help-rating { display: grid; gap: 13px; margin-top: 24px; }
+.cloudtix-help-rating legend, .cloudtix-help-rating label { color: #bbb; font-size: 12px; margin-bottom: 13px; }
+.cloudtix-help-rating > div { display: grid; grid-template-columns: repeat(10, minmax(0, 1fr)); gap: 5px; }
+.cloudtix-help-rating button { aspect-ratio: 1; border: 1px solid #444; border-radius: 7px; color: #999; font-size: 11px; }
+.cloudtix-help-rating button[data-selected="true"] { border-color: #aaa; background: #ddd; color: #111; }
+.cloudtix-help-rating p { color: #999; font-size: 11px; }
+.cloudtix-help-rating textarea { resize: vertical; }
+@media(max-width: 1000px) { .cloudtix-help-layout { grid-template-columns: 1fr; } }
+@media(max-width: 760px) {
+  .cloudtix-help-contact { padding: 21px; }
+  .cloudtix-help-case > header { padding: 18px; }
+  .cloudtix-help-case-content, .cloudtix-help-case-thread { padding: 18px; }
+  .cloudtix-help-case > footer { padding: 16px 18px; }
+  .cloudtix-help-case > footer > .cloudtix-workspace-action { width: 100%; }
+  .cloudtix-help-case > footer > div { width: 100%; }
+  .cloudtix-help-case > footer > div > button { flex: 1; }
+  .cloudtix-help-dialog-backdrop { padding: 15px; }
+  .cloudtix-help-dialog { padding: 22px; max-height: calc(100dvh - 30px); }
+  .cloudtix-help-dialog-actions { grid-template-columns: 1fr; }
+  .cloudtix-help-rating > div { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
+}
+@media(max-width: 1000px) { .cloudtix-help-layout > .cloudtix-security-card { order: -1; } }

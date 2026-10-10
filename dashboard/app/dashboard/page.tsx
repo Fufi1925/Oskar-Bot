@@ -18,6 +18,7 @@ import { authOptions } from "@/lib/auth";
 import { api } from "@/lib/api";
 import { SUPPORT_INVITE } from "@/lib/legal";
 import { fetchDelegatedGuilds } from "@/lib/guild-auth";
+import { compareGuildMembers } from "@/lib/guild-sorting";
 import { MyServersChart } from "@/components/dashboard/my-servers-chart";
 
 export const dynamic = "force-dynamic";
@@ -106,12 +107,7 @@ export default async function DashboardPage() {
                   ? g.approximate_member_count
                   : null,
             };
-          })
-          .sort(
-            (a: any, b: any) =>
-              Number(b.hasBot) - Number(a.hasBot) ||
-              (b.memberCount ?? 0) - (a.memberCount ?? 0)
-          );
+          });
       }
     } catch {
       /* the section below simply stays empty */
@@ -129,6 +125,8 @@ export default async function DashboardPage() {
       }
     } catch { /* Existing Discord-managed servers remain available. */ }
   }
+
+  myGuilds.sort(compareGuildMembers);
 
   const connected = myGuilds.filter((g) => g.hasBot);
   const ohneBot = myGuilds.filter((g) => !g.hasBot);
@@ -154,7 +152,7 @@ export default async function DashboardPage() {
     {error && <div role="status" className="cloudtix-workspace-note flex items-center gap-3"><ShieldAlert size={17} className="shrink-0 text-amber-300" />CloudTIX ist gerade nicht erreichbar. Einige Zahlen sind nicht verfügbar.</div>}
     <section className="cloudtix-workspace-stat-grid" aria-label="Dein Überblick">{metrics.map(metric => <div key={metric.label} className="cloudtix-workspace-stat"><metric.icon size={19} /><span>{metric.label}</span><strong>{metric.value}</strong><small>{metric.note}</small></div>)}</section>
     <div className="cloudtix-workspace-home-grid">
-      <section className="cloudtix-workspace-home-servers"><div className="cloudtix-workspace-section-heading"><div><h2>Deine Server</h2><p>Hier geht es zu deiner Community.</p></div><Link href="/dashboard/guilds">Alle ansehen<ArrowRight size={13} /></Link></div>
+      <section className="cloudtix-workspace-home-servers"><div className="cloudtix-workspace-section-heading"><div><h2>Deine Server</h2><p>Deine größten Communities zuerst.</p></div><Link href="/dashboard/guilds">Alle ansehen<ArrowRight size={13} /></Link></div>
         {vorschau.length ? <div>{vorschau.map(guild => {
           const src = iconUrl(guild.id, guild.icon);
           const content = <>{src ? <Image src={src} alt="" width={40} height={40} unoptimized /> : <b>{guild.name.charAt(0).toUpperCase()}</b>}<div><strong>{guild.name}</strong><small>{guild.hasBot ? guild.memberCount !== null ? `${zahl(guild.memberCount)} Mitglieder · Verbunden` : "Mit CloudTIX verbunden" : "CloudTIX noch nicht hinzugefügt"}</small></div>{guild.hasBot ? <ChevronRight size={16} /> : <Plus size={16} />}</>;
