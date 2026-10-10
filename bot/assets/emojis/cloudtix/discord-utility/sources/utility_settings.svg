@@ -1,16 +1,43 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
   <defs>
-    <linearGradient id="tile" x1="0" y1="0" x2="1" y2="1">
-      <stop stop-color="#8391ad"/><stop offset="1" stop-color="#46516c"/>
+    <linearGradient id="tile" x1="0" y1="0" x2=".7" y2="1">
+      <stop stop-color="#8391ad"/><stop offset=".45" stop-color="#46516c"/>
+      <stop offset="1" stop-color="#46516c"/>
     </linearGradient>
-    <radialGradient id="light" cx=".2" cy=".1" r=".85">
-      <stop stop-color="white" stop-opacity=".14"/><stop offset="1" stop-color="white" stop-opacity="0"/>
+    <radialGradient id="light" cx=".25" cy=".05" r=".9">
+      <stop stop-color="white" stop-opacity=".4"/><stop offset=".6" stop-color="white" stop-opacity=".08"/>
+      <stop offset="1" stop-color="white" stop-opacity="0"/>
     </radialGradient>
+    <linearGradient id="shade" x1="0" y1="0" x2="0" y2="1">
+      <stop offset=".4" stop-opacity="0"/><stop offset="1" stop-opacity=".3"/>
+    </linearGradient>
+    <linearGradient id="gloss" x1="0" y1="0" x2=".2" y2="1">
+      <stop stop-color="white" stop-opacity=".6"/><stop offset="1" stop-color="white" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="rim" x1="0" y1="0" x2=".7" y2="1">
+      <stop stop-color="white" stop-opacity=".65"/><stop offset=".5" stop-color="white" stop-opacity=".1"/>
+      <stop offset="1" stop-color="white" stop-opacity=".25"/>
+    </linearGradient>
+    <linearGradient id="symbol" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="24">
+      <stop stop-color="white"/><stop offset=".6" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#e5eaff"/>
+    </linearGradient>
+    <filter id="glow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="1.5" result="bloom"/>
+      <feMerge><feMergeNode in="bloom"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <clipPath id="tileClip"><rect x="5" y="5" width="118" height="118" rx="36"/></clipPath>
   </defs>
-  <rect x="5" y="5" width="118" height="118" rx="36" fill="url(#tile)"/>
-  <rect x="5" y="5" width="118" height="118" rx="36" fill="url(#light)"/>
-  <g transform="translate(30 30) scale(2.8333333)" fill="none" stroke="white" stroke-width="2.8"
-     stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
+  <g clip-path="url(#tileClip)">
+    <rect x="5" y="5" width="118" height="118" rx="36" fill="url(#tile)"/>
+    <rect x="5" y="5" width="118" height="118" rx="36" fill="url(#light)"/>
+    <rect x="5" y="5" width="118" height="118" rx="36" fill="url(#shade)"/>
+    <path d="M13 42C13 21 25 12 44 12H86C99 12 107 17 112 26C81 19 43 29 16 48Z" fill="url(#gloss)"/>
+    <rect x="9" y="9" width="110" height="110" rx="32" fill="none" stroke="url(#rim)" stroke-width="1.5"/>
+    <g transform="translate(30 32) scale(2.8333333)" fill="none" stroke="url(#symbol)" stroke-width="2.8"
+       stroke-linecap="round" stroke-linejoin="round" filter="url(#glow)"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
   <circle cx="12" cy="12" r="3" />
 </g>
+    <path d="M105 20Q105 27 111 27Q105 27 105 34Q105 27 99 27Q105 27 105 20Z" fill="white" opacity=".9"/>
+  </g>
 </svg>

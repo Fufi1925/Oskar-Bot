@@ -2,7 +2,9 @@
 
 Das neueste Bot-Set enthält [84 kräftig farbige Utility-Emojis mit abgerundeten
 Kacheln](discord-utility/README.md), darunter eine grüne Bestätigung und ein
-violettes Unterstützer-Herz. Es liefert die aktuellen Standard-Bot-Symbole.
+violettes Unterstützer-Herz. Alle Kacheln haben einen glänzenden Look mit
+Lichtreflexen und dezent leuchtenden Symbolen. Das Set liefert die aktuellen
+Standard-Bot-Symbole.
 
 Zusätzlich gibt es [75 farbige Twemoji-Symbole für Bot-Nachrichten](discord-color/README.md).
 Diese werden ebenfalls automatisch hochgeladen und stehen als `EMOJIS["color_gift"]`

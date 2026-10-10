@@ -1,7 +1,8 @@
 # CloudTIX Utility Emojis
 
 84 neue Utility-Emojis im Stil farbiger Discord-Badges: stark gerundete
-Kacheln, kräftige Farben, weicher Verlauf und große weiße Symbole. Transparent,
+Kacheln, kräftige Farben, glänzende Lichtreflexe, dezenter Glow und große weiße
+Symbole. Transparent,
 128 × 128 Pixel und unter Discords 256-KB-Grenze. Eigene Vektorkacheln mit
 Lucide-Glyphen; die Lizenz steht in [LICENSE.lucide.txt](LICENSE.lucide.txt).
 

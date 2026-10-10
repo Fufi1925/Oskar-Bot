@@ -118,25 +118,52 @@ SPECS = [
 
 def svg_tile(vector, color):
     source = ET.parse(ASSETS / "sources" / f"{vector}.svg").getroot()
-    # Use the original vector geometry with a stronger white stroke for emoji size.
+    # Keep the glyph readable at Discord size; highlights live on the tile.
     for child in source.iter():
         child.tag = child.tag.split("}")[-1]
     glyph = "".join(ET.tostring(child, encoding="unicode") for child in source)
     top, bottom = COLORS[color]
-    fill = "white" if vector in {"heart", "star", "play", "square"} else "none"
+    fill = "url(#symbol)" if vector in {"heart", "star", "play", "square"} else "none"
     return f'''<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
   <defs>
-    <linearGradient id="tile" x1="0" y1="0" x2="1" y2="1">
-      <stop stop-color="{top}"/><stop offset="1" stop-color="{bottom}"/>
+    <linearGradient id="tile" x1="0" y1="0" x2=".7" y2="1">
+      <stop stop-color="{top}"/><stop offset=".45" stop-color="{bottom}"/>
+      <stop offset="1" stop-color="{bottom}"/>
     </linearGradient>
-    <radialGradient id="light" cx=".2" cy=".1" r=".85">
-      <stop stop-color="white" stop-opacity=".14"/><stop offset="1" stop-color="white" stop-opacity="0"/>
+    <radialGradient id="light" cx=".25" cy=".05" r=".9">
+      <stop stop-color="white" stop-opacity=".4"/><stop offset=".6" stop-color="white" stop-opacity=".08"/>
+      <stop offset="1" stop-color="white" stop-opacity="0"/>
     </radialGradient>
+    <linearGradient id="shade" x1="0" y1="0" x2="0" y2="1">
+      <stop offset=".4" stop-opacity="0"/><stop offset="1" stop-opacity=".3"/>
+    </linearGradient>
+    <linearGradient id="gloss" x1="0" y1="0" x2=".2" y2="1">
+      <stop stop-color="white" stop-opacity=".6"/><stop offset="1" stop-color="white" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="rim" x1="0" y1="0" x2=".7" y2="1">
+      <stop stop-color="white" stop-opacity=".65"/><stop offset=".5" stop-color="white" stop-opacity=".1"/>
+      <stop offset="1" stop-color="white" stop-opacity=".25"/>
+    </linearGradient>
+    <linearGradient id="symbol" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="24">
+      <stop stop-color="white"/><stop offset=".6" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#e5eaff"/>
+    </linearGradient>
+    <filter id="glow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="1.5" result="bloom"/>
+      <feMerge><feMergeNode in="bloom"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <clipPath id="tileClip"><rect x="5" y="5" width="118" height="118" rx="36"/></clipPath>
   </defs>
-  <rect x="5" y="5" width="118" height="118" rx="36" fill="url(#tile)"/>
-  <rect x="5" y="5" width="118" height="118" rx="36" fill="url(#light)"/>
-  <g transform="translate(30 30) scale(2.8333333)" fill="{fill}" stroke="white" stroke-width="2.8"
-     stroke-linecap="round" stroke-linejoin="round">{glyph}</g>
+  <g clip-path="url(#tileClip)">
+    <rect x="5" y="5" width="118" height="118" rx="36" fill="url(#tile)"/>
+    <rect x="5" y="5" width="118" height="118" rx="36" fill="url(#light)"/>
+    <rect x="5" y="5" width="118" height="118" rx="36" fill="url(#shade)"/>
+    <path d="M13 42C13 21 25 12 44 12H86C99 12 107 17 112 26C81 19 43 29 16 48Z" fill="url(#gloss)"/>
+    <rect x="9" y="9" width="110" height="110" rx="32" fill="none" stroke="url(#rim)" stroke-width="1.5"/>
+    <g transform="translate(30 32) scale(2.8333333)" fill="{fill}" stroke="url(#symbol)" stroke-width="2.8"
+       stroke-linecap="round" stroke-linejoin="round" filter="url(#glow)">{glyph}</g>
+    <path d="M105 20Q105 27 111 27Q105 27 105 34Q105 27 99 27Q105 27 105 20Z" fill="white" opacity=".9"/>
+  </g>
 </svg>'''
 
 
@@ -168,7 +195,8 @@ def main():
                 "width": 128, "height": 128, "bytes": len(data), "sha256": digest,
                 "fallback": fallback, "constants": aliases.split(), "dashboard_visible": True,
                 "provider": "CloudTIX Utility", "glyph_provider": "Lucide 0.468.0",
-                "color": color, "source_url": f"https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/{vector}.svg",
+                "color": color, "style": "shiny",
+                "source_url": f"https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/{vector}.svg",
             })
         browser.close()
     manifest = {
@@ -185,7 +213,8 @@ def main():
     readme = f'''# CloudTIX Utility Emojis
 
 {len(entries)} neue Utility-Emojis im Stil farbiger Discord-Badges: stark gerundete
-Kacheln, kräftige Farben, weicher Verlauf und große weiße Symbole. Transparent,
+Kacheln, kräftige Farben, glänzende Lichtreflexe, dezenter Glow und große weiße
+Symbole. Transparent,
 128 × 128 Pixel und unter Discords 256-KB-Grenze. Eigene Vektorkacheln mit
 Lucide-Glyphen; die Lizenz steht in [LICENSE.lucide.txt](LICENSE.lucide.txt).
 
