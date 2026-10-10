@@ -87,8 +87,8 @@ export const KNOPF =
 
 /** Der betonte Knopf: genau einer je Ansicht. */
 export const KNOPF_AKTION =
-  "px-4 py-2.5 rounded-xl bg-[#5865f2] border border-[#5865f2] text-sm " +
-  "font-semibold text-white transition-colors hover:bg-[#4752c4] " +
+  "px-4 py-2.5 rounded-xl bg-primary border border-primary text-sm " +
+  "font-semibold text-white transition-colors hover:bg-primary-hover " +
   "disabled:opacity-40";
 
 /** Ein Knopf, der etwas zerstört. */

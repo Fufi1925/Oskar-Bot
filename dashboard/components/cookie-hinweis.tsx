@@ -332,7 +332,7 @@ export function CookieHinweis() {
             ref={knopf}
             type="button"
             onClick={bestaetigen}
-            className="rounded-xl bg-[#5865f2] px-6 py-3 text-[14px] font-bold text-white transition-colors hover:bg-[#4752c4] focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 focus-visible:ring-offset-2 focus-visible:ring-offset-[#131318]"
+            className="rounded-xl bg-primary px-6 py-3 text-[14px] font-bold text-white transition-colors hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 focus-visible:ring-offset-2 focus-visible:ring-offset-[#131318]"
           >
             Verstanden
           </button>

@@ -136,7 +136,7 @@ export default function NotFound() {
           <div className="mt-6 flex flex-wrap gap-2.5 border-t border-slate-800 pt-5">
             <Link
               href="/dashboard"
-              className="inline-flex items-center gap-2 rounded-xl bg-[#5865f2] px-5 py-2.5 text-[14px] font-semibold text-white transition-colors hover:bg-[#4752c4]"
+              className="inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-[14px] font-semibold text-white transition-colors hover:bg-primary-hover"
             >
               <ArrowLeft className="h-4 w-4" />
               Zum Dashboard

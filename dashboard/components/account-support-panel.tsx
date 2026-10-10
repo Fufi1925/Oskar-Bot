@@ -79,7 +79,7 @@ export function AccountSupportPanel({ userId }: { userId: string }) {
           href={invite}
           target="_blank"
           rel="noreferrer"
-          className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#5865f2] px-4 py-2.5 text-sm font-bold text-white hover:bg-[#4752c4]"
+          className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-white hover:bg-primary-hover"
         >
           <MessageCircle className="h-4 w-4" />
           Neue Supportanfrage

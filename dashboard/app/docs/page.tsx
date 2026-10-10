@@ -327,7 +327,7 @@ const ABSCHNITTE: Abschnitt[] = [
             href={SUPPORT_INVITE}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 rounded-lg bg-[#5865f2] px-5 py-2.5 text-[14px] font-semibold text-white transition-colors hover:bg-[#4752c4]"
+            className="inline-flex items-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-[14px] font-semibold text-white transition-colors hover:bg-primary-hover"
           >
             Support-Server
             <ArrowUpRight className="h-3.5 w-3.5" />

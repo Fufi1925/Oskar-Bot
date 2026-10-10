@@ -249,10 +249,10 @@ export function UmzugPanel() {
   return (
     <div className="space-y-4">
       {/* ── Kopf ──────────────────────────────────────────────────── */}
-      <div className="rounded-2xl border border-[#5865f2]/40 bg-[#131318] p-5">
+      <div className="rounded-2xl border border-primary/40 bg-[#131318] p-5">
         <div className="flex items-start gap-3">
-          <div className="rounded-xl bg-[#5865f2]/15 p-2.5">
-            <PackageOpen className="h-5 w-5 text-[#5865f2]" />
+          <div className="rounded-xl bg-primary/15 p-2.5">
+            <PackageOpen className="h-5 w-5 text-slate-200" />
           </div>
           <div className="min-w-0 flex-1">
             <h3 className="text-base font-semibold text-white">
@@ -284,7 +284,7 @@ export function UmzugPanel() {
       {/* ── Schritt 1: herunterladen ──────────────────────────────── */}
       <div className="rounded-2xl border border-[#1e1f22] bg-[#131318] p-5">
         <div className="mb-4 flex items-center gap-2">
-          <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#5865f2] text-xs font-bold text-white">
+          <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-xs font-bold text-white">
             1
           </span>
           <h4 className="text-sm font-semibold text-white">
@@ -371,7 +371,7 @@ export function UmzugPanel() {
               {dateien.length > 8 && (
                 <button
                   onClick={() => setAlleZeigen(!alleZeigen)}
-                  className="w-full bg-[#0f0f13] px-3 py-2 text-xs text-[#5865f2] hover:bg-[#16161c]"
+                  className="w-full bg-[#0f0f13] px-3 py-2 text-xs text-slate-200 hover:bg-[#16161c]"
                 >
                   {alleZeigen
                     ? "Weniger anzeigen"
@@ -384,7 +384,7 @@ export function UmzugPanel() {
               <button
                 onClick={herunterladen}
                 disabled={beschaeftigt || !uebersicht.vollstaendig}
-                className="inline-flex items-center gap-2 rounded-xl bg-[#5865f2] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[#4752c4] disabled:cursor-not-allowed disabled:opacity-40"
+                className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-white transition hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-40"
               >
                 {beschaeftigt ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -416,7 +416,7 @@ export function UmzugPanel() {
       {/* ── Schritt 2: einspielen ─────────────────────────────────── */}
       <div className="rounded-2xl border border-[#1e1f22] bg-[#131318] p-5">
         <div className="mb-4 flex items-center gap-2">
-          <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#5865f2] text-xs font-bold text-white">
+          <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-xs font-bold text-white">
             2
           </span>
           <h4 className="text-sm font-semibold text-white">
@@ -435,7 +435,7 @@ export function UmzugPanel() {
         <button
           onClick={() => dateiRef.current?.click()}
           disabled={beschaeftigt}
-          className="flex w-full flex-col items-center gap-2 rounded-xl border-2 border-dashed border-[#1e1f22] bg-[#0f0f13] px-4 py-8 transition hover:border-[#5865f2]/50 hover:bg-[#16161c] disabled:opacity-50"
+          className="flex w-full flex-col items-center gap-2 rounded-xl border-2 border-dashed border-[#1e1f22] bg-[#0f0f13] px-4 py-8 transition hover:border-primary/50 hover:bg-[#16161c] disabled:opacity-50"
         >
           <Upload className="h-6 w-6 text-slate-500" />
           <span className="text-sm text-slate-300">

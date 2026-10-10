@@ -38,7 +38,8 @@ export function ThemeToggle({ embedded = false }: { embedded?: boolean }) {
     window.dispatchEvent(new CustomEvent("dashboard-theme-change", { detail: next }));
   };
 
-  if (!embedded && pathname.startsWith("/Tickets/Transkript/")) return null;
+  // The homepage already offers this switch in its navigation drawer.
+  if (!embedded && (pathname === "/" || pathname.startsWith("/Tickets/Transkript/"))) return null;
 
   return (
     <div
@@ -53,7 +54,7 @@ export function ThemeToggle({ embedded = false }: { embedded?: boolean }) {
         aria-pressed={theme === "light"}
         title="Hell"
         className={`grid h-8 w-8 place-items-center rounded-full transition-colors ${
-          theme === "light" ? "bg-white text-amber-500" : "text-slate-500 hover:text-slate-300"
+          theme === "light" ? "bg-white text-black" : "text-slate-500 hover:text-slate-300"
         }`}
       >
         <Sun className="h-4 w-4" />
@@ -65,7 +66,7 @@ export function ThemeToggle({ embedded = false }: { embedded?: boolean }) {
         aria-pressed={theme === "dark"}
         title="Dunkel"
         className={`grid h-8 w-8 place-items-center rounded-full transition-colors ${
-          theme === "dark" ? "bg-indigo-500 text-white" : "text-slate-500 hover:text-slate-300"
+          theme === "dark" ? "bg-white text-black" : "text-slate-500 hover:text-slate-300"
         }`}
       >
         <Moon className="h-4 w-4" />

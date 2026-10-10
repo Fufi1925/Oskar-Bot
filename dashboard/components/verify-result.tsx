@@ -98,8 +98,8 @@ export function VerifyResult({ guildId, language: initialLanguage, outcome }: { 
           </div>}
           <div className="mt-7"><h2 className="text-sm font-medium text-white">{c.next}</h2><p className="mt-2 text-sm leading-6 text-slate-400">{success ? c.successNext : denied ? c.deniedNext : outcome ? c.errorNext : c.invalid}</p></div>
           <div className="mt-7 flex flex-col gap-3 sm:flex-row">
-            {success && <a href={`https://discord.com/channels/${encodeURIComponent(guildId)}`} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-[#5865f2] px-5 py-3 text-sm font-medium transition hover:bg-[#6772f5]">{c.discord}<ArrowUpRight className="h-4 w-4" /></a>}
-            {retryAvailable && <a href={`/api/verify/start?guild=${encodeURIComponent(guildId)}&lang=${selected}`} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-[#5865f2] px-5 py-3 text-sm font-medium transition hover:bg-[#6772f5]"><RefreshCw className="h-4 w-4" />{c.retry}</a>}
+            {success && <a href={`https://discord.com/channels/${encodeURIComponent(guildId)}`} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-medium transition hover:bg-[#6772f5]">{c.discord}<ArrowUpRight className="h-4 w-4" /></a>}
+            {retryAvailable && <a href={`/api/verify/start?guild=${encodeURIComponent(guildId)}&lang=${selected}`} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-medium transition hover:bg-[#6772f5]"><RefreshCw className="h-4 w-4" />{c.retry}</a>}
             <Link href="/" className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-white/10 px-5 py-3 text-sm font-medium text-slate-300 transition hover:bg-white/5">{c.home}<ArrowRight className="h-4 w-4" /></Link>
           </div>
         </div>

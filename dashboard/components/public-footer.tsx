@@ -10,13 +10,12 @@
  * Arbeitsnavigation bis an den unteren Rand.
  */
 
-import { normalisiereMarke } from "@/lib/brand";
+import { brandAsset, normalisiereMarke } from "@/lib/brand";
 import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   Activity,
-  Bot,
   Heart,
   Mail,
   MessageCircle,
@@ -51,7 +50,7 @@ function SocialLink({
       title={label}
       target={external ? "_blank" : undefined}
       rel={external ? "noopener noreferrer" : undefined}
-      className="grid h-10 w-10 place-items-center rounded-xl border border-slate-800 bg-white/[0.02] text-slate-500 transition-colors hover:border-indigo-500/40 hover:text-indigo-300"
+      className="grid h-10 w-10 place-items-center rounded-xl border border-white/10 bg-white/[0.02] text-zinc-400 transition-colors hover:border-white/25 hover:text-white"
     >
       {children}
     </a>
@@ -141,13 +140,13 @@ export function PublicFooter({
   }
 
   return (
-    <footer className="relative z-10 border-t border-slate-800/80 bg-[#08080a] px-6 py-12 sm:py-14 lg:px-12 xl:px-20">
-      <div className="mx-auto max-w-[1400px]">
+    <footer className="relative z-10 border-t border-white/10 bg-[#080808] px-6 py-12 sm:py-14 lg:px-8">
+      <div className="mx-auto max-w-[1240px]">
         <div className="grid gap-12 md:grid-cols-2 lg:grid-cols-[1.35fr_0.8fr_1fr] lg:gap-16">
           <div>
             <Link href="/" className="inline-flex items-center gap-3 text-white">
-              <span className="grid h-10 w-10 place-items-center rounded-xl border border-indigo-500/20 bg-indigo-500/10">
-                <Bot className="h-5 w-5 text-indigo-400" />
+              <span className="grid h-10 w-10 place-items-center overflow-hidden rounded-xl border border-white/15 bg-black">
+                <img src={brandAsset("icon-192.png")} width={40} height={40} alt="" />
               </span>
               <span className="text-[20px] font-extrabold tracking-tight">{BRAND}</span>
             </Link>
@@ -208,7 +207,7 @@ export function PublicFooter({
 
         <div className="mt-12 flex flex-col gap-5 border-t border-slate-800/80 pt-7 sm:flex-row sm:items-center sm:justify-between">
           <p className="flex flex-wrap items-center gap-1.5 text-[13px] text-slate-600">
-            Erstellt mit <Heart className="h-4 w-4 fill-rose-500/20 text-rose-400" />
+            Erstellt mit <Heart className="h-4 w-4 text-zinc-400" />
             <span className="font-semibold text-slate-400">vom CloudTIX Team</span>
             <span aria-hidden>·</span>
             <span>&copy; {2026}</span>

@@ -2,24 +2,7 @@
 
 import { loginCallbackUrl } from "@/lib/auth-navigation";
 
-/**
- * Die obere Navigationsleiste der öffentlichen Seiten.
- *
- * Aufbau 1:1 nach der Vorlage: links der Markenname als reiner Text,
- * dann die Links mit zwei Aufklapp-Menüs, rechts der Sprachschalter
- * und der Kontoknopf. Höhe 76&nbsp;px, darunter eine einzelne Linie in
- * #1e1f22 — beides aus dem Screenshot gemessen, nicht geschätzt.
- *
- * **Warum eine eigene Komponente:** die Leiste stand vorher nur in
- * `app/page.tsx`. Jede weitere öffentliche Seite (Docs, Team, Status,
- * Impressum) hatte damit gar keine oder eine andere. Jetzt gibt es
- * eine, und sie sieht überall gleich aus.
- *
- * **Warum kein `useSession` für den Kontoknopf:** die Leiste steckt
- * auch auf Seiten, die ohne Anmeldung erreichbar sind. Ist niemand
- * angemeldet, zeigt der Knopf schlicht „Anmelden“ und startet den
- * Discord-Login — kein zweiter Zustand, den man übersehen kann.
- */
+/** Shared public navigation; account and application links retain their OAuth destinations. */
 
 import React from "react";
 import Link from "next/link";
@@ -34,7 +17,7 @@ import { LanguageSwitcher } from "@/components/language-switcher";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { SUPPORT_INVITE } from "@/lib/legal";
 import { cn } from "@/lib/utils";
-import { BRAND_LOGO, normalisiereMarke } from "@/lib/brand";
+import { brandAsset, normalisiereMarke } from "@/lib/brand";
 
 const BRAND = normalisiereMarke(process.env.NEXT_PUBLIC_BRAND_NAME);
 
@@ -79,9 +62,8 @@ const UEBER: Eintrag[] = [
 /**
  * Ein Aufklapp-Menü in der Leiste.
  *
- * `tone` faerbt die Beschriftung -- „Team beitreten“ ist in der
- * Vorlage der einzige gruene Punkt. `footer` haengt einen Link ans
- * Ende, damit man auch ohne Rollenwahl auf die Seite kommt.
+ * Optional emphasis and a footer link keep role-specific applications
+ * reachable alongside the general application page.
  */
 function Dropdown({
   label,
@@ -92,7 +74,7 @@ function Dropdown({
 }: {
   label: string;
   items: Eintrag[];
-  tone?: "emerald";
+  tone?: "neutral";
   icon?: React.ComponentType<{ className?: string }>;
   footer?: { label: string; href: string };
 }) {
@@ -123,9 +105,9 @@ function Dropdown({
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
         className={cn(
-          "flex items-center gap-1.5 text-[15px] transition-colors py-2",
-          tone === "emerald"
-            ? "text-emerald-400 hover:text-emerald-300"
+          "flex items-center gap-1.5 text-[13px] transition-colors py-2",
+          tone === "neutral"
+            ? "text-zinc-300 hover:text-white"
             : "text-slate-300 hover:text-white",
         )}
       >
@@ -134,7 +116,7 @@ function Dropdown({
         <ChevronDown
           className={cn(
             "h-4 w-4 transition-transform duration-200",
-            tone === "emerald" ? "text-emerald-500/70" : "text-slate-500",
+            tone === "neutral" ? "text-zinc-500" : "text-slate-500",
             open && "rotate-180",
           )}
         />
@@ -182,19 +164,19 @@ type MobileIcon = React.ComponentType<{ className?: string }>;
 function MobileNavLink({ href, label, icon: Icon, onClick, external, active, primary, compact }: { href: string; label: string; icon: MobileIcon; onClick: () => void; external?: boolean; active?: boolean; primary?: boolean; compact?: boolean }) {
   const style = cn(
     "group flex w-full items-center border transition-all duration-200",
-    compact ? "gap-2.5 rounded-2xl px-3 py-3 text-[13px]" : "gap-3 rounded-2xl px-4 py-3.5 text-[15px]",
+    compact ? "gap-2.5 rounded-2xl px-3 py-3 text-[13px]" : "gap-3 rounded-2xl px-4 py-3.5 text-[13px]",
     primary
-      ? "border-blue-300/25 bg-gradient-to-r from-blue-600 to-indigo-500 text-white shadow-[0_14px_35px_rgba(37,99,235,.28)]"
+      ? "border-white/10 bg-white text-black hover:bg-zinc-200"
       : active
         ? "border-blue-400/25 bg-blue-500/12 text-white"
         : "border-white/[.08] bg-white/[.045] text-slate-200 hover:border-white/[.14] hover:bg-white/[.075]",
   );
-  const content = <><span className={cn("grid shrink-0 place-items-center rounded-xl border", compact ? "h-8 w-8" : "h-9 w-9", primary ? "border-white/15 bg-white/10" : active ? "border-blue-400/20 bg-blue-500/10" : "border-white/[.07] bg-black/15")}><Icon className={cn(compact ? "h-4 w-4" : "h-[18px] w-[18px]", primary ? "text-white" : active ? "text-blue-300" : "text-slate-400 group-hover:text-white")} /></span><span className="min-w-0 flex-1 truncate text-left font-semibold">{label}</span><ChevronRight className={cn("h-4 w-4 shrink-0 transition-transform group-hover:translate-x-0.5", primary ? "text-white/80" : active ? "text-blue-300" : "text-slate-500")} /></>;
+  const content = <><span className={cn("grid shrink-0 place-items-center rounded-xl border", compact ? "h-8 w-8" : "h-9 w-9", primary ? "border-black/10 bg-black/5" : active ? "border-blue-400/20 bg-blue-500/10" : "border-white/[.07] bg-black/15")}><Icon className={cn(compact ? "h-4 w-4" : "h-[18px] w-[18px]", primary ? "text-black" : active ? "text-blue-300" : "text-slate-400 group-hover:text-white")} /></span><span className="min-w-0 flex-1 truncate text-left font-semibold">{label}</span><ChevronRight className={cn("h-4 w-4 shrink-0 transition-transform group-hover:translate-x-0.5", primary ? "text-black/60" : active ? "text-blue-300" : "text-slate-500")} /></>;
   return external ? <a href={href} target="_blank" rel="noopener noreferrer" onClick={onClick} className={style}>{content}</a> : <Link href={href} onClick={onClick} className={style}>{content}</Link>;
 }
 
 function MobileNavGroup({ label, icon: Icon, open, onClick, green, children }: { label: string; icon: MobileIcon; open: boolean; onClick: () => void; green?: boolean; children: React.ReactNode }) {
-  return <div className={cn("overflow-hidden rounded-2xl border transition-colors", open ? "border-blue-400/20 bg-white/[.065]" : "border-white/[.08] bg-white/[.045]")}><button type="button" onClick={onClick} aria-expanded={open} className="group flex w-full items-center gap-3 px-4 py-3.5 text-[15px] text-slate-200"><span className={cn("grid h-9 w-9 shrink-0 place-items-center rounded-xl border", green ? "border-emerald-400/20 bg-emerald-500/10" : "border-white/[.07] bg-black/15")}><Icon className={cn("h-[18px] w-[18px]", green ? "text-emerald-300" : "text-slate-400 group-hover:text-white")} /></span><span className={cn("flex-1 text-left font-semibold", green && "text-emerald-300")}>{label}</span><ChevronDown className={cn("h-4 w-4 transition-transform duration-200", green ? "text-emerald-300" : "text-slate-500", open && "rotate-180")} /></button>{open && <div className="mx-2 mb-2 space-y-1 border-t border-white/[.07] pt-2">{children}</div>}</div>;
+  return <div className={cn("overflow-hidden rounded-2xl border transition-colors", open ? "border-blue-400/20 bg-white/[.065]" : "border-white/[.08] bg-white/[.045]")}><button type="button" onClick={onClick} aria-expanded={open} className="group flex w-full items-center gap-3 px-4 py-3.5 text-[13px] text-slate-200"><span className={cn("grid h-9 w-9 shrink-0 place-items-center rounded-xl border", green ? "border-white/15 bg-white/5" : "border-white/[.07] bg-black/15")}><Icon className={cn("h-[18px] w-[18px]", green ? "text-zinc-300" : "text-slate-400 group-hover:text-white")} /></span><span className={cn("flex-1 text-left font-semibold", green && "text-zinc-300")}>{label}</span><ChevronDown className={cn("h-4 w-4 transition-transform duration-200", green ? "text-zinc-300" : "text-slate-500", open && "rotate-180")} /></button>{open && <div className="mx-2 mb-2 space-y-1 border-t border-white/[.07] pt-2">{children}</div>}</div>;
 }
 
 function MobileSubLink({ href, label, icon: Icon, close }: { href: string; label: string; icon: MobileIcon; close: () => void }) {
@@ -230,10 +212,10 @@ export function SiteNav() {
     <nav
       data-compact={compact ? "true" : "false"}
       className={cn(
-        "pointer-events-auto mx-auto overflow-visible rounded-2xl border bg-[#111116]/92 shadow-[0_18px_55px_rgba(0,0,0,.34)] backdrop-blur-2xl transition-[max-width,height,background-color,border-color,box-shadow] duration-500 ease-out",
+        "pointer-events-auto mx-auto overflow-visible rounded-2xl border bg-[#0f0f0f]/95 shadow-[0_8px_25px_rgba(0,0,0,.15)] backdrop-blur-xl transition-[max-width,height,background-color,border-color,box-shadow] duration-500 ease-out",
         compact
-          ? "h-[60px] max-w-[1180px] border-blue-400/20 bg-[#101015]/96 shadow-[0_16px_45px_rgba(0,0,0,.48)]"
-          : "h-[72px] max-w-[1400px] border-white/10",
+          ? "h-[60px] max-w-[1180px] border-white/15 bg-[#0f0f0f]/95"
+          : "h-[72px] max-w-[1240px] border-white/10",
       )}
     >
       <div className={cn("flex h-full items-center px-3 transition-[padding,gap] duration-500 sm:px-5", compact ? "gap-3 lg:gap-5" : "gap-4 lg:gap-8 lg:px-8")}>
@@ -245,36 +227,36 @@ export function SiteNav() {
         >
           <span className={cn("grid shrink-0 place-items-center overflow-hidden rounded-xl border border-blue-400/20 bg-blue-500/10 transition-[width,height] duration-500", compact ? "h-8 w-8" : "h-9 w-9")}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={BRAND_LOGO} alt="" className="h-full w-full object-cover" />
+            <img src={brandAsset("icon-192.png")} alt="" className="h-full w-full object-cover" />
           </span>
-          <span className="hidden min-w-0 sm:block">
+          <span className="block min-w-0">
             <strong className={cn("block truncate font-extrabold leading-none tracking-tight text-white transition-[font-size] duration-500", compact ? "text-[14px]" : "text-[16px]")}>{BRAND}</strong>
-            <span className="mt-1 block text-[8px] font-black uppercase tracking-[.24em] text-blue-400">All in one</span>
+            <span className="mt-1 block text-[8px] font-black uppercase tracking-[.24em] text-blue-400">DISCORD. SIMPLIFIED.</span>
           </span>
         </Link>
 
-        {/* Die Links. Ab lg sichtbar, darunter im Menü. */}
-        <div className={cn("hidden items-center transition-[gap] duration-500 lg:flex", compact ? "gap-4" : "gap-7")}>
+        {/* Desktop links; smaller screens use the complete navigation drawer. */}
+        <div className={cn("hidden items-center transition-[gap] duration-500 xl:flex", compact ? "gap-3" : "gap-4")}>
           <Dropdown label="Befehle" items={BEFEHLE} />
           <Dropdown label="Über" items={UEBER} />
           <a
             href={SUPPORT_INVITE}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-[15px] text-slate-300 hover:text-white transition-colors"
+            className="text-[13px] text-slate-300 hover:text-white transition-colors"
           >
             Support Server
           </a>
           <Link
             href="/dashboard"
-            className="text-[15px] text-slate-300 hover:text-white transition-colors"
+            className="text-[13px] text-slate-300 hover:text-white transition-colors"
           >
             Dashboard
           </Link>
           <Dropdown
             label="Team beitreten"
             items={TEAM_ROLLEN}
-            tone="emerald"
+            tone="neutral"
             icon={UserPlus}
             footer={{ label: "Alle Rollen ansehen", href: "/team/apply" }}
           />
@@ -282,7 +264,7 @@ export function SiteNav() {
             href={INVITE_URL}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-1.5 text-[15px] text-slate-300 hover:text-white transition-colors"
+            className="flex items-center gap-1.5 text-[13px] text-slate-300 hover:text-white transition-colors"
           >
             <CirclePlus className="h-4 w-4" />
             Bot hinzufügen
@@ -358,15 +340,15 @@ export function SiteNav() {
     </div>
       {offen && (
         <div id="public-navigation-drawer" className="fixed inset-0 z-[100] h-dvh" role="dialog" aria-modal="true" aria-label="Hauptmenü">
-          <button aria-label="Menü schließen" onClick={() => setOffen(false)} className="absolute inset-0 bg-[#02030a]/72 backdrop-blur-md" />
-          <aside className="absolute bottom-2 right-2 top-2 flex w-[min(88vw,420px)] flex-col overflow-hidden rounded-[28px] border border-white/[.12] bg-[#090b12]/78 shadow-[0_28px_100px_rgba(0,0,0,.72)] backdrop-blur-3xl sm:bottom-4 sm:right-4 sm:top-4">
-            <div className="pointer-events-none absolute -right-20 -top-24 h-64 w-64 rounded-full bg-blue-600/20 blur-3xl" />
-            <div className="pointer-events-none absolute -bottom-24 -left-20 h-56 w-56 rounded-full bg-indigo-500/10 blur-3xl" />
+          <button aria-label="Menü schließen" onClick={() => setOffen(false)} className="absolute inset-0 bg-black/70 backdrop-blur-md" />
+          <aside className="absolute bottom-2 right-2 top-2 flex w-[min(88vw,420px)] flex-col overflow-hidden rounded-[28px] border border-white/[.12] bg-[#0a0a0a]/95 shadow-[0_28px_100px_rgba(0,0,0,.72)] backdrop-blur-3xl sm:bottom-4 sm:right-4 sm:top-4">
+            <div className="pointer-events-none absolute -right-20 -top-24 h-64 w-64 rounded-full bg-white/[.025] blur-3xl" />
+            <div className="pointer-events-none absolute -bottom-24 -left-20 h-56 w-56 rounded-full bg-white/[.025] blur-3xl" />
 
             <div className="relative flex items-center gap-3 border-b border-white/[.08] px-4 py-4 sm:px-5">
-              <div className="grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-2xl border border-blue-300/20 bg-blue-500/10 shadow-[0_8px_24px_rgba(37,99,235,.18)]">
+              <div className="grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-2xl border border-blue-300/20 bg-blue-500/10 ">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={BRAND_LOGO} alt="" className="h-full w-full object-cover" />
+                <img src={brandAsset("icon-192.png")} alt="" className="h-full w-full object-cover" />
               </div>
               <div className="min-w-0 flex-1">
                 <span className="block truncate text-[17px] font-black tracking-tight text-white">{BRAND}</span>

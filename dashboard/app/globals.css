@@ -3,28 +3,25 @@
 @tailwind utilities;
 
 :root {
-  --background: #0a0a0c;
-  --foreground: #f8fafc;
+  --background: #080808;
+  --foreground: #f5f5f5;
   --font-inter: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --font-outfit: Outfit, Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --primary: #5865f2;
-  --primary-glow: rgba(88, 101, 242, 0.15);
-  --glass-bg: rgba(19, 19, 24, 0.72);
+  --primary: #737373;
+  --primary-glow: rgba(255, 255, 255, 0.15);
+  --glass-bg: rgba(17, 17, 17, 0.72);
   --glass-border: rgba(255, 255, 255, 0.06);
-  --glass-blue-border: rgba(88, 101, 242, 0.22);
-  /* Kartenrand und Kartenflaeche -- aus den Screenshots gemessen:
-     #1e1f22 fuer den Rand, die Flaeche fast so dunkel wie der
-     Seitengrund. Beides mit einem Hauch Blau, damit die Seite
-     nicht tot grau wirkt. */
-  --card: #131318;
-  --card-border: #1e1f22;
-  --surface: #0e0e12;
+  --glass-blue-border: rgba(255, 255, 255, 0.22);
+  /* Shared CloudTIX surfaces, kept neutral in dark and light mode. */
+  --card: #111111;
+  --card-border: #262626;
+  --surface: #0e0e0e;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0c;
-    --foreground: #f8fafc;
+    --background: #080808;
+    --foreground: #f5f5f5;
   }
 }
 
@@ -76,7 +73,7 @@ html[data-theme="dark"] {
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #5865f2; /* Blurple */
+  background: #737373;
 }
 
 /* Firefox */
@@ -130,7 +127,7 @@ select optgroup {
 
 select option:checked,
 select option:hover {
-  background-color: #4752c4;
+  background-color: #525252;
   color: #ffffff;
 }
 
@@ -746,7 +743,7 @@ input[type="number"] {
 }
 
 :is(.admin-dashboard-theme, .user-dashboard-theme) :is(button, a, input, textarea, select):focus-visible {
-  outline: 2px solid #a7b6ed;
+  outline: 2px solid #d4d4d4;
   outline-offset: 3px;
 }
 
@@ -936,7 +933,7 @@ input[type="number"] {
 }
 
 :is(.admin-dashboard-theme, .user-dashboard-theme) [contenteditable="true"]:focus-visible {
-  outline: 2px solid #a7b6ed;
+  outline: 2px solid #d4d4d4;
   outline-offset: 3px;
 }
 

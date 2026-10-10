@@ -307,7 +307,7 @@ function ApplyInner() {
             <button
               type="button"
               onClick={() => signIn("discord", { callbackUrl: loginCallbackUrl(window.location.href, window.location.origin) })}
-              className="mt-6 rounded-xl bg-[#5865f2] px-7 py-3.5 text-[15px] font-semibold text-white transition-colors hover:bg-[#4752c4]"
+              className="mt-6 rounded-xl bg-primary px-7 py-3.5 text-[15px] font-semibold text-white transition-colors hover:bg-primary-hover"
             >
               Mit Discord anmelden
             </button>

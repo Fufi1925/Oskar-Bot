@@ -16,6 +16,14 @@
 
 import type { Config } from "tailwindcss";
 
+// Existing pages share the new brand palette. Status and error colors remain
+// distinct so people can still recognize operational feedback.
+const monochrome = {
+  50: "#fafafa", 100: "#f5f5f5", 200: "#e5e5e5", 300: "#d4d4d4",
+  400: "#b0b0b0", 500: "#737373", 600: "#525252", 700: "#404040",
+  800: "#262626", 900: "#171717", 950: "#0a0a0a",
+};
+
 const config: Config = {
   content: [
     "./pages/**/*.{js,ts,jsx,tsx,mdx}",
@@ -27,43 +35,21 @@ const config: Config = {
       colors: {
         background: "var(--background)",
         foreground: "var(--foreground)",
-        /**
-         * Die Slate-Palette, neutralisiert.
-         *
-         * Tailwinds eigenes Slate ist deutlich blau (#1e293b hat 20
-         * Punkte Abstand zwischen Rot und Blau). Auf 536 Rändern und
-         * hunderten Textfarben summierte sich das zu dem Marineton,
-         * der überall durchschlug.
-         *
-         * Diese Werte sind fast neutral, mit einem Hauch Blau in den
-         * dunklen Stufen — schwarz mit leichtem Blaustich, wie in den
-         * Vorlagen. Die Namen bleiben, also mussten die Klassen in den
-         * Komponenten nicht angefasst werden.
-         */
-        slate: {
-          50: "#f7f7f8",
-          100: "#ebebed",
-          200: "#d3d3d8",
-          300: "#b1b3ba",
-          400: "#82858e",
-          500: "#63666f",
-          600: "#4b4d55",
-          700: "#33343b",
-          800: "#1e1f22",
-          900: "#131318",
-          950: "#0a0a0c",
-        },
+        slate: monochrome,
+        blue: monochrome,
+        indigo: monochrome,
+        violet: monochrome,
         primary: {
-          DEFAULT: "#5865f2", // Blurple
-          hover: "#4752c4",
-          glow: "rgba(88, 101, 242, 0.5)",
+          DEFAULT: "#737373",
+          hover: "#636363",
+          glow: "rgba(255, 255, 255, 0.1)",
         },
         secondary: {
-          DEFAULT: "#0a0a0c", // Deep Navy/Black
-          light: "#0a0a0c",
+          DEFAULT: "#0a0a0a",
+          light: "#101010",
         },
         accent: {
-          red: "rgba(88, 101, 242, 0.1)",
+          red: "rgba(255, 255, 255, 0.06)",
           glass: "rgba(255, 255, 255, 0.03)",
         }
       },

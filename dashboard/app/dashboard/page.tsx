@@ -249,7 +249,7 @@ export default async function DashboardPage() {
               href={BOT_INVITE_URL}
               target="_blank"
               rel="noopener noreferrer"
-              className="mt-5 inline-flex items-center gap-2 rounded-xl bg-[#5865f2] px-5 py-2.5 text-[14px] font-semibold text-white transition-colors hover:bg-[#4752c4]"
+              className="mt-5 inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-[14px] font-semibold text-white transition-colors hover:bg-primary-hover"
             >
               <Plus className="h-4 w-4" />
               Bot hinzufügen

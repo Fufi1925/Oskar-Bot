@@ -222,7 +222,7 @@ export function TrustedBotsPanel() {
             type="button"
             onClick={hinzufuegen}
             disabled={!neueId.trim() || busy === "add"}
-            className="flex shrink-0 items-center gap-2 rounded-xl bg-[#5865f2] px-5 py-2.5 text-sm font-bold text-white transition-colors hover:bg-[#4752c4] disabled:opacity-40"
+            className="flex shrink-0 items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-bold text-white transition-colors hover:bg-primary-hover disabled:opacity-40"
           >
             {busy === "add" ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin" />

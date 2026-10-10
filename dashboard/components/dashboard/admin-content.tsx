@@ -758,7 +758,7 @@ export function AdminContent({
         </p>
         <a
           href="/dashboard"
-          className="mt-5 inline-flex items-center gap-2 rounded-xl bg-[#5865f2] px-5 py-2.5 text-[14px] font-semibold text-white transition-colors hover:bg-[#4752c4]"
+          className="mt-5 inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-[14px] font-semibold text-white transition-colors hover:bg-primary-hover"
         >
           Zurück zum Dashboard
         </a>
@@ -1098,7 +1098,7 @@ export function AdminContent({
                   type="button"
                   onClick={runMemberModeration}
                   disabled={saving}
-                  className="w-full rounded-xl bg-[#5865f2] py-3 text-[14px] font-semibold text-white transition-colors hover:bg-[#4752c4] disabled:opacity-50"
+                  className="w-full rounded-xl bg-primary py-3 text-[14px] font-semibold text-white transition-colors hover:bg-primary-hover disabled:opacity-50"
                 >
                   {memberActions.find((a) => a.action === memberAction)?.label ??
                     "Ausführen"}{" "}
