@@ -10,7 +10,7 @@ import { ServerPremiumHinweis } from "@/components/server-premium-hinweis";
 export function GlobalPopups() {
   const pathname = usePathname();
   if (
-    pathname.startsWith("/auth/success") ||
+    pathname.startsWith("/auth/") ||
     pathname.startsWith("/verify/") ||
     pathname.startsWith("/Tickets/Transkript/")
   ) return null;

@@ -5,6 +5,7 @@ import { Check } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { api } from "@/lib/api";
+import { loginDestination, loginUrl } from "@/lib/auth-navigation";
 
 /**
  * Deliberate post-login step. It is a real route rather than a toast on the
@@ -18,7 +19,7 @@ export default function LoginSuccessPage() {
 
   useEffect(() => {
     if (status === "unauthenticated") {
-      router.replace("/");
+      router.replace(loginUrl(window.location.href, window.location.origin));
       return;
     }
     if (status !== "authenticated") return;
@@ -33,10 +34,9 @@ export default function LoginSuccessPage() {
     let timer: number | undefined;
     const started = Date.now();
     const requested = new URLSearchParams(window.location.search).get("next");
-    const safeRequested =
-      requested && requested.startsWith("/") && !requested.startsWith("//")
-        ? requested
-        : null;
+    const safeRequested = requested
+      ? loginDestination(requested, "/dashboard", window.location.origin)
+      : null;
 
     void (async () => {
       let destination = safeRequested || "/dashboard";
@@ -78,8 +78,7 @@ export default function LoginSuccessPage() {
         }
         destination = preference?.start_page || "/dashboard";
       }
-      if (!destination.startsWith("/") || destination.startsWith("//"))
-        destination = "/dashboard";
+      destination = loginDestination(destination, "/dashboard", window.location.origin);
       const remaining = Math.max(0, 1800 - (Date.now() - started));
       timer = window.setTimeout(() => {
         if (!cancelled) router.replace(destination);
@@ -108,7 +107,7 @@ export default function LoginSuccessPage() {
         </div>
         <h1 className="mt-5 text-2xl font-black text-white">Erfolgreich!</h1>
         <p className="mt-2 text-sm text-slate-300">
-          Login erfolgreich! Dashboard wird geladen
+          Login erfolgreich! Deine Seite wird geöffnet
           <span className="login-dot">.</span>
           <span className="login-dot">.</span>
           <span className="login-dot">.</span>

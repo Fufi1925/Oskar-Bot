@@ -56,7 +56,7 @@ def test_delivery_is_optional_for_dms_but_dashboard_log_can_force_snapshot():
 
 def test_transcript_requires_login_and_server_side_authorization():
     assert "getServerSession(authOptions)" in PAGE
-    assert "redirect(`/api/auth/signin?callbackUrl=" in PAGE
+    assert "redirect(loginUrl(callbackUrl))" in PAGE
     assert 'Authorization: `Bearer ${process.env.DASHBOARD_API_KEY || ""}`' in PAGE
     assert '"X-API-Key"' not in PAGE
     assert '@router.get("/transcript/{ticket_id}"' in ROUTES

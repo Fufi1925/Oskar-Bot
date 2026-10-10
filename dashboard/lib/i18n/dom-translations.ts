@@ -1660,7 +1660,7 @@ export const phrasePairs: Array<[de: string, en: string]> = [
   ["Lobby-Kanal", "Lobby channel"],
   ["Log-Kanal ist umgezogen", "Log channel has moved"],
   ["Log-Kanal, Wartezimmer-Rolle, Mindestalter. Braucht man selten.", "Log channel, waiting-room role, minimum age. Rarely needed."],
-  ["Login erfolgreich! Dashboard wird geladen", "Login successful! Loading the dashboard"],
+  ["Login erfolgreich! Deine Seite wird geöffnet", "Login successful! Opening your page"],
   ["Lädt …", "Loading …"],
   ["Lädt…", "Loading…"],
   ["Läufe gesamt", "Total runs"],

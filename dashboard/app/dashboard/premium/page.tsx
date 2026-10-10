@@ -1,3 +1,4 @@
+import { loginUrl } from "@/lib/auth-navigation";
 import React from "react";
 import { getServerSession } from "next-auth/next";
 import { redirect } from "next/navigation";
@@ -18,7 +19,7 @@ export default async function PremiumPage() {
   // No admin check on purpose: a customer who bought a key is not staff
   // and still has to be able to redeem it.
   if (!session?.user?.id) {
-    redirect("/dashboard");
+    redirect(loginUrl("/dashboard/premium"));
   }
 
   return (

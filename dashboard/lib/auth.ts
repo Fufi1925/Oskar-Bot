@@ -162,7 +162,7 @@ export function createAuthOptions(oauthScopes = DISCORD_USER_SCOPES): AuthOption
     },
     secret: getAuthSecret(),
     pages: {
-      signIn: "/",
+      signIn: "/auth/login",
       // Do not send an OAuth callback error back to the homepage. That hid the
       // real reason and could immediately start another login loop.
       error: "/auth/error",

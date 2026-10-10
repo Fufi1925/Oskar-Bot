@@ -1,3 +1,4 @@
+import { loginUrl } from "@/lib/auth-navigation";
 import React from "react";
 import { ShieldCheck, Users } from "lucide-react";
 import { api } from "@/lib/api";
@@ -19,7 +20,7 @@ export default async function GuildsPage() {
   const session = await getServerSession(authOptions);
 
   if (!session || !session.accessToken) {
-    redirect("/");
+    redirect(loginUrl("/dashboard/guilds"));
   }
 
   let botGuilds: GuildSummary[] = [];

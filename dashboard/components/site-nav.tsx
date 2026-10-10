@@ -1,5 +1,7 @@
 "use client";
 
+import { loginCallbackUrl } from "@/lib/auth-navigation";
+
 /**
  * Die obere Navigationsleiste der öffentlichen Seiten.
  *
@@ -319,7 +321,7 @@ export function SiteNav() {
             <button
               type="button"
               onClick={() =>
-                signIn("discord", { callbackUrl: "/auth/success?next=%2Fdashboard" }).catch(() => {})
+                signIn("discord", { callbackUrl: loginCallbackUrl(window.location.href, window.location.origin) }).catch(() => {})
               }
               className="flex items-center gap-2 rounded-full border border-slate-800 bg-[#131318] px-3 sm:px-4 py-2 text-[14px] text-slate-200 hover:border-slate-700 transition-colors"
             >
@@ -414,7 +416,7 @@ export function SiteNav() {
                   <span className="min-w-0 flex-1"><strong className="block truncate text-[14px]">{session.user.name}</strong><span className="block text-[10px] text-slate-500">Mein Konto</span></span><ChevronRight className="h-4 w-4 text-slate-500" />
                 </Link>
               ) : (
-                <button onClick={() => signIn("discord", { callbackUrl: "/auth/success?next=%2Fdashboard" })} className="flex w-full items-center gap-3 rounded-2xl border border-white/[.08] bg-white/[.045] px-4 py-3 text-left text-slate-100 transition hover:bg-white/[.075]">
+                <button onClick={() => signIn("discord", { callbackUrl: loginCallbackUrl(window.location.href, window.location.origin) })} className="flex w-full items-center gap-3 rounded-2xl border border-white/[.08] bg-white/[.045] px-4 py-3 text-left text-slate-100 transition hover:bg-white/[.075]">
                   <span className="grid h-9 w-9 place-items-center rounded-xl bg-blue-500/10"><LogIn className="h-4 w-4 text-blue-300" /></span><span className="flex-1 text-[14px] font-semibold">Mit Discord anmelden</span><ChevronRight className="h-4 w-4 text-slate-500" />
                 </button>
               )}

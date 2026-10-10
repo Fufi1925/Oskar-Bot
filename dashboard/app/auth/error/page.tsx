@@ -6,6 +6,7 @@ import { signIn } from "next-auth/react";
 import Link from "next/link";
 import { AlertTriangle, ArrowLeft, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { loginCallbackUrl } from "@/lib/auth-navigation";
 
 const ERROR_MESSAGES: Record<string, { title: string; desc: string }> = {
   Configuration: {
@@ -72,7 +73,7 @@ function ErrorContent() {
           <Button 
             variant="outline" 
             className="w-full gap-2 h-12 font-bold border-slate-800"
-            onClick={() => signIn("discord", { callbackUrl: "/auth/success?next=%2Fdashboard" })}
+            onClick={() => signIn("discord", { callbackUrl: loginCallbackUrl(searchParams.get("next") || searchParams.get("callbackUrl") || "/dashboard", window.location.origin) })}
           >
             <RefreshCw className="h-4 w-4" />
             Erneut versuchen

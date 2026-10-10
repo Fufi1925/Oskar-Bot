@@ -18,6 +18,7 @@ def check(name, ok):
 
 page = (DASH / "app/konto/page.tsx").read_text(encoding="utf-8")
 gate = (DASH / "components/account-login-gate.tsx").read_text(encoding="utf-8")
+navigation = (DASH / "lib/auth-navigation.ts").read_text(encoding="utf-8")
 actions = (DASH / "components/account-actions.tsx").read_text(encoding="utf-8")
 danger = (DASH / "components/account-danger-zone.tsx").read_text(encoding="utf-8")
 proxy = (DASH / "app/api/bot/[...path]/route.ts").read_text(encoding="utf-8")
@@ -26,8 +27,8 @@ route = (BOT / "api/routes/bot.py").read_text(encoding="utf-8")
 store = (BOT / "utils/leveling_store.py").read_text(encoding="utf-8")
 nav = (DASH / "components/site-nav.tsx").read_text(encoding="utf-8")
 
-check("unauthenticated visitors get a login dialog", "<AccountLoginGate />" in page and 'role="dialog"' in gate)
-check("login returns through the success screen", "/auth/success?next=%2Fkonto" in gate)
+check("account page retains a login fallback", "<AccountLoginGate />" in page and 'role="dialog"' in gate)
+check("login returns through the success screen", "loginCallbackUrl(window.location.href" in gate and "/auth/success?next=" in navigation)
 check("Discord identity comes from the session", "getServerSession(authOptions)" in page and "session.user.id" in page)
 check("Discord profile and guilds are fetched live", "/api/users/@me" in page and "/api/users/@me/guilds?with_counts=true" in page)
 check("premium is loaded from the real premium endpoint", "api.getMyPremium(userId)" in page)

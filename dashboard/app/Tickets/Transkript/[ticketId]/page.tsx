@@ -1,3 +1,4 @@
+import { loginUrl } from "@/lib/auth-navigation";
 /* eslint-disable @next/next/no-img-element -- Discord CDN media has runtime dimensions and must remain byte-for-byte linked. */
 import { BRAND_LOGO } from "@/lib/brand";
 import { getServerSession } from "next-auth/next";
@@ -138,7 +139,7 @@ function Message({ message, compact = false }: { message: AnyData; compact?: boo
 export default async function TicketTranscriptPage({ params }: { params: { ticketId: string } }) {
   const session = await getServerSession(authOptions);
   const callbackUrl = `/Tickets/Transkript/${encodeURIComponent(params.ticketId)}`;
-  if (!session?.user?.id) redirect(`/api/auth/signin?callbackUrl=${encodeURIComponent(callbackUrl)}`);
+  if (!session?.user?.id) redirect(loginUrl(callbackUrl));
   if (!/^\d{15,22}$/.test(params.ticketId)) {
     return <main className="transcript-error"><h1>Invalid transcript</h1><p>This ticket ID is not valid.</p></main>;
   }

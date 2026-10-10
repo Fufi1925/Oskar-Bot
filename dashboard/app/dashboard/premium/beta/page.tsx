@@ -1,3 +1,4 @@
+import { loginUrl } from "@/lib/auth-navigation";
 import React from "react";
 import Link from "next/link";
 import { getServerSession } from "next-auth/next";
@@ -17,7 +18,7 @@ export const revalidate = 0;
 export default async function BetaPage() {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    redirect("/dashboard");
+    redirect(loginUrl("/dashboard/premium/beta"));
   }
 
   return (

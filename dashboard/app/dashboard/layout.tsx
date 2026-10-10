@@ -16,6 +16,8 @@
 
 "use client";
 
+import { loginCallbackUrl } from "@/lib/auth-navigation";
+
 import { BRAND_LOGO } from "@/lib/brand";
 import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
@@ -103,7 +105,7 @@ export default function DashboardLayout({
 
   React.useEffect(() => {
     if (status === "unauthenticated") {
-      signIn("discord", { callbackUrl: "/auth/success?next=%2Fdashboard" });
+      signIn("discord", { callbackUrl: loginCallbackUrl(window.location.href, window.location.origin) });
     }
     
     // Fetch global notification + maintenance state

@@ -1,4 +1,5 @@
 import { websiteOrigin } from "@/lib/website";
+import { loginDestination, loginUrl } from "@/lib/auth-navigation";
 /**
  * Route protection.
  *
@@ -194,7 +195,7 @@ const authGate = withAuth(
   {
     secret: getAuthSecret(),
     pages: {
-      signIn: "/",
+      signIn: "/auth/login",
       error: "/auth/error",
     },
   }
@@ -258,7 +259,10 @@ function needsAuth(pathname: string, method = "GET"): boolean {
     !pathname.startsWith("/api/bot/ideas/me") &&
     !pathname.startsWith("/api/bot/ideas/rewards")
   ) return false;
-  return pathname.startsWith("/dashboard") || pathname.startsWith("/api/bot");
+  return pathname.startsWith("/dashboard") || pathname.startsWith("/api/bot") ||
+    pathname === "/konto" || pathname.startsWith("/konto/") ||
+    pathname === "/ideas/me" || pathname === "/ideas/new" ||
+    pathname === "/team/apply" || pathname.startsWith("/Tickets/Transkript/");
 }
 
 async function firewallGate(request: NextRequest): Promise<NextResponse | null> {
@@ -298,16 +302,48 @@ export default async function middleware(request: NextRequest, event: any) {
   // Older OAuth redirects land on /?error=OAuthCallback. Show the actual
   // failure and a fresh sign-in action rather than the anonymous homepage.
   const error = request.nextUrl.searchParams.get("error");
+  const callbackTarget = request.nextUrl.searchParams.get("callbackUrl") ||
+    request.cookies.get("__Secure-next-auth.callback-url")?.value ||
+    request.cookies.get("next-auth.callback-url")?.value;
   if (
-    request.nextUrl.pathname === "/" &&
-    ["OAuthSignin", "OAuthCallback", "OAuthAccountNotLinked", "Callback"].includes(error || "")
+    error && (
+      request.nextUrl.pathname === "/auth/login" ||
+      (request.nextUrl.pathname === "/" &&
+        ["OAuthSignin", "OAuthCallback", "OAuthAccountNotLinked", "Callback"].includes(error))
+    )
   ) {
     return NextResponse.redirect(
-      new URL(authErrorPath("signin", error)!, websiteOrigin(new URL(request.url).origin)),
+      new URL(authErrorPath("signin", error, request.nextUrl.searchParams.get("next") || callbackTarget, websiteOrigin(new URL(request.url).origin))!, websiteOrigin(new URL(request.url).origin)),
     );
   }
 
+  // NextAuth's direct error redirects retain the callback in an HttpOnly
+  // cookie. Carry its safe destination to the retry action on the error page.
+  if (request.nextUrl.pathname === "/auth/error" && !request.nextUrl.searchParams.has("next") && callbackTarget) {
+    const origin = websiteOrigin(new URL(request.url).origin);
+    const retry = new URL(request.nextUrl.pathname + request.nextUrl.search, origin);
+    retry.searchParams.set("next", loginDestination(callbackTarget, "/dashboard", origin));
+    return NextResponse.redirect(retry);
+  }
+
+  // Older links can still contain the homepage callback query. Resume the
+  // same automatic login flow instead of leaving the visitor on that page.
+  const legacyTarget = request.nextUrl.searchParams.get("callbackUrl");
+  if (request.nextUrl.pathname === "/" && legacyTarget && !error) {
+    const origin = websiteOrigin(new URL(request.url).origin);
+    return NextResponse.redirect(new URL(loginUrl(legacyTarget, origin), origin));
+  }
+
   if (needsAuth(request.nextUrl.pathname, request.method)) {
+    const token = await getToken({ req: request, secret: getAuthSecret() });
+    if (!token?.sub) {
+      if (request.nextUrl.pathname.startsWith("/api/")) {
+        return NextResponse.json({ detail: "Sign-in required." }, { status: 401 });
+      }
+      const origin = websiteOrigin(new URL(request.url).origin);
+      const destination = request.nextUrl.pathname + request.nextUrl.search;
+      return NextResponse.redirect(new URL(loginUrl(destination, origin), origin));
+    }
     return (authGate as any)(request, event);
   }
   return NextResponse.next();
@@ -316,8 +352,8 @@ export default async function middleware(request: NextRequest, event: any) {
 export const config = {
   matcher: [
     // Everything, so maintenance mode covers every path -- that is the
-    // point of it. The auth check inside still only applies to
-    // /dashboard and /api/bot.
+    // point of it. The auth check inside applies to the protected pages
+    // and API routes listed in needsAuth().
     //
     // Excluded: Next's own build output and the favicon. Rewriting
     // those would leave the notice itself without styling.

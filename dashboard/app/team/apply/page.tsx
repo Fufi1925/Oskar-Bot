@@ -1,5 +1,7 @@
 "use client";
 
+import { loginCallbackUrl } from "@/lib/auth-navigation";
+
 /**
  * Team-Bewerbung über die Website.
  *
@@ -304,7 +306,7 @@ function ApplyInner() {
             </p>
             <button
               type="button"
-              onClick={() => signIn("discord", { callbackUrl: "/auth/success?next=%2Fteam%2Fapply" })}
+              onClick={() => signIn("discord", { callbackUrl: loginCallbackUrl(window.location.href, window.location.origin) })}
               className="mt-6 rounded-xl bg-[#5865f2] px-7 py-3.5 text-[15px] font-semibold text-white transition-colors hover:bg-[#4752c4]"
             >
               Mit Discord anmelden
