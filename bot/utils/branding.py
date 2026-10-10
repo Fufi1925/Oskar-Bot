@@ -1,4 +1,4 @@
-"""Cloudtix artwork used by Discord messages and the main bot profile."""
+"""CloudTIX artwork used by Discord messages and the main bot profile."""
 
 from __future__ import annotations
 
@@ -11,6 +11,7 @@ from urllib.parse import quote
 import aiosqlite
 import discord
 
+from utils.config import BRAND_NAME
 from utils.links import dashboard_url
 
 
@@ -49,13 +50,20 @@ async def _sync_image(db, profile, field: str, artwork: Path) -> None:
         (str(profile.id), field, digest, remote.key if remote else ""),
     )
     await db.commit()
-    logger.info("Cloudtix artwork updated: %s", field)
+    logger.info("CloudTIX artwork updated: %s", field)
 
 
 async def sync_discord_branding(bot) -> None:
-    """Update changed artwork once; keep the saved hashes across deployments."""
+    """Sync the bot name and changed artwork when the bot starts."""
     if bot.user is None:
         return
+
+    if bot.user.name != BRAND_NAME:
+        try:
+            await bot.user.edit(username=BRAND_NAME)
+            logger.info("Discord bot name updated to %s", BRAND_NAME)
+        except discord.HTTPException:
+            logger.exception("Discord bot name could not be updated to %s", BRAND_NAME)
 
     try:
         async with aiosqlite.connect("db/branding.db") as db:
@@ -67,12 +75,12 @@ async def sync_discord_branding(bot) -> None:
             try:
                 await _sync_image(db, bot.user, "avatar", ASSET_DIR / "cloudtix-avatar.gif")
             except (discord.HTTPException, OSError, aiosqlite.Error):
-                logger.exception("Cloudtix bot avatar could not be updated")
+                logger.exception("CloudTIX bot avatar could not be updated")
 
             try:
                 application = await bot.application_info()
                 await _sync_image(db, application, "icon", ASSET_DIR / "cloudtix-icon.png")
             except (discord.HTTPException, OSError, aiosqlite.Error):
-                logger.exception("Cloudtix application icon could not be updated")
+                logger.exception("CloudTIX application icon could not be updated")
     except aiosqlite.Error:
-        logger.exception("Cloudtix artwork state could not be saved")
+        logger.exception("CloudTIX artwork state could not be saved")

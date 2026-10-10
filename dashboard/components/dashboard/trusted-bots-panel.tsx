@@ -317,7 +317,7 @@ export function TrustedBotsPanel() {
         </div>
       </div>
 
-      {/* Ein Bot, den der University Bot nie gesehen hat, ist
+      {/* Ein Bot, den der CloudTIX nie gesehen hat, ist
           vermutlich auf keinem gemeinsamen Server — dann steht dort
           nur die ID. Das ist kein Fehler, sieht aber danach aus. */}
       {unbekannt > 0 && (
@@ -326,7 +326,7 @@ export function TrustedBotsPanel() {
           <p className="text-[13px] leading-relaxed text-slate-500">
             Bei {unbekannt}{" "}
             {unbekannt === 1 ? "Eintrag" : "Einträgen"} steht nur die ID:
-            diese Bots sind auf keinem Server, den der University Bot sieht.
+            diese Bots sind auf keinem Server, den der CloudTIX sieht.
             Der Schutz gilt trotzdem — sobald sie irgendwo gemeinsam sind,
             erscheinen Name und Bild.
           </p>

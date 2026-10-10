@@ -134,7 +134,7 @@ export default async function AccountPage() {
               {session.user.image ? <Image src={session.user.image} alt={`Profilbild von ${displayName}`} fill sizes="96px" unoptimized className="object-cover" /> : <div className="grid h-full place-items-center text-3xl font-black text-indigo-300">{displayName.slice(0, 2).toUpperCase()}</div>}
             </div>
             <div className="min-w-0 flex-1">
-              <p className="text-xs font-bold uppercase tracking-[0.24em] text-indigo-300">University Bot Konto</p>
+              <p className="text-xs font-bold uppercase tracking-[0.24em] text-indigo-300">CloudTIX Konto</p>
               <h1 className="mt-2 truncate text-3xl font-black tracking-tight text-white sm:text-4xl">{displayName}</h1>
               <p className="mt-2 text-sm text-slate-400">@{username} · Deine echten Discord- und Bot-Daten auf einen Blick.</p>
               <div className="mt-4 flex flex-wrap gap-2">

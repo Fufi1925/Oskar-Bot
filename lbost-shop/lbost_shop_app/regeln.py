@@ -4,7 +4,7 @@ Warum eine eigene Datei?
     Dashboard-Vorschau und Bot müssen *dieselbe* Rechnung benutzen. Sobald
     zwei Stellen denselben Text auf zwei Arten zusammenbauen, zeigt das
     Dashboard etwas, das der Bot nie schicken wird. Genau dieses Muster hat
-    University Bot seit dem Ticket-Umbau (``bot/api/ticket_panels.py``):
+    CloudTIX seit dem Ticket-Umbau (``bot/api/ticket_panels.py``):
     ein Modul, zwei Nutzer. Der Shop ist bewusst ein eigener Bereich, deshalb
     liegt die Regel hier und nicht importiert aus dem Hauptbot.
 

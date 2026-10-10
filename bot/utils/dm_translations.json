@@ -720,8 +720,8 @@
     "de": "Hey {0}, schön dass du auf **{1}** bist!"
   },
   {
-    "en": "University Bot",
-    "de": "University Bot"
+    "en": "CloudTIX",
+    "de": "CloudTIX"
   },
   {
     "en": "Attached files",
@@ -1009,8 +1009,8 @@
     "de": "Eingeschränkter Server: `{0}`"
   },
   {
-    "en": "**These restrictions are managed by the administrators of {0}. Please contact them for help. University Bot does not make its own moderation decision.**",
-    "de": "**Diese Einschränkungen werden von den Administratoren von {0} verwaltet. Wende dich für Hilfe an sie. University Bot trifft keine eigene Moderationsentscheidung.**"
+    "en": "**These restrictions are managed by the administrators of {0}. Please contact them for help. CloudTIX does not make its own moderation decision.**",
+    "de": "**Diese Einschränkungen werden von den Administratoren von {0} verwaltet. Wende dich für Hilfe an sie. CloudTIX trifft keine eigene Moderationsentscheidung.**"
   },
   {
     "en": "Quick verification",
@@ -1045,8 +1045,8 @@
     "de": "Dieser Kanal ist für die Verifizierung reserviert. Bitte nutze den Button **Mit Discord verifizieren** im Panel."
   },
   {
-    "en": "Powered by University Bot",
-    "de": "Unterstützt von University Bot"
+    "en": "Powered by CloudTIX",
+    "de": "Unterstützt von CloudTIX"
   },
   {
     "en": "You are in the beta",
@@ -1272,8 +1272,8 @@
     "de": "Update zu deiner Idee"
   },
   {
-    "en": "University Bot ideas",
-    "de": "University Bot Ideen"
+    "en": "CloudTIX ideas",
+    "de": "CloudTIX Ideen"
   },
   {
     "en": "Status: **Open**",
@@ -1336,8 +1336,8 @@
     "de": "**{0}** (`{1}`) ist auf deinen Servern:\n{2}\n\n**Grund des Hinweises:**\n{3}\n\nDas ist nur eine Information — es wurde nichts unternommen. Ob du etwas tust, entscheidest du."
   },
   {
-    "en": "University Bot • Notice to server owners",
-    "de": "University Bot • Hinweis an Server-Inhaber"
+    "en": "CloudTIX • Notice to server owners",
+    "de": "CloudTIX • Hinweis an Server-Inhaber"
   },
   {
     "en": "*I will not send separate DMs for further incidents in this attack — check the server channel or dashboard.*",

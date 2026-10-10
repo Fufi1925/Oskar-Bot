@@ -5,7 +5,7 @@ import { VerifyResult } from "@/components/verify-result";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
-  title: "Discord verification | University Bot",
+  title: "Discord verification | CloudTIX",
   robots: { index: false, follow: false },
   referrer: "no-referrer",
 };

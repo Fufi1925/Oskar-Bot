@@ -194,7 +194,7 @@ def test_layout():
 
     from view import StatusView
 
-    ok = render(StatusView(brand="University Bot", state="online",
+    ok = render(StatusView(brand="CloudTIX", state="online",
                            health=FakeHealth(), since=time.time() - 3600))
     check("the running state says so", "Alle Systeme laufen" in ok, ok[:60])
     check("it shows how long that has held", "1 Stunde" in ok, ok[:80])
@@ -202,7 +202,7 @@ def test_layout():
     check("green marks for the things that are up", ok.count("🟢") >= 3, ok)
 
     starting = render(StatusView(
-        brand="University Bot", state="starting",
+        brand="CloudTIX", state="starting",
         health=FakeHealth(ready=False, dashboard="starting", code=503),
         since=time.time(),
     ))
@@ -212,7 +212,7 @@ def test_layout():
           "ein bis zwei Minuten" in starting)
 
     down = render(StatusView(
-        brand="University Bot", state="down",
+        brand="CloudTIX", state="down",
         health=FakeHealth(reachable=False, error="Zeitüberschreitung",
                           code=None, latency=None),
         since=time.time(),
@@ -302,7 +302,7 @@ def test_links_and_partner():
 
     # ── the order of the four blocks ─────────────────────────────
     full = render(StatusView(
-        brand="University Bot", state="online", health=FakeHealth(),
+        brand="CloudTIX", state="online", health=FakeHealth(),
         since=time.time(), website="https://example.com",
         invite="https://example.com/invite",
         partner={"ok": True, "label": "University Template",
@@ -312,8 +312,8 @@ def test_links_and_partner():
     # str.index raises when a marker is missing, which turns a failed
     # check into a crashed run -- the rest of the file then never runs
     # and the summary says nothing. Reported as a failure instead.
-    markers = ["Alle Systeme laufen", "## University Bot",
-               "## University Template", "University Status System"]
+    markers = ["Alle Systeme laufen", "## CloudTIX",
+               "## University Template", "CloudTIX Status System"]
     missing = [marker for marker in markers if marker not in full]
     check("headline, main bot, template bot and footer are all present",
           not missing, f"missing: {missing}")
@@ -324,7 +324,7 @@ def test_links_and_partner():
 
     # ── the footer ───────────────────────────────────────────────
     footer = full.rsplit("\n", 1)[-1]
-    check("the footer names the status system", "University Status System" in footer,
+    check("the footer names the status system", "CloudTIX Status System" in footer,
           footer)
     check("and carries a live timestamp", "<t:" in footer and ":R>" in footer,
           "a relative stamp counts itself up in every client, so the "
@@ -608,7 +608,7 @@ def test_discord_markup():
     from view import StatusView
 
     full = render(StatusView(
-        brand="University Bot", state="online", health=FakeHealth(),
+        brand="CloudTIX", state="online", health=FakeHealth(),
         since=time.time() - 7200, website="https://example.com",
         invite="https://example.com/i",
         partner={"ok": True, "label": "University Template",
@@ -617,7 +617,7 @@ def test_discord_markup():
 
     check("the headline is an h1", full.startswith("# 🟢"), full[:40])
     check("each bot gets an h2",
-          "## University Bot" in full and "## University Template" in full)
+          "## CloudTIX" in full and "## University Template" in full)
     check("and a state line as an h3",
           "### 🟢 Betriebsbereit" in full and "### 🟢 Online" in full, full)
 
@@ -699,7 +699,7 @@ def test_avatars():
     partner_url = "https://cdn.discordapp.com/avatars/2/b.png?size=128"
 
     view = StatusView(
-        brand="University Bot", state="online", health=FakeHealth(),
+        brand="CloudTIX", state="online", health=FakeHealth(),
         since=time.time(), avatar=main_url,
         partner={"ok": True, "label": "University Template",
                  "detail": "online", "ping": 30.0, "avatar": partner_url},
@@ -711,14 +711,14 @@ def test_avatars():
 
     # The heading text must survive either way.
     without = StatusView(
-        brand="University Bot", state="online", health=FakeHealth(),
+        brand="CloudTIX", state="online", health=FakeHealth(),
         since=time.time(),
         partner={"ok": True, "label": "T", "detail": "online", "ping": 30.0},
     )
     check("no avatar means no thumbnail", thumbnails(without) == [],
           str(thumbnails(without)))
     text = render(without)
-    check("but the heading is still there", "## University Bot" in text, text)
+    check("but the heading is still there", "## CloudTIX" in text, text)
     check("and so is the state line", "### 🟢 Betriebsbereit" in text, text)
 
     # The bot fetches them itself rather than taking them from config.
@@ -1205,7 +1205,7 @@ class FakeChannel:
 
 
 class FakeBot:
-    user = type("U", (), {"name": "University Status", "id": 1})()
+    user = type("U", (), {"name": "CloudTIX Status", "id": 1})()
     state = "online"
 
     def __init__(self):

@@ -96,7 +96,7 @@ async def grant_trial(
     Die Gegenrichtung zu ``/check``: der Template-Bot **meldet** hier.
 
     Er vergibt persoenliche Keys, die sieben Tage gelten. Der
-    University Bot weiss davon nichts -- er kennt nur seine eigenen
+    CloudTIX weiss davon nichts -- er kennt nur seine eigenen
     verkauften Keys. Ohne diese Meldung stuende im Dashboard „kein
     Premium", obwohl der Nutzer welches hat.
 
@@ -529,7 +529,7 @@ async def redeem_premium_code(data: dict, bot: "universitybot" = Depends(get_bot
             )
         )
     ):
-        raise HTTPException(status_code=403, detail="Du verwaltest diesen Server nicht oder University Bot ist dort nicht installiert.")
+        raise HTTPException(status_code=403, detail="Du verwaltest diesen Server nicht oder CloudTIX ist dort nicht installiert.")
     result = code_store.redeem(code, actor, guild.id)
     if not result.get("ok"):
         raise HTTPException(status_code=400, detail=_CODE_ERRORS.get(result.get("error"), "Der Code kann nicht eingelöst werden."))

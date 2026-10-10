@@ -110,7 +110,7 @@ else
   echo "❌ NEXTAUTH_URL is invalid; Discord OAuth cannot start"
 fi
 export NEXTAUTH_URL_INTERNAL="${NEXTAUTH_URL_INTERNAL:-http://127.0.0.1:$DASHBOARD_PORT}"
-echo "🔁 University OAuth callback: $NEXTAUTH_URL/api/auth/callback/discord"
+echo "🔁 CloudTIX OAuth callback: $NEXTAUTH_URL/api/auth/callback/discord"
 
 # The main dashboard may use new dedicated names or the legacy variables.
 # Dedicated values also repair every older main-dashboard OAuth route that
@@ -126,13 +126,13 @@ elif [ -n "${MAIN_BOT_CLIENT_SECRET:-}" ]; then
   export DISCORD_CLIENT_SECRET="$MAIN_BOT_CLIENT_SECRET"
 fi
 if [ -z "${UNIVERSITY_DISCORD_CLIENT_ID:-${MAIN_BOT_CLIENT_ID:-${DISCORD_CLIENT_ID:-}}}" ]; then
-  echo "❌ University Discord OAuth client ID is missing"
+  echo "❌ CloudTIX Discord OAuth client ID is missing"
 fi
 if [ -z "${UNIVERSITY_DISCORD_CLIENT_SECRET:-${MAIN_BOT_CLIENT_SECRET:-${DISCORD_CLIENT_SECRET:-}}}" ]; then
-  echo "❌ University Discord OAuth client secret is missing"
+  echo "❌ CloudTIX Discord OAuth client secret is missing"
 fi
 if [ -n "${LBOST_SHOP_DISCORD_CLIENT_ID:-}" ] && [ "${UNIVERSITY_DISCORD_CLIENT_ID:-${MAIN_BOT_CLIENT_ID:-${DISCORD_CLIENT_ID:-}}}" = "$LBOST_SHOP_DISCORD_CLIENT_ID" ]; then
-  echo "⚠️ University and LBoost use the same Discord Client ID. Set UNIVERSITY_DISCORD_CLIENT_ID to the main app."
+  echo "⚠️ CloudTIX and LBoost use the same Discord Client ID. Set UNIVERSITY_DISCORD_CLIENT_ID to the main app."
 fi
 
 # IMPORTANT: NEXTAUTH_SECRET must be stable across restarts, otherwise every
@@ -178,7 +178,7 @@ if [ -z "${ADMIN_IDS:-}" ] && [ -n "${OWNER_IDS:-}" ]; then
 fi
 
 echo "=========================================="
-echo "🤖 Starting University Bot..."
+echo "🤖 Starting CloudTIX..."
 echo "=========================================="
 echo "📡 Bot + API: port $PORT"
 echo "🖥️ Dashboard: port $DASHBOARD_PORT"
@@ -255,7 +255,7 @@ fi
 # in the dashboard takes effect without restarting anything. The supervisor
 # keeps this isolated process online even if Discord disconnects it or one
 # event triggers an unexpected process-level failure. Previously only the
-# University process was supervised; a crashed Shop bot stayed offline until
+# CloudTIX process was supervised; a crashed Shop bot stayed offline until
 # the whole deployment happened to restart.
 run_lbost_shop_bot_forever() {
   local child=""

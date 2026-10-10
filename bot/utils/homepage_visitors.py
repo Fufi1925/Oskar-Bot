@@ -71,7 +71,7 @@ def lookup_country(ip: str) -> str:
         encoded = urllib.parse.quote(str(address), safe="")
         request = urllib.request.Request(
             f"https://api.country.is/{encoded}",
-            headers={"Accept": "application/json", "User-Agent": "UniversityBot-Homepage/1.0"},
+            headers={"Accept": "application/json", "User-Agent": "CloudTIX-Homepage/1.0"},
         )
         with urllib.request.urlopen(request, timeout=3) as response:
             payload = json.loads(response.read().decode("utf-8"))

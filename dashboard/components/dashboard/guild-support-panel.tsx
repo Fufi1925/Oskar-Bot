@@ -82,7 +82,7 @@ export function GuildSupportPanel({ guildId }: { guildId: string }) {
         <div className="relative flex flex-wrap items-start gap-5">
           <span className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl border border-indigo-300/20 bg-indigo-400/10 text-indigo-200 shadow-[inset_0_1px_rgba(255,255,255,.08)]"><LifeBuoy className="h-7 w-7" /></span>
           <div className="min-w-0 flex-1">
-            <p className="text-xs font-black uppercase tracking-[.16em] text-indigo-300">University Support</p>
+            <p className="text-xs font-black uppercase tracking-[.16em] text-indigo-300">CloudTIX Support</p>
             <h1 className="mt-2 text-2xl font-black tracking-tight text-white sm:text-3xl">Hilfe und sicherer Admin-Zugriff</h1>
             <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-300/80">Hier entscheidest ausschließlich du als tatsächlicher Serverinhaber, ob ein Supporter deinen Server untersuchen darf. Ohne deine Zustimmung bleibt das Dashboard gesperrt.</p>
           </div>

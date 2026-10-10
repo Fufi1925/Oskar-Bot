@@ -130,7 +130,7 @@ class Guild:
     def __init__(self, gid=GUILD):
         self.id = gid
         self.name = "Test"
-        self.me = Member(1, "University Bot")
+        self.me = Member(1, "CloudTIX")
         self._channels = {}
         self._roles = {}
         self._members = {}

@@ -72,7 +72,7 @@ export function AccountPrivacyPanel({ userId }: { userId: string }) {
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
-      link.download = `university-bot-daten-${userId}.json`;
+      link.download = `CloudTIX-daten-${userId}.json`;
       document.body.appendChild(link);
       link.click();
       link.remove();

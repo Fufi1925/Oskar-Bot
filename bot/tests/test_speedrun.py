@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Der Speedrun-Weg im University Bot.
+Der Speedrun-Weg im CloudTIX.
 
 Das Dashboard redet nur mit diesem Bot, nie direkt mit dem
 Template-Bot. Zwei Gruende, und beide sind hier festgenagelt:

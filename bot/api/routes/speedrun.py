@@ -1,7 +1,7 @@
 """
 Speedrun: einen Server in einem Rutsch aufbauen.
 
-Das Dashboard redet nur mit dem University Bot, nie direkt mit dem
+Das Dashboard redet nur mit dem CloudTIX, nie direkt mit dem
 Template-Bot. Zwei Gruende:
 
   * Die Absicherung steht hier schon. Jede /api/v1-Route haengt hinter
@@ -19,7 +19,7 @@ Der Ablauf in Stufen, wie ihn das Dashboard abbildet:
   3. /start      Template-Bot baut. Antwortet sofort.
   4. /{id}       Fortschritt, Zeile fuer Zeile, fuers Terminal.
 
-Die Uebergabe an den University Bot -- Verify, Anti-Nuke, Tickets --
+Die Uebergabe an den CloudTIX -- Verify, Anti-Nuke, Tickets --
 kommt als zweiter Schritt. Was hier schon vorbereitet ist: der Bau
 sammelt am Ende alle Rollen- und Kanalnamen ein, damit der Hauptbot
 danach nicht raten muss.
@@ -195,7 +195,7 @@ async def precheck(
     guild = bot.get_guild(guild_id)
     main_present = guild is not None
 
-    # Rechte des University Bots. Ohne die scheitert Schritt 2 mitten
+    # Rechte des CloudTIXs. Ohne die scheitert Schritt 2 mitten
     # drin, und dann steht der Server halb eingerichtet da.
     main_can_manage = False
     if guild is not None and guild.me is not None:
@@ -206,7 +206,7 @@ async def precheck(
         )
 
     # Der Template-Bot wird gefragt, ob *er* auf dem Server ist -- das
-    # kann der University Bot nicht von sich aus wissen.
+    # kann der CloudTIX nicht von sich aus wissen.
     template_present = False
     template_reachable = False
     template_detail = ""
@@ -492,7 +492,7 @@ async def start(
     if guild is None:
         raise HTTPException(
             status_code=404,
-            detail="Der University Bot ist nicht auf diesem Server.",
+            detail="Der CloudTIX ist nicht auf diesem Server.",
         )
 
     options = dict(data.get("options") or {})
@@ -596,7 +596,7 @@ async def start(
 
 
 # --------------------------------------------------------------------- #
-# 4. Die zweite Haelfte: was der University Bot danach einrichtet
+# 4. Die zweite Haelfte: was der CloudTIX danach einrichtet
 # --------------------------------------------------------------------- #
 #
 # Der Zustand liegt im Arbeitsspeicher, aus demselben Grund wie beim
@@ -683,7 +683,7 @@ def _main_job(guild_id: int) -> dict | None:
 
 
 async def _run_main_phase(bot, guild, job: dict, options: dict, payload: dict) -> None:
-    """Die Schritte des University Bots, im Hintergrund.
+    """Die Schritte des CloudTIXs, im Hintergrund.
 
     Laeuft als Task, damit die HTTP-Antwort sofort raus kann -- Verify
     postet ein Panel, Tickets legen Tabellen an, das dauert.
@@ -708,7 +708,7 @@ async def _run_main_phase(bot, guild, job: dict, options: dict, payload: dict) -
         job["step"] = min(job.get("step", 0) + 1, job["total"])
 
     try:
-        await log("University Bot übernimmt")
+        await log("CloudTIX übernimmt")
         report = await handover.run_handover(
             bot, guild, payload, options=options, log=log, on_step=step_done
         )
@@ -915,7 +915,7 @@ async def finish(
     if guild is None:
         raise HTTPException(
             status_code=404,
-            detail="Der University Bot ist nicht auf diesem Server.",
+            detail="Der CloudTIX ist nicht auf diesem Server.",
         )
 
     existing = _main_job(guild_id)
@@ -1137,7 +1137,7 @@ async def status_route(guild_id: int, since: int = 0, since_main: int = 0):
     Der Stand beider Bots, in einer Antwort.
 
     ``since`` zaehlt die Zeilen des Template-Bots, ``since_main`` die des
-    University Bots. Zwei Zaehler, weil beide unabhaengig voneinander
+    CloudTIXs. Zwei Zaehler, weil beide unabhaengig voneinander
     wachsen -- ein gemeinsamer wuerde Zeilen verschlucken, sobald beide
     gleichzeitig schreiben.
     """

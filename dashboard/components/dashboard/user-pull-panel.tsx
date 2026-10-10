@@ -526,7 +526,7 @@ export function UserPullPanel({ guildId }: { guildId: string }) {
             <div className="space-y-5">
               <p className="text-sm leading-6 text-slate-400">
                 Es erscheinen nur Server, auf die du Dashboard-Zugriff hast und
-                auf denen University Bot installiert ist.
+                auf denen CloudTIX installiert ist.
               </p>
               <Select
                 value={selectedTarget}
@@ -605,7 +605,7 @@ export function UserPullPanel({ guildId }: { guildId: string }) {
               <p className="rounded-xl border border-amber-500/20 bg-amber-500/10 p-3 text-xs leading-5 text-amber-200">
                 {resuming
                   ? "Der private Code-Kanal wurde bereits erstellt und der Code ist noch gültig. Es wird kein zweiter Kanal angelegt."
-                  : "University Bot erstellt jetzt einen privaten Code-Kanal auf dem Zielserver. Er ist nur für Zielinhaber, dich und den Bot sichtbar und wird nach 10 Minuten gelöscht."}
+                  : "CloudTIX erstellt jetzt einen privaten Code-Kanal auf dem Zielserver. Er ist nur für Zielinhaber, dich und den Bot sichtbar und wird nach 10 Minuten gelöscht."}
               </p>
               <button
                 disabled={busy}

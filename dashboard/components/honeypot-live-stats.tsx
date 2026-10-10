@@ -50,11 +50,11 @@ export function HoneypotLiveStats() {
   ];
   return <main className="min-h-screen bg-[#0b0c0f] text-white">
     <header className="border-b border-white/[.07]"><div className="mx-auto flex max-w-4xl items-center justify-between gap-4 px-5 py-5">
-      <Link href="/" className="flex items-center gap-3"><Image src={BRAND_LOGO} alt="University Bot" width={40} height={40} unoptimized className="rounded-xl object-cover" /><span className="text-lg font-semibold sm:text-xl">University Bot <span className="text-slate-500">/ Honeypot</span></span></Link>
+      <Link href="/" className="flex items-center gap-3"><Image src={BRAND_LOGO} alt="CloudTIX" width={40} height={40} unoptimized className="rounded-xl object-cover" /><span className="text-lg font-semibold sm:text-xl">CloudTIX <span className="text-slate-500">/ Honeypot</span></span></Link>
       <a href={invite} target="_blank" rel="noopener noreferrer" className="shrink-0 rounded-xl bg-orange-400 px-4 py-2.5 text-sm font-semibold text-black transition hover:bg-orange-300">Invite Bot</a>
     </div></header>
     <div className="mx-auto max-w-4xl space-y-6 px-5 pb-16 pt-10 sm:pt-14">
-      <div className="pb-6 text-center"><h1 className="text-3xl font-bold tracking-tight sm:text-5xl">Live Statistics</h1><p className="mt-3 text-sm text-slate-500">Honeypot protection powered by University Bot</p></div>
+      <div className="pb-6 text-center"><h1 className="text-3xl font-bold tracking-tight sm:text-5xl">Live Statistics</h1><p className="mt-3 text-sm text-slate-500">Honeypot protection powered by CloudTIX</p></div>
       {error && <div role="status" className="flex items-center justify-between gap-3 rounded-xl border border-amber-400/20 bg-amber-400/5 p-4 text-sm text-amber-200"><p>{data ? "Updates are unavailable. Showing the last successful reading." : "Live statistics are currently unavailable."}</p><button type="button" onClick={() => setRevision(value => value + 1)} className="rounded-lg border border-amber-400/20 p-2" aria-label="Retry"><RefreshCw className="h-4 w-4" /></button></div>}
       <div className="grid grid-cols-2 gap-4 sm:gap-5">{metrics.map(({ label, value, icon: Icon, color }) => <section key={label} className="flex items-center gap-3 rounded-2xl border border-white/[.045] bg-[#131418] px-4 py-6 sm:gap-5 sm:p-7"><Icon className={`h-6 w-6 shrink-0 sm:h-7 sm:w-7 ${color}`} /><div className="min-w-0"><h2 className="text-xs text-slate-500 sm:text-base">{label}</h2><p className="mt-1 text-xl font-bold tabular-nums sm:text-3xl">{value === undefined ? loading ? "…" : "—" : value.toLocaleString("en-US")}</p></div></section>)}</div>
       <section className="rounded-2xl border border-white/[.045] bg-[#131418] p-4 sm:p-6">

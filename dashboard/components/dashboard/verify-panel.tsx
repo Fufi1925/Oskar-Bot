@@ -408,7 +408,7 @@ export function VerifyPanel({ guildId }: { guildId: string }) {
               <Section
                 icon={Settings2}
                 title="1. Kanal und Rollen"
-                subtitle="Kanal und Rolle auswählen – den Rest übernimmt University Bot."
+                subtitle="Kanal und Rolle auswählen – den Rest übernimmt CloudTIX."
               >
                 <Field
                   label="Verifizierungs-Kanal"
@@ -669,7 +669,7 @@ export function VerifyPanel({ guildId }: { guildId: string }) {
                       p.set("blacklist_custom_message", value)
                     }
                     label="Eigene Ablehnungs-DM verwenden"
-                    hint="Ohne eigene Nachricht verwendet University Bot einen klaren Standardtext."
+                    hint="Ohne eigene Nachricht verwendet CloudTIX einen klaren Standardtext."
                   />
 
                   {p.value("blacklist_custom_message") && (
@@ -1063,7 +1063,7 @@ export function VerifyPanel({ guildId }: { guildId: string }) {
                   </div>
                   <div>
                     <p className="text-xs font-bold text-white">
-                      University Bot{" "}
+                      CloudTIX{" "}
                       <span className="rounded bg-blue-500 px-1 py-0.5 text-[7px] font-semibold">
                         APP
                       </span>

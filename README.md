@@ -1,6 +1,6 @@
 <div align="center">
 
-# University Bot
+# CloudTIX
 
 **Discord-Bot und Web-Dashboard in einem Railway-Deployment.**
 
@@ -43,16 +43,15 @@ so kann er den Hauptbot überwachen, wenn der nicht mehr antwortet.
 
 ## Der Name
 
-Das Produkt heißt **University Bot**. Der Ordner im Host heißt `Oskar-Bot`,
+Das Produkt heißt **CloudTIX**. Der Ordner im Host heißt `Oskar-Bot`,
 und das ist auch so gemeint: Repo-Name und Produktname sind zwei
 verschiedene Dinge.
 
-Der Name wird nicht übersetzt. „Universitätsbot" ist eine Übersetzung des
-Namens und damit ein zweiter Name für dasselbe — die Suche findet dann nur
-einen von beiden. `bot/utils/config.py` und `dashboard/lib/brand.ts` halten
-deshalb dieselbe Regel: Schreibweisen wie „Universitätsbot",
-„UniversityBot" oder „universitybot X" werden auf den einen Namen
-zurückgeführt. Ein Test sichert das (`bot/tests/test_marke.py`).
+Der Name lautet in allen Sprachen **CloudTIX**. `bot/utils/config.py` und
+`dashboard/lib/brand.ts` normalisieren alte Namen und Kürzel aus der
+Konfiguration automatisch auf CloudTIX. Beim nächsten Start gleicht der
+Hauptbot auch seinen Discord-Benutzernamen ab. Die bestehenden Prüfungen
+in `bot/tests/test_marke.py` verwenden denselben Produktnamen.
 
 ## Der Kern in einem Absatz
 

@@ -379,13 +379,13 @@ def main() -> int:
             return {
                 "id": "100000000000000001",
                 "username": "universitybot",
-                "global_name": "University Bot",
+                "global_name": "CloudTIX",
                 "avatar": "aa11bb22",
             }
         return {"id": "555000111222333444", "username": "zweitbot", "avatar": "cc33dd44"}
 
     async def anwendung(token, zeitlimit=12.0):
-        return {"name": "University Bot Dev"} if token == HAUPTBOT_TOKEN else {"name": "Zweitbot"}
+        return {"name": "CloudTIX Dev"} if token == HAUPTBOT_TOKEN else {"name": "Zweitbot"}
 
     api.bot_selbst = bot_selbst
     api.anwendung = anwendung
@@ -551,7 +551,7 @@ def main() -> int:
         for feld in ("Server-ID", "Stumm bis", "Boost seit"):
             check(f"Feld '{feld}' vorhanden", feld in r.text, r.text[:400])
 
-        check("Hauptbot erscheint in der Suche", "University Bot" in r.text, r.text[:400])
+        check("Hauptbot erscheint in der Suche", "CloudTIX" in r.text, r.text[:400])
         check("Zusammenfassung genannt", "gemeinsame Server" in r.text)
 
         r = c.get("/louckup/dashboard/discord-ids?id=keinzahl")

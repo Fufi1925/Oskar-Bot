@@ -56,9 +56,9 @@ class FakeAsset:
 class FakeMe:
     def __init__(self, guild):
         self.id = 1530349205372145715
-        self.name = "University Bot"
+        self.name = "CloudTIX"
         self.nick = None
-        self.display_name = "University Bot"
+        self.display_name = "CloudTIX"
         self.display_avatar = FakeAsset("https://cdn.example/av.png")
         self.guild_avatar = None
         self.guild_banner = None

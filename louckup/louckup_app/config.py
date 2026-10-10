@@ -69,7 +69,7 @@ class Settings(BaseSettings):
     # Der Hauptbot. Sein Token steht schon in TOKEN (die Variable, mit
     # der der Bot startet) — es gibt dafuer keine zweite Variable und
     # keinen Eintrag in der Datenbank. Hier steht nur, wie er heisst.
-    louckup_primary_bot_label: str = "University Bot"
+    louckup_primary_bot_label: str = "CloudTIX"
     louckup_primary_bot_enabled: bool = True
 
     # Obergrenze fuer Anfragen an Discord bei einer Suche. Eine Suche

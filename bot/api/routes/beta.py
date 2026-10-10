@@ -280,7 +280,7 @@ async def admin_decide(data: dict, bot: "universitybot" = Depends(get_bot)):
             antrag["user_id"],
             duration_days=store.BETA_DURATION_DAYS,
             # Kein `product` mehr: es gibt nur noch eins, und es gilt
-            # fuer beide Bots. Ein Antrag schaltet also University Bot
+            # fuer beide Bots. Ein Antrag schaltet also CloudTIX
             # UND Template-Bot frei.
             note=f"Beta-Antrag {antrag['id']}",
         )

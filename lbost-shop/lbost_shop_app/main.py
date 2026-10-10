@@ -1,7 +1,7 @@
 """Isolated LBoost Shop landing page, Discord login and dashboard.
 
 Der Bereich läuft bewusst eigenständig: eigene Discord-App, eigene Sitzung,
-eigene Datenbank, eigener Bot-Prozess. Er teilt nichts mit University Bot,
+eigene Datenbank, eigener Bot-Prozess. Er teilt nichts mit CloudTIX,
 Phantom oder Louckup außer der Optik und den Regeln für Tickettexte (die
 liegen in ``regeln.py`` und gelten für Vorschau und Bot gleichzeitig).
 """

@@ -3,19 +3,18 @@
 Kopiere alles zwischen „--- PROMPT START ---" und „--- PROMPT ENDE ---"
 in die andere KI.
 
-**Kurz zum Hintergrund**, damit du weißt, was du weitergibst: **University
-Bot** kann den Template-Bot **nicht** selbst zu einem Server hinzufügen.
+**Kurz zum Hintergrund**, damit du weißt, was du weitergibst: **CloudTIX** kann den Template-Bot **nicht** selbst zu einem Server hinzufügen.
 Discord hat dafür keine Schnittstelle — auch nicht mit Admin-Rechten. Der
 OAuth-Ablauf verlangt zwingend einen eingeloggten Menschen, der im Browser
 auf „Autorisieren" klickt. Das ist Absicht: sonst könnte ein übernommener
 Bot beliebig viele weitere nachziehen, also genau einen Nuke bauen.
 
-Stattdessen erzeugt University Bot einen Einladungslink mit einem
+Stattdessen erzeugt CloudTIX einen Einladungslink mit einem
 signierten `state`-Wert. Der Template-Bot liest den an seinem
 OAuth-Redirect zurück und weiß dadurch: „dieser Server kommt von
-University Bot".
+CloudTIX".
 
-Die Seite von University Bot ist fertig und läuft. Der Prompt beschreibt
+Die Seite von CloudTIX ist fertig und läuft. Der Prompt beschreibt
 nur die Gegenseite.
 
 ---
@@ -28,15 +27,15 @@ neue Funktion** dazu.
 
 ### Was gebaut werden soll
 
-Ein zweiter Bot namens **University Bot** schickt Server zu uns. Wenn ein
-Server über University Bot hinzugefügt wurde, soll unser Bot das erkennen
+Ein zweiter Bot namens **CloudTIX** schickt Server zu uns. Wenn ein
+Server über CloudTIX hinzugefügt wurde, soll unser Bot das erkennen
 und sein Template **automatisch** einrichten — ohne dass jemand einen
 Befehl tippt. Kommt ein Server auf normalem Weg dazu, bleibt alles wie
 bisher.
 
 ### Wie die Erkennung funktioniert
 
-University Bot postet einen Einladungslink dieser Form:
+CloudTIX postet einen Einladungslink dieser Form:
 
 ```
 https://discord.com/oauth2/authorize
@@ -98,7 +97,7 @@ normalen Beitritt behandeln. Nicht raten, nicht teilweise vertrauen.
 
 **Warum die Signatur nicht optional ist:** Ohne sie könnte jeder
 `?state=university-bot` an seinen eigenen Einladungslink hängen und
-unseren Bot dazu bringen, einen fremden Server als „von University Bot"
+unseren Bot dazu bringen, einen fremden Server als „von CloudTIX"
 zu behandeln.
 
 **Warum `src` trotzdem geprüft wird:** Falls wir später weitere Partner
@@ -216,7 +215,7 @@ bewussten Wiederholen ist in Ordnung.
 ### Umgebungsvariablen
 
 ```
-PARTNER_HANDSHAKE_SECRET=<derselbe Wert wie bei University Bot>
+PARTNER_HANDSHAKE_SECRET=<derselbe Wert wie bei CloudTIX>
 OAUTH_REDIRECT_URI=https://unser-bot.example/oauth/callback
 DISCORD_CLIENT_ID=<unsere Client-ID>
 DISCORD_CLIENT_SECRET=<unser Client-Secret>
@@ -242,7 +241,7 @@ Autorisierung ab.
 
 ---
 
-## Was du auf der Seite von University Bot noch setzen musst
+## Was du auf der Seite von CloudTIX noch setzen musst
 
 In Railway unter **Variables**:
 
@@ -257,7 +256,7 @@ Dasselbe Secret muss beim Template-Bot stehen. Erzeugen zum Beispiel mit:
 python3 -c "import secrets; print(secrets.token_urlsafe(48))"
 ```
 
-Solange `PARTNER_BOT_CLIENT_ID` fehlt, blendet University Bot den Bereich
+Solange `PARTNER_BOT_CLIENT_ID` fehlt, blendet CloudTIX den Bereich
 „Template-Bot hinzufügen" im Dashboard einfach aus.
 
 ### Wo der Wert im Code steht

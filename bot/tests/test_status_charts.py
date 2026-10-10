@@ -328,7 +328,7 @@ def test_panel():
             return "\n".join(out)
 
         text = render(HistoryView(
-            brand="University Bot",
+            brand="CloudTIX",
             slots=history.buckets(24, 24, now),
             uptime=history.summary(now),
             errors=history.error_summary(24, now),

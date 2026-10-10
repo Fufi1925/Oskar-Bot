@@ -1,4 +1,4 @@
-# University Bot - Single Railway Deployment
+# CloudTIX - Single Railway Deployment
 # Bot + Dashboard together in one container
 
 # Stage 1: Build Dashboard
@@ -10,8 +10,8 @@ WORKDIR /app/dashboard
 # NOTE: never add the API key here. NEXT_PUBLIC_* values are baked into the
 # JavaScript bundle and would be readable by every visitor. Browser requests
 # are proxied through /api/bot, which attaches the key server-side.
-ARG NEXT_PUBLIC_BRAND_NAME="University Bot"
-ARG NEXT_PUBLIC_BRAND_NAME_WORD="UB"
+ARG NEXT_PUBLIC_BRAND_NAME="CloudTIX"
+ARG NEXT_PUBLIC_BRAND_NAME_WORD="CloudTIX"
 ARG NEXT_PUBLIC_ADMIN_IDS=""
 
 # Set them as env vars during build

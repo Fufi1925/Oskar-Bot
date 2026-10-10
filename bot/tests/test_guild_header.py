@@ -204,8 +204,8 @@ def test_api():
     guild = Guild()
 
     class ApiBot:
-        user = type("U", (), {"id": 1, "name": "University Bot",
-                              "__str__": lambda s: "University Bot"})()
+        user = type("U", (), {"id": 1, "name": "CloudTIX",
+                              "__str__": lambda s: "CloudTIX"})()
         guilds = [guild]
         latency = 0.042
         shard_count = 1

@@ -446,7 +446,7 @@ async def update_bot_guild_stats(
 # ── LIVE STATS HELPERS (for main-bot-like overview) ──
 
 async def get_phantom_stats(db: aiosqlite.Connection) -> dict[str, Any]:
-    """Return live overview stats like the main University Bot dashboard."""
+    """Return live overview stats like the main CloudTIX dashboard."""
     cur = await db.execute("SELECT COUNT(*) FROM bot_guilds")
     total_servers = (await cur.fetchone())[0] or 0
 

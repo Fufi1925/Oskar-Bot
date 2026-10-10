@@ -1,3 +1,5 @@
+import { normalisiereMarke } from "./brand";
+
 /**
  * The operator's details, in one place.
  *
@@ -58,7 +60,7 @@ function read(value: string | undefined): string {
   return text;
 }
 
-export const BRAND = read(env("BRAND_NAME")) || "University Bot";
+export const BRAND = normalisiereMarke(read(env("BRAND_NAME")));
 
 export const SUPPORT_INVITE =
   read(env("SUPPORT_INVITE")) || "https://discord.gg/F3TedBAVZT";

@@ -6,7 +6,7 @@
  * ── Woher die Einträge kommen ───────────────────────────────────────
  *
  * Nicht von hier. Der Template-Bot vergibt persönliche Keys, die genau
- * sieben Tage gelten, und meldet das an den University Bot
+ * sieben Tage gelten, und meldet das an den CloudTIX
  * (`POST /api/v1/premium/grant`). Diese Liste zeigt, was angekommen
  * ist.
  *

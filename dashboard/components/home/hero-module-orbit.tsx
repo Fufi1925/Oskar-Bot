@@ -22,7 +22,7 @@ export function HeroModuleOrbit() {
     <div className="absolute left-1/2 top-1/2 z-10 grid h-[156px] w-[156px] -translate-x-1/2 -translate-y-1/2 place-items-center rounded-[42px] border border-blue-400/30 bg-[#15121a] shadow-[inset_0_1px_rgba(255,255,255,.06),0_24px_70px_rgba(0,0,0,.55),0_0_65px_rgba(37,99,235,.12)] sm:h-[196px] sm:w-[196px] sm:rounded-[54px]">
       <div className="absolute inset-4 rounded-[32px] border border-white/[.04] bg-black/20 sm:inset-5 sm:rounded-[40px]" />
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={BRAND_LOGO} alt="University Bot" className="relative h-[92px] w-[92px] rounded-[26px] object-cover shadow-[0_10px_35px_rgba(0,0,0,.55)] sm:h-[118px] sm:w-[118px] sm:rounded-[32px]" />
+      <img src={BRAND_LOGO} alt="CloudTIX" className="relative h-[92px] w-[92px] rounded-[26px] object-cover shadow-[0_10px_35px_rgba(0,0,0,.55)] sm:h-[118px] sm:w-[118px] sm:rounded-[32px]" />
     </div>
 
     {MODULES.map(({ label, hint, icon: Icon, position }, index) => <article key={label} className={`hero-module-card absolute z-20 ${position} flex w-[180px] items-center gap-3 rounded-2xl border border-blue-400/25 bg-[#151219]/95 p-3 shadow-[0_18px_48px_rgba(0,0,0,.42)] backdrop-blur-xl transition duration-300 hover:-translate-y-1 hover:border-blue-400/45 sm:w-[200px] sm:p-4`} style={{ animationDelay: `${index * 180}ms` }}>

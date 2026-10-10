@@ -5,11 +5,11 @@
  * ║   ░█░░░█░█░█░█░█▀▀░▄▀▄   ░█░█░█▀▀░▀▄▀░▀▀█                     ║
  * ║   ░▀▀▀░▀▀▀░▀▀░░▀▀▀░▀░▀   ░▀▀░░▀▀▀░░▀░░▀▀▀                     ║
  * ║                                                                  ║
- * ║           © 2026 University Bot Devs — All Rights Reserved               ║
+ * ║           © 2026 CloudTIX Devs — All Rights Reserved               ║
  * ║                                                                  ║
  * ║   discord  ──  https://discord.gg/F3TedBAVZT                      ║
- * ║   youtube  ──  https://youtube.com/@University BotDevs                   ║
- * ║   github   ──  https://github.com/University Bot                        ║
+ * ║   youtube  ──  https://youtube.com/@CloudTIX BotDevs                   ║
+ * ║   github   ──  https://github.com/CloudTIX Bot                        ║
  * ║                                                                  ║
  * ╚══════════════════════════════════════════════════════════════════╝
  */
@@ -279,7 +279,7 @@ export default function DashboardLayout({
       <div className="min-h-screen bg-[#0a0a0c] flex items-center justify-center">
         <div className="animate-pulse flex flex-col items-center gap-4">
           <div className="h-12 w-12 rounded-xl bg-primary flex items-center justify-center shadow-lg shadow-primary/20">
-            <span className="font-black text-white italic text-xl">{process.env.NEXT_PUBLIC_BRAND_NAME_WORD || "UB"}</span>
+            <img src={BRAND_LOGO} alt="CloudTIX" className="h-full w-full rounded-xl object-cover" />
           </div>
           <p className="text-slate-400 font-bold tracking-widest uppercase text-xs">
             Authenticating...
@@ -452,7 +452,7 @@ export default function DashboardLayout({
             : []),
       ];
 
-  // Keep every University feature, but place the primary destinations above
+  // Keep every CloudTIX feature, but place the primary destinations above
   // the sections just like the reference navigation.
   const mainSidebarItems = currentGuildId
     ? [
@@ -488,8 +488,8 @@ export default function DashboardLayout({
         )}
       >
         <div className="flex h-[62px] shrink-0 items-center gap-2.5 border-b border-white/[.06] px-4">
-          <img src={BRAND_LOGO} alt="University Bot" className="h-8 w-8 rounded-lg object-cover" />
-          <span className="truncate text-[15px] font-bold text-white">University Bot</span>
+          <img src={BRAND_LOGO} alt="CloudTIX" className="h-8 w-8 rounded-lg object-cover" />
+          <span className="truncate text-[15px] font-bold text-white">CloudTIX</span>
           <button
             onClick={() => setIsSidebarOpen(false)}
             className="ml-auto grid h-8 w-8 place-items-center text-slate-500 hover:text-white lg:hidden"

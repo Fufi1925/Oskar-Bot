@@ -4,7 +4,7 @@
 # ║   ░█░░░█░█░█░█░█▀▀░▄▀▄   ░█░█░█▀▀░▀▄▀░▀▀█                     ║
 # ║   ░▀▀▀░▀▀▀░▀▀░░▀▀▀░▀░▀   ░▀▀░░▀▀▀░░▀░░▀▀▀                     ║
 # ║                                                                  ║
-# ║            © 2026 University Bot Devs — All Rights Reserved              ║
+# ║            © 2026 CloudTIX Devs — All Rights Reserved              ║
 # ║                                                                  ║
 # ║   discord  ──  https://discord.gg/F3TedBAVZT                      ║
 # ║   youtube  ──  https://youtube.com/@UniversityBotDevs                   ║
@@ -1170,7 +1170,7 @@ class TicketCog(commands.Cog, name="Ticket System"):
             ticket_embed.set_image(url=preferences['welcome_image_url'])
         if preferences['welcome_thumbnail_url']:
             ticket_embed.set_thumbnail(url=preferences['welcome_thumbnail_url'])
-        ticket_embed.set_footer(text=f"University Bot · {cat_info['name']}")
+        ticket_embed.set_footer(text=f"CloudTIX · {cat_info['name']}")
 
         try:
             await ch.send(

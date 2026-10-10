@@ -5,7 +5,7 @@
  * ║   ░█░░░█░█░█░█░█▀▀░▄▀▄   ░█░█░█▀▀░▀▄▀░▀▀█                     ║
  * ║   ░▀▀▀░▀▀▀░▀▀░░▀▀▀░▀░▀   ░▀▀░░▀▀▀░░▀░░▀▀▀                     ║
  * ║                                                                  ║
- * ║           © 2026 University Bot Devs — All Rights Reserved       ║
+ * ║           © 2026 CloudTIX Devs — All Rights Reserved       ║
  * ║                                                                  ║
  * ║   discord  ──  https://discord.gg/F3TedBAVZT                     ║
  * ║                                                                  ║
@@ -656,14 +656,14 @@ export function LegacyHomepage() {
             </div>
             <div className="absolute left-5 top-5 z-10 flex items-center gap-3 rounded-2xl border border-white/15 bg-black/25 p-2.5 pr-4 shadow-2xl backdrop-blur-xl sm:left-8 sm:top-8">
               <span className="grid h-11 w-11 place-items-center overflow-hidden rounded-xl border border-white/15 bg-black/45">
-                <Image src={BRAND_LOGO} alt="University Bot Logo" width={44} height={44} unoptimized className="h-11 w-11 object-cover" priority />
+                <Image src={BRAND_LOGO} alt="CloudTIX Logo" width={44} height={44} unoptimized className="h-11 w-11 object-cover" priority />
               </span>
-              <div><p className="text-sm font-bold text-white">University Bot</p><p className="text-[10px] uppercase tracking-[.16em] text-white/45">Discord neu gedacht</p></div>
+              <div><p className="text-sm font-bold text-white">CloudTIX</p><p className="text-[10px] uppercase tracking-[.16em] text-white/45">Discord neu gedacht</p></div>
             </div>
 
             <div className="pointer-events-none absolute inset-x-0 top-32 overflow-hidden px-3 text-center sm:top-24">
               <p className="select-none whitespace-nowrap text-[16vw] font-black leading-none tracking-[-.08em] text-white/[.17] sm:text-[14vw] lg:text-[clamp(95px,11vw,168px)]">
-                UNIVERSITY
+                CloudTIX
               </p>
             </div>
 
@@ -731,7 +731,7 @@ export function LegacyHomepage() {
                       <div className="relative flex items-start gap-4">
                         <span className={cn("grid h-12 w-12 shrink-0 place-items-center rounded-xl text-white shadow-lg", farbe.icon)}><Icon className="h-6 w-6" /></span>
                         <div className="min-w-0 flex-1">
-                          <p className="text-[10px] font-bold uppercase tracking-[.15em] text-white/45">University Modul</p>
+                          <p className="text-[10px] font-bold uppercase tracking-[.15em] text-white/45">CloudTIX Modul</p>
                           <h2 className="mt-1 text-xl font-bold text-white">{eintrag.titel}</h2>
                           <p className="mt-2 text-xs leading-5 text-white/70">{eintrag.text}</p>
                           <div className="mt-3 flex flex-wrap gap-1.5"><span className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-2 py-1 text-[9px] font-bold uppercase tracking-wider text-emerald-300">Live</span><span className="rounded-full border border-white/10 bg-white/5 px-2 py-1 text-[9px] font-bold uppercase tracking-wider text-white/55">Dashboard</span></div>
@@ -763,7 +763,7 @@ export function LegacyHomepage() {
               <Lightbulb className="h-6 w-6" />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-white">Hilf uns, University Bot besser zu machen</h2>
+              <h2 className="text-lg font-bold text-white">Hilf uns, CloudTIX besser zu machen</h2>
               <p className="mt-1 text-sm font-medium text-indigo-400">Community Ideen</p>
               <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-400">Reiche deinen Vorschlag ein, diskutiere mit der Community und erhalte bei einer ausgezeichneten Idee 3 Tage Premium für einen Server deiner Wahl.</p>
             </div>
@@ -926,7 +926,7 @@ export function LegacyHomepage() {
       {/* ── Wie es läuft ──────────────────────────────────── */}
       {/*
           Hier standen „Community-Stimmen": drei Zitate unter der
-          Überschrift „Warum Teams University Bot nutzen", eingeleitet
+          Überschrift „Warum Teams CloudTIX nutzen", eingeleitet
           mit „Erfahrungen aus aktiven Discord-Communities".
 
           Zwei davon stammten von Fufi und Vexo — den beiden

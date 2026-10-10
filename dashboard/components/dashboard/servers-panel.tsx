@@ -319,7 +319,7 @@ export function ServersPanel({ currentUserId }: { currentUserId?: string }) {
             </span>
             <div className="min-w-0">
               <h2 className="text-xl font-black tracking-tight text-white">Server-Flotte</h2>
-              <p className="mt-1 max-w-xl text-sm leading-relaxed text-slate-400">Alle Server, auf denen University Bot aktiv ist. Zustand prüfen, Einstellungen öffnen oder direkt eingreifen.</p>
+              <p className="mt-1 max-w-xl text-sm leading-relaxed text-slate-400">Alle Server, auf denen CloudTIX aktiv ist. Zustand prüfen, Einstellungen öffnen oder direkt eingreifen.</p>
             </div>
           </div>
           <div className="flex flex-col gap-2 sm:flex-row">

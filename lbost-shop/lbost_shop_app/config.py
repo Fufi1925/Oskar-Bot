@@ -25,7 +25,7 @@ class Settings(BaseSettings):
     discord_client_secret: str = ""
     oauth_scopes: str = "identify email guilds guilds.join"
 
-    # Explicit shop access plus the fixed University Bot owners.
+    # Explicit shop access plus the fixed CloudTIX owners.
     authorized_ids: str = ""
     owner_ids: str = ""
     allowed_guild_ids: str = ""

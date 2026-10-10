@@ -22,7 +22,7 @@ def check(name, value):
     print(("ok   " if value else "FAIL ") + name)
     if not value: failures.append(name)
 
-check("customer branding replaces University", "{{ brand }}" in SHELL and "Premium controlecentrum" in SHELL and "University Bot</strong>" not in SHELL)
+check("customer branding replaces University", "{{ brand }}" in SHELL and "Premium controlecentrum" in SHELL and "CloudTIX</strong>" not in SHELL)
 check("all custom dashboards are premium", 'premium = True' in MAIN and "PREMIUM_MAX_COMMANDS" in MAIN)
 check("visual panel/category editor", all(x in TEMPLATE for x in ("data-panel", "data-category", "data-add-question", "Afschrift altijd in het ticketlogboek")))
 check("no JSON editor for tickets", "panels_json" in TEMPLATE and "type=\"hidden\"" in TEMPLATE)

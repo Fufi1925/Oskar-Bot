@@ -5,11 +5,11 @@
  * ║   ░█░░░█░█░█░█░█▀▀░▄▀▄   ░█░█░█▀▀░▀▄▀░▀▀█                     ║
  * ║   ░▀▀▀░▀▀▀░▀▀░░▀▀▀░▀░▀   ░▀▀░░▀▀▀░░▀░░▀▀▀                     ║
  * ║                                                                  ║
- * ║           © 2026 University Bot Devs — All Rights Reserved               ║
+ * ║           © 2026 CloudTIX Devs — All Rights Reserved               ║
  * ║                                                                  ║
  * ║   discord  ──  https://discord.gg/F3TedBAVZT                      ║
- * ║   youtube  ──  https://youtube.com/@University BotDevs                   ║
- * ║   github   ──  https://github.com/University Bot                        ║
+ * ║   youtube  ──  https://youtube.com/@UniversityBotDevs                   ║
+ * ║   github   ──  https://github.com/Fufi1925/Oskar-Bot                        ║
  * ║                                                                  ║
  * ╚══════════════════════════════════════════════════════════════════╝
  */
@@ -1719,7 +1719,7 @@ export const api = {
     request<any>(`/tickets/${guildId}/ai/memories/${id}`, { method: "DELETE" }),
 
   // Speedrun (Beta) — der Template-Bot baut, danach richtet dieser Bot ein.
-  // Alles läuft über den University Bot; das Dashboard redet nie direkt
+  // Alles läuft über den CloudTIX; das Dashboard redet nie direkt
   // mit dem Template-Bot, weil dessen Partner-Token nicht in den Browser
   // gehört.
   speedrunPrecheck: (guildId: string, userId: string) =>

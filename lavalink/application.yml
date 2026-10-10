@@ -1,5 +1,5 @@
 ####################################################################
-#  Lavalink for University Bot
+#  Lavalink for CloudTIX
 #
 #  Deploy this folder as its own Railway service. The bot then talks
 #  to it over Railway's private network, so the audio node is not

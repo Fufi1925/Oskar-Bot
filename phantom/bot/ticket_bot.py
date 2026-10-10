@@ -84,7 +84,7 @@ def _data_file() -> Path:
 DATA_FILE = _data_file()
 
 # Branding (Footer auf wichtigen Nachrichten)
-BRAND_NAME = "University"
+BRAND_NAME = "CloudTIX"
 BRAND_BUILDER = "Fufi/!L"
 BRAND_FOOTER = f"Powered by {BRAND_NAME}"
 
@@ -245,7 +245,7 @@ def now_str() -> str:
 
 
 def brand_line(extra: str | None = None) -> str:
-    """Einheitlicher Footer: nur Powered by University."""
+    """Einheitlicher Footer: nur Powered by CloudTIX."""
     return BRAND_FOOTER
 
 

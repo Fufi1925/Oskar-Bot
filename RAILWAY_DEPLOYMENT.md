@@ -1,4 +1,4 @@
-# 🎓 University Bot — Railway Deployment Guide
+# 🎓 CloudTIX — Railway Deployment Guide
 
 ## So deployst du Bot + Dashboard als EIN Projekt auf Railway
 
@@ -150,8 +150,8 @@ Gehe zu deinem Service → **Variables** und füge ALLE Variablen aus `.env.exam
 | `NEXTAUTH_URL` | Wird automatisch gesetzt (Railway URL) | ⚡ Auto |
 | `ADMIN_IDS` | Discord IDs mit Admin-Zugang (serverseitige Prüfung) | ✅ |
 | `NEXT_PUBLIC_ADMIN_IDS` | Gleiche IDs, nur für die Anzeige im UI | ✅ |
-| `NEXT_PUBLIC_BRAND_NAME` | `University Bot` | ✅ |
-| `NEXT_PUBLIC_BRAND_NAME_WORD` | `UB` | ✅ |
+| `NEXT_PUBLIC_BRAND_NAME` | `CloudTIX` | ✅ |
+| `NEXT_PUBLIC_BRAND_NAME_WORD` | `CloudTIX` | ✅ |
 | `LAVALINK_HOST` | `lavalink.jirayu.net` | Optional |
 | `LAVALINK_PASSWORD` | `youshallnotpass` | Optional |
 | `LAVALINK_SECURE` | `false` | Optional |
@@ -161,7 +161,7 @@ Gehe zu deinem Service → **Variables** und füge ALLE Variablen aus `.env.exam
 | `GROQ_TICKET_AI_KEY` | Separater GroqCloud-Key für den privaten Ticketassistenten | Optional/Pilot |
 | `GROQ_TICKET_AI_MODEL` | GroqCloud-Modell für Ticket-Antworten, Standard `openai/gpt-oss-120b` | Optional |
 | `API_ENABLED` | `true` | ✅ |
-| `BRAND_NAME` | Der Name des Bots. Nicht setzen, außer der Name soll wirklich ein anderer sein: Schreibweisen wie `Universitätsbot` oder `UniversityBot` führt der Bot auf `University Bot` zurück. | Optional |
+| `BRAND_NAME` | Der Name des Bots. Nicht setzen, außer der Name soll wirklich ein anderer sein: Alte Namen und Kürzel führt der Bot automatisch auf `CloudTIX` zurück. | Optional |
 | `TRUSTED_BOTS` | Discord-IDs bekannter Bots, die der Anti-Nuke nie angreift — komma-getrennt | Optional |
 
 ### `TRUSTED_BOTS` — Bots, die der Anti-Nuke in Ruhe lässt

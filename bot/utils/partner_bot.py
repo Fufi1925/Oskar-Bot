@@ -10,7 +10,7 @@ with administrator rights: the OAuth2 flow requires a signed-in human
 clicking "Authorise" in a browser. That is deliberate — otherwise one
 compromised bot could pull in a dozen more, which is precisely a nuke.
 
-So the flow is: University Bot posts a ready-made invite link carrying a
+So the flow is: CloudTIX posts a ready-made invite link carrying a
 signed `state` value. When the template bot joins, it reads that value
 back and knows the join came from us, for which guild, and who asked.
 
@@ -180,7 +180,7 @@ def invite_url(
 #   2. Discord redirects to the template bot's redirect URI with
 #      ?code=…&guild_id=…&state=…
 #   3. that endpoint calls read_state(state); if it verifies, the guild
-#      is marked as "sent by University Bot" before it has even joined
+#      is marked as "sent by CloudTIX" before it has even joined
 #   4. on_guild_join looks the guild up and posts the template
 #
 # `pending_handoffs` below is the small piece of that the template bot

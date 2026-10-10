@@ -91,5 +91,5 @@ die man pflegen muss, wäre die erste vergessene Testdatei.
 
 Ein dritter Punkt ist Absicht: **`test_marke.py`** prüft den Namen. Wer
 den Namen des Bots ändert, muss diese Prüfung mitändern — sie verhindert,
-dass „University Bot", „Universitätsbot" und „UniversityBot" nebeneinander
+dass frühere Markennamen und der aktuelle Name nebeneinander
 auftauchen.

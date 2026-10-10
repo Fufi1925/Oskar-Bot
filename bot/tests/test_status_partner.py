@@ -447,14 +447,14 @@ def test_fusszeile():
         return str(view.to_components())
 
     mit = StatusView(
-        brand="University Bot", state="online", health=gesundheit,
+        brand="CloudTIX", state="online", health=gesundheit,
         since=0.0, partner_server="Partner-Server",
     )
     check("der Name steht drin", "Partner-Server" in text_von(mit))
     check("mit dem Zusatz", "gesendet von" in text_von(mit))
 
     ohne = StatusView(
-        brand="University Bot", state="online", health=gesundheit, since=0.0,
+        brand="CloudTIX", state="online", health=gesundheit, since=0.0,
     )
     check("ohne Partner steht er nicht da", "gesendet von" not in text_von(ohne),
           "auf dem eigenen Server waere das falsch")

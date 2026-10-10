@@ -34,7 +34,7 @@ docker = (ROOT / "Dockerfile").read_text()
 env = (SHOP / ".env.example").read_text()
 
 check("separater Ordner", SHOP.is_dir())
-check("Einordnung University Bot", "onderafdeling van University Bot" in landing)
+check("Einordnung CloudTIX", "onderafdeling van CloudTIX" in landing)
 check("Login exakt gross geschrieben", '@app.get("/Login"' in main)
 check("eigene OAuth Daten", "LBOST_SHOP_DISCORD_CLIENT_ID" in env)
 check("eigene Session", "lbost_shop_session" in config and "lbost-shop-session-v1" in auth)

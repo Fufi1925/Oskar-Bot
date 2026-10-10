@@ -1,27 +1,9 @@
 #!/usr/bin/env python3
 """
-Der Name des Bots ist „University Bot" — in jeder Sprache, ueberall.
+Der Name des Bots ist „CloudTIX" — in jeder Sprache, ueberall.
 
-Warum ein eigener Test dafuer existiert
---------------------------------------
-Der Name stand an drei Orten verschieden: im Code „University Bot", in
-einer Railway-Variable „Universitätsbot" und in der Bot-Konfiguration
-„universitybot X" (ein Rest einer frueheren Umbenennung). Das Dashboard
-hat die Variable benutzt, der Bot seine Konfiguration -- dadurch war
-jede Seite zweisprachig benannt, obwohl niemand das wollten. Im Browser
-nachgemessen am 27.08.2026: Navigation, Ueberschrift und Tab-Titel
-zeigten „Universitätsbot".
-
-Ein Name, der an mehreren Stellen frei geschrieben werden kann, laeuft
-auseinander. Dieser Test haelt fest:
-
-  * die Bot-Konfiguration normalisiert jede Variante des Namens
-  * das Dashboard liest den Namen aus EINER Quelle
-  * die Uebersetzung schreibt den NameN nicht um (das war der eigentliche
-  Mechanismus, durch den „Universitätsbot" entstand)
-  * kein Seitentitel haengt einen Werbesatz an den Namen
-
-Run:  python3 tests/test_marke.py
+Alte Konfigurationswerte bleiben als Eingaben erhalten, damit die
+Normalisierung bei bestehenden Deployments weiterhin abgedeckt ist.
 """
 
 import os
@@ -33,7 +15,7 @@ BOT = os.path.dirname(HERE)
 WURZEL = os.path.dirname(BOT)
 DASH = os.path.join(WURZEL, "dashboard")
 
-DER_NAME = "University Bot"
+DER_NAME = "CloudTIX"
 
 #: Die alte Schreibweise, zusammengebaut -- damit ein kuenftiger
 #: Ersetzungslauf den Test nicht selbst zerstoert.
@@ -197,12 +179,12 @@ def test_titel_und_footer():
 
     footer = strip_ts(lies(os.path.join(DASH, "components", "public-footer.tsx")))
     pruefe("die Fußzeile nennt den Namen, nicht einen Kosenamen",
-           "vom University Bot Team" in footer and "vom University-Team" not in footer,
+           "vom CloudTIX Team" in footer and "vom University-Team" not in footer,
            "zwei Namen fuer dasselbe Team")
 
     ideen = strip_ts(lies(os.path.join(DASH, "components", "ideas-system.tsx")))
     pruefe("auch die Ideen-Antwort",
-           "Antwort vom University Bot Team" in ideen
+           "Antwort vom CloudTIX Team" in ideen
            and "Antwort vom University-Team" not in ideen)
 
 
@@ -218,7 +200,7 @@ def test_kopfzeilen():
     # sonst genau diesen Test umbiegen und ihn zur Aussage ueber die
     # neue Schreibweise machen. Das ist beim ersten Anlauf passiert.
     alt = "UniversityBot" + " Devs"
-    neu = "University Bot" + " Devs"
+    neu = "CloudTIX" + " Devs"
 
     treffer = 0
     durchsucht = 0

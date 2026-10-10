@@ -1,6 +1,6 @@
 # LBoost Shop (`/lbost-shop`)
 
-Isolierter Unterbereich von University Bot mit eigener Discord-App, verschlüsselten OAuth-Sitzungen, eigenem Bot-Prozess und vollständig serverbezogener Modulkonfiguration.
+Isolierter Unterbereich von CloudTIX mit eigener Discord-App, verschlüsselten OAuth-Sitzungen, eigenem Bot-Prozess und vollständig serverbezogener Modulkonfiguration.
 
 ## Zugriff
 
@@ -14,11 +14,11 @@ Diese Bedingungen werden bei jedem geschützten Aufruf erneut mit Discord abgegl
 
 ## Dashboard-Oberfläche
 
-Nach dem Login verwendet der komplette geschützte Bereich dieselbe Dashboard-Struktur wie University Bot: echtes Logo und festes Branding, Glass-Sidebar, gruppierte Servernavigation, mobile Navigation mit Overlay, Sticky-Topbar, globale Modulsuche, Benachrichtigungs-Popover und Profilmenü. Dashboard, Serverübersicht, sämtliche Modulformulare und das Owner-Admin-Panel teilen sich diese Shell.
+Nach dem Login verwendet der komplette geschützte Bereich dieselbe Dashboard-Struktur wie CloudTIX: echtes Logo und festes Branding, Glass-Sidebar, gruppierte Servernavigation, mobile Navigation mit Overlay, Sticky-Topbar, globale Modulsuche, Benachrichtigungs-Popover und Profilmenü. Dashboard, Serverübersicht, sämtliche Modulformulare und das Owner-Admin-Panel teilen sich diese Shell.
 
 Oben rechts sitzt der **Bot-Status**, keine Sprachumschaltung: Der Bot-Prozess schreibt alle 20 Sekunden einen Herzschlag in die Datenbank, die Seite zeigt „Bot online · N Server" oder den Abstand der letzten Meldung. „Online" steht also nicht mehr da, wenn der Prozess tot ist — und `/healthz` meldet dasselbe.
 
-`/servers` entspricht der University-Serverauswahl mit Kennzahlen, Namens-/ID-Suche, Sortierung nach Mitgliedern oder Namen, Serverkarten, Besitzerstatus und Mitgliederzahlen. Die Detailübersicht eines Servers übernimmt den Aufbau der University-Übersicht mit Übersicht-/Sicherung-Reitern, Tarifzeile (aktive Module, Ticket- und Verwarnungszahl), dynamischem Einrichtungsfortschritt, einfarbigen Lucide-artigen SVG-Symbolen, Mitglieder-/Kanal-/Rollen-/Ticket-Kennzahlen, Boost- und Sicherheitsstatus, 14-Tage-Konfigurationsverlauf, „Als Nächstes", „Eingerichtet" und „Noch offen". Unicode-Emoji-Modulsymbole werden im Dashboard nicht verwendet. Über „Sicherung" lassen sich alle Servermodule exportieren und sicher wieder einspielen. Nicht freigegebene Server bleiben vollständig verborgen.
+`/servers` entspricht der CloudTIX-Serverauswahl mit Kennzahlen, Namens-/ID-Suche, Sortierung nach Mitgliedern oder Namen, Serverkarten, Besitzerstatus und Mitgliederzahlen. Die Detailübersicht eines Servers übernimmt den Aufbau der CloudTIX-Übersicht mit Übersicht-/Sicherung-Reitern, Tarifzeile (aktive Module, Ticket- und Verwarnungszahl), dynamischem Einrichtungsfortschritt, einfarbigen Lucide-artigen SVG-Symbolen, Mitglieder-/Kanal-/Rollen-/Ticket-Kennzahlen, Boost- und Sicherheitsstatus, 14-Tage-Konfigurationsverlauf, „Als Nächstes", „Eingerichtet" und „Noch offen". Unicode-Emoji-Modulsymbole werden im Dashboard nicht verwendet. Über „Sicherung" lassen sich alle Servermodule exportieren und sicher wieder einspielen. Nicht freigegebene Server bleiben vollständig verborgen.
 
 Füllgrade und Diagrammbalken laufen über generierte CSS-Klassen (`.ub-fill-0` … `.ub-fill-100`, `.ub-h-6` … `.ub-h-100`), nicht über `style`-Attribute: Die Content-Security-Policy des Shops hält `style-src 'self'` ohne `unsafe-inline`, und ein einzelnes Inline-Style hätte sonst stillschweigend alles auf 0 px Höhe rendern lassen.
 
@@ -54,7 +54,7 @@ Interaktive Discord-Nachrichten werden als Components V2 erzeugt. Standardbutton
 
 ## Hintergrund-Bot
 
-`start.sh` startet `/app/lbost-shop/run_bot.py` als getrennten Hintergrundprozess, sobald `LBOST_SHOP_BOT_TOKEN` gesetzt ist. Discord.py übernimmt Reconnects; beim Container-Stopp wird der Prozess sauber beendet. Der Bot teilt weder Cogs noch Sessions mit University Bot, Phantom oder Louckup.
+`start.sh` startet `/app/lbost-shop/run_bot.py` als getrennten Hintergrundprozess, sobald `LBOST_SHOP_BOT_TOKEN` gesetzt ist. Discord.py übernimmt Reconnects; beim Container-Stopp wird der Prozess sauber beendet. Der Bot teilt weder Cogs noch Sessions mit CloudTIX, Phantom oder Louckup.
 
 Damit die Datenbank unter Last nicht vollläuft, hält der Shop eine SQLite-Verbindung pro Thread offen und schließt sie über einen Kontextmanager, der garantiert committet (`with connection:` allein committet, schließt aber nicht — 150 Lesungen waren 150 offene Datei-Deskriptoren).
 

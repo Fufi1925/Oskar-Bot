@@ -69,7 +69,7 @@ async def run() -> None:
         assert response.status_code == 200
         assert "Visible" in response.text
         assert all(name not in response.text for name in ("Not secret", "Bot absent", "No rights"))
-        assert "University Bot" in response.text and "controlecentrum" in response.text
+        assert "CloudTIX" in response.text and "controlecentrum" in response.text
         response = await client.get("/lbost-shop/servers")
         assert response.status_code == 200
         assert "Jouw servers" in response.text and "leden bereikt" in response.text and "Server met bot" in response.text

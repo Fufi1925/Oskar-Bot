@@ -175,7 +175,7 @@ def localize(view, language):
             heading.content = re.sub(r'^(#{1,3}\s+)?', lambda m: (m[1] or '') + MESSAGE + ' ', heading.content, count=1)
             heading._dm_rendered_content = heading.content
     if not re.search(r'<a?:\w+:\d+>', str(view.to_components())):
-        view.add_item(container(discord.ui.TextDisplay(f'-# {MESSAGE} University Bot')))
+        view.add_item(container(discord.ui.TextDisplay(f'-# {MESSAGE} CloudTIX')))
     return normalize_controls(view)
 
 
@@ -212,7 +212,7 @@ def prepare(content, kwargs, user_id, *, editing=False, message=None):
         legacy_view.stop = lambda: view.stop()
         legacy_view.is_finished = lambda: view.is_finished()
     if view is None:
-        view = Panel(f'{MESSAGE} University Bot', text if text else ('Attached files' if result.get('file') or result.get('files') or result.get('attachments') else ''))
+        view = Panel(f'{MESSAGE} CloudTIX', text if text else ('Attached files' if result.get('file') or result.get('files') or result.get('attachments') else ''))
     elif text:
         # content is forbidden beside a V2 view; keep it inside the card.
         view.add_item(container(discord.ui.TextDisplay(text)))
@@ -286,7 +286,7 @@ def paginate(payload):
     for index, group in enumerate(groups):
         page = discord.ui.LayoutView(timeout=view.timeout if index == len(groups)-1 else None)
         if index:
-            group = [discord.ui.TextDisplay(f'-# {MESSAGE} University Bot')] + group
+            group = [discord.ui.TextDisplay(f'-# {MESSAGE} CloudTIX')] + group
         page.add_item(container(*group, accent_color=accent))
         packet = dict(payload);packet['view']=page
         packet.pop('file',None);packet.pop('files',None)

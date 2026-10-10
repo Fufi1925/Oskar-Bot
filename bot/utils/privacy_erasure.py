@@ -246,7 +246,7 @@ def subject_export(user_id: str) -> dict[str, Any]:
         {"key": "security_records", "label": "Banns und erforderliche Sicherheitsnachweise", "count": None, "purpose": "Missbrauchsschutz und Durchsetzung der Nutzungsbedingungen"},
     ]
     return {
-        "format": "University Bot data export",
+        "format": "CloudTIX data export",
         "exported_at": int(time.time()),
         "subject": uid,
         "inventory": descriptions,

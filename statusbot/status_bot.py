@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # ╔══════════════════════════════════════════════════════════════════╗
-# ║   University Status                                              ║
+# ║   CloudTIX Status                                              ║
 # ╚══════════════════════════════════════════════════════════════════╝
 
 """
@@ -99,7 +99,18 @@ def _ids(rohwert: str) -> tuple[int, ...]:
 # Hintergrundlauf aktualisiert bei jeder Runde alle bekannten Panels.
 PARTNER_SERVER_IDS = _ids(os.getenv("PARTNER_SERVER", ""))
 
-BRAND = os.getenv("NEXT_PUBLIC_BRAND_NAME", "University Bot")
+def _brand_name(value: str | None) -> str:
+    raw = (value or "").strip()
+    key = re.sub(r"[-\s]", "", raw.lower().replace("ä", "ae"))
+    legacy = {
+        "cloudtix", "universitybot", "universitaetsbot", "universitaetbot",
+        "universiteitbot", "universiteitsbot", "unibot", "ub", "oskarbot",
+        "universitybotx",
+    }
+    return "CloudTIX" if not raw or key in legacy else raw
+
+
+BRAND = _brand_name(os.getenv("BRAND_NAME") or os.getenv("NEXT_PUBLIC_BRAND_NAME"))
 
 # How often to look. Every 30s is frequent enough to be useful and slow
 # enough that a brief restart does not trigger an alarm on its own.

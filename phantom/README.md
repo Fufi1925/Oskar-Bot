@@ -178,7 +178,7 @@ Server-Liste wird nach Login in SQLite (`user_guilds`) gespeichert und ist lesba
 
 ## Isolation Checkliste
 
-- [ ] Eigene Discord Application (nicht University)
+- [ ] Eigene Discord Application (nicht CloudTIX)
 - [ ] Eigener Bot-Token
 - [ ] Eigene OAuth Redirects nur `/phantom/...`
 - [ ] Eigene SQLite unter `phantom/data/`
@@ -190,4 +190,4 @@ Server-Liste wird nach Login in SQLite (`user_guilds`) gespeichert und ist lesba
 
 ## Design
 
-Login/Dashboard im dunklen „Discord-nahen“ Stil (Card, Blur, Gradient) — eigenes CSS, kein Code vom University-Dashboard.
+Login/Dashboard im dunklen „Discord-nahen“ Stil (Card, Blur, Gradient) — eigenes CSS, kein Code vom CloudTIX-Dashboard.

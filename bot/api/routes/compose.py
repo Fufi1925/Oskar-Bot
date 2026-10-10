@@ -230,14 +230,14 @@ async def senders(guild_id: int, bot: "universitybot" = Depends(get_bot)):
     """
     options = [{
         "id": "main",
-        "name": getattr(bot.user, "name", "University Bot"),
+        "name": getattr(bot.user, "name", "CloudTIX"),
         "description": "Der Hauptbot. Für alles Normale.",
     }]
 
     if guild_id == HOME_GUILD_ID and _status_bot_url():
         options.append({
             "id": "status",
-            "name": "University Status",
+            "name": "CloudTIX Status",
             "description": (
                 "Der Status-Bot. Läuft in einem eigenen Container und kann "
                 "auch dann posten, wenn der Hauptbot gerade weg ist."

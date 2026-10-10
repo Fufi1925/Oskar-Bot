@@ -480,7 +480,7 @@ function Console({
                     line.source === "main" ? "text-sky-400" : "text-fuchsia-400"
                   )}
                 >
-                  {line.source === "main" ? "university" : "template "}
+                  {line.source === "main" ? "CloudTIX" : "template "}
                 </span>
                 <span
                   className={cn(
@@ -1069,7 +1069,7 @@ export function SpeedrunPanel({ guildId }: { guildId: string }) {
               <p className="text-[12px] text-slate-400 leading-relaxed">
                 Premium hängt an deinem Discord-Konto und gilt für{" "}
                 <strong className="text-slate-300">beide Bots</strong>: den
-                University Bot und den Template-Bot. Während der Testphase
+                CloudTIX und den Template-Bot. Während der Testphase
                 bekommst du es über einen Beta-Antrag.
               </p>
             </div>
@@ -1170,7 +1170,7 @@ export function SpeedrunPanel({ guildId }: { guildId: string }) {
               </p>
               <p className="text-[12px] text-slate-400 mt-1 leading-relaxed">
                 Der Template-Bot baut Rollen und Kanäle, danach richtet der
-                University Bot Verify, Logs, Anti-Nuke und Tickets ein. Du
+                CloudTIX Verify, Logs, Anti-Nuke und Tickets ein. Du
                 siehst unten mit, was gerade passiert.
               </p>
             </div>
@@ -1217,7 +1217,7 @@ export function SpeedrunPanel({ guildId }: { guildId: string }) {
 
             <Requirement
               ok={Boolean(checks.main_bot_present)}
-              label="University Bot ist auf dem Server"
+              label="CloudTIX ist auf dem Server"
               detail={
                 checks.main_bot_present
                   ? undefined
@@ -1226,7 +1226,7 @@ export function SpeedrunPanel({ guildId }: { guildId: string }) {
             />
             <Requirement
               ok={Boolean(checks.main_bot_can_manage)}
-              label="University Bot darf Rollen und Kanäle verwalten"
+              label="CloudTIX darf Rollen und Kanäle verwalten"
               detail={
                 checks.main_bot_can_manage
                   ? undefined
@@ -1681,7 +1681,7 @@ export function SpeedrunPanel({ guildId }: { guildId: string }) {
                   </div>
 
                   <p className="text-[10px] font-black uppercase tracking-widest text-slate-600 pt-2">
-                    University Bot
+                    CloudTIX
                   </p>
                   {steps.map((step, index) => {
                     // Was diese Vorlage nicht baut, lässt sich auch
@@ -1809,7 +1809,7 @@ export function SpeedrunPanel({ guildId }: { guildId: string }) {
               <p className="text-xs font-black uppercase tracking-widest text-slate-500">
                 {phase === "building" && "Der Template-Bot baut…"}
                 {phase === "waiting" && "Bau fertig — Übergabe läuft an…"}
-                {phase === "finishing" && "Der University Bot richtet ein…"}
+                {phase === "finishing" && "Der CloudTIX richtet ein…"}
                 {phase === "done" && "Fertig"}
                 {phase === "partial" && "Fertig, mit Lücken"}
                 {phase === "failed" && "Abgebrochen"}

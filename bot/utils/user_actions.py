@@ -215,7 +215,7 @@ async def warn_owners(
                 f"Das ist nur eine Information — es wurde nichts unternommen. "
                 f"Ob du etwas tust, entscheidest du."
             ),
-            fusszeile="University Bot • Hinweis an Server-Inhaber",
+            fusszeile="CloudTIX • Hinweis an Server-Inhaber",
             profil_url=f"https://discord.com/users/{user_id}",
         )
 

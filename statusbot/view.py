@@ -56,7 +56,7 @@ GREY = 0x4F545C
 
 # The footer line. Not the bot's brand name: this is the watcher's own
 # name, and it is the only thing down there besides the timestamp.
-FOOTER_NAME = "University Status System"
+FOOTER_NAME = "CloudTIX Status System"
 
 # Marks for the checklist. `None` means "not measured" and gets a
 # hollow one, never a red one: red says we looked and it was broken,

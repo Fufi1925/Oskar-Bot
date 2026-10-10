@@ -14,7 +14,7 @@ MAIN_BOT_URL="https://universtiy-bot.up.railway.app"
 STATUS_CHANNEL_ID="<ID des Status-Kanals>"
 HOME_GUILD_ID="1530378233579704370"
 DASHBOARD_API_KEY="<derselbe wie beim Hauptbot>"
-NEXT_PUBLIC_BRAND_NAME="University Bot"
+NEXT_PUBLIC_BRAND_NAME="CloudTIX"
 
 # Knöpfe unter dem Panel. Jeder erscheint nur, wenn gesetzt.
 # Kein Support-Link: das Panel steht bereits im Support-Server.
@@ -57,7 +57,7 @@ PORT="8080"
 | `STATUS_CHANNEL_ID` | **ja** | Kanal für die Live-Statusnachricht. Rechtsklick auf den Kanal → ID kopieren (Entwicklermodus muss an sein). |
 | `HOME_GUILD_ID` | nein | Support-Server. Standard ist bereits `1530378233579704370`. |
 | `DASHBOARD_API_KEY` | nur fürs Senden | Muss **derselbe** sein wie beim Hauptbot, sonst weist der Sende-Endpunkt das Dashboard ab. |
-| `NEXT_PUBLIC_BRAND_NAME` | nein | Name in der Statusnachricht. Standard: `University Bot`. |
+| `NEXT_PUBLIC_BRAND_NAME` | nein | Name in der Statusnachricht. Standard: `CloudTIX`. |
 | `STATUS_POLL_SECONDS` | nein | Prüfabstand, Standard `30`. |
 | `STATUS_FAILURES_BEFORE_DOWN` | nein | Fehlversuche bis „Störung", Standard `3`. Mit 30 Sekunden Abstand also nach ca. 1,5 Minuten. |
 | `MAIN_BOT_CLIENT_ID` | nein | Nur fürs Profilbild des Hauptbots im Panel. Ersatzweise wird `DISCORD_CLIENT_ID` genommen. |

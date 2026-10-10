@@ -179,7 +179,7 @@ export function DiscordIdInspector() {
 
               {entity.servers && entity.servers.length > 0 && (
                 <div className="mt-4">
-                  <p className="mb-2 text-[11px] font-medium text-slate-400">Server mit University Bot</p>
+                  <p className="mb-2 text-[11px] font-medium text-slate-400">Server mit CloudTIX</p>
                   <div className="max-h-64 space-y-1.5 overflow-y-auto">
                     {entity.servers.map((server) => (
                       <div key={server.id} className="flex items-center gap-2.5 rounded-xl border border-white/[.05] bg-black/[.08] p-2.5">

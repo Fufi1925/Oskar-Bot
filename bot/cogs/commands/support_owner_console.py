@@ -123,7 +123,7 @@ class SupportOwnerConsole(commands.Cog):
         incidents = [i for i in ops.list_incidents(25) if i["status"] != "resolved"]
         health = SUCCESS if not snapshot["failed_extensions"] and not incidents else WARN
         body = (
-            f"{ZBOT} **Bot:** {self.bot.user.mention if self.bot.user else 'University Bot'} · `{round(self.bot.latency*1000)} ms`\n"
+            f"{ZBOT} **Bot:** {self.bot.user.mention if self.bot.user else 'CloudTIX'} · `{round(self.bot.latency*1000)} ms`\n"
             f"{UPTIME} **Uptime:** `{int(snapshot['uptime_seconds']//3600)} h {int(snapshot['uptime_seconds']%3600//60)} min`\n"
             f"{ZSAFE} **Server:** **{len(self.bot.guilds):,}** · **{total_users:,}** Nutzer\n"
             f"{CODEBASE} **Commands gesamt:** **{commands_used:,}**\n"

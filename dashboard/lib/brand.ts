@@ -1,38 +1,11 @@
 /**
- * Der Name des Bots — eine einzige Stelle im Frontend.
- *
- * ── Warum der Name nicht uebersetzt wird ────────────────────────────
- *
- * Ein Produktname ist keine Vokabel. „University Bot" heißt so in
- * Deutschland und in England; „Universitätsbot" ist eine Uebersetzung
- * davon und damit ein zweiter Name für dasselbe Ding. Zwei Namen
- * bedeuten: die Suche findet nur einen davon, Nutzer zitieren den Bot
- * falsch, und im Support sitzt jemand, der „Universitätsbot" sagt und
- * „University Bot" meint.
- *
- * ── Warum nicht einfach die Umgebungsvariable ───────────────────────
- *
- * Vorher las jede Seite `NEXT_PUBLIC_BRAND_NAME` mit der Vorgabe
- * „University Bot". Live stand in Railway aber „Universitätsbot" darin,
- * und damit war jede einzelne Seite zweisprachig benannt, obwohl der
- * Quelltext durchgehend richtig war — nachgemessen am 27.08.2026 im
- * Browser (Navigation, Überschrift, Seitentitel). Eine Variable, die den
- * Namen pro Deployment frei lässt, ist für einen Produktnamen die
- * falsche Freiheit.
- *
- * Deshalb: Die Vorgabe ist der Name. Eine gesetzte Variable wird nur
- * dann übernommen, wenn sie *eine Variante des Namens* ist — solche
- * Varianten werden auf den einen Namen zurückgeführt. Was wirklich ein
- * anderer Name sein soll, bleibt möglich; alles, was nur eine andere
- * Schreibweise desselben ist, nicht.
- *
- * Die Bot-Seite hält dieselbe Regel in `bot/utils/config.py`. Beide
- * Stellen absichtlich getrennt: das Dashboard läuft im Browser und darf
- * nicht vom Python-Modul abhaengen.
+ * Gemeinsamer Produktname im Frontend.
+ * Alte Konfigurationswerte werden auf CloudTIX zurückgeführt.
+ * Die Bot-Seite hält dieselbe Regel in bot/utils/config.py.
  */
 
 /** Der eine Name. */
-export const BRAND = "University Bot";
+export const BRAND = "CloudTIX";
 
 /** Version of the shared Cloudtix artwork; also refreshes cached favicons. */
 export const BRAND_ASSET_VERSION = "26d55bf24aa4";
@@ -65,6 +38,9 @@ function schluessel(wert: string): string {
  * verwendet wird; dieser Kommentar sichert die Regel fuer beide Seiten.
  */
 const ROHVARIANTEN = [
+  "CloudTIX",
+  "Universiteit Bot",
+  "Universiteitsbot",
   "UniversityBot",
   "Universitätsbot",
   "Universität-Bot",
@@ -90,11 +66,5 @@ export function normalisiereMarke(wert: string | undefined | null): string {
   return VARIANTEN.has(schluessel(roh)) ? BRAND : roh;
 }
 
-/**
- * Das Kürzel im Logo.
- *
- * Kein zweiter Name, sondern ein Wortzeichen — deshalb bleibt die
- * Umgebungsvariable hier erlaubt.
- */
-export const BRAND_WORD =
-  (process.env.NEXT_PUBLIC_BRAND_NAME_WORD || "UB").trim() || "UB";
+/** Wortzeichen; alte Kürzel werden ebenfalls auf CloudTIX zurückgeführt. */
+export const BRAND_WORD = normalisiereMarke(process.env.NEXT_PUBLIC_BRAND_NAME_WORD);

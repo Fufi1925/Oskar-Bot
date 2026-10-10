@@ -23,7 +23,7 @@ export const verificationCopy = {
     privacyText: "Es werden nur deine Discord-Identität und Servermitgliedschaften gelesen. Access-Tokens und Serverlisten werden nicht gespeichert. Bei ausdrücklich aktiviertem User Pull bleibt nur die verschlüsselte, widerrufbare Refresh-Autorisierung erhalten.",
     reasons: {
       not_configured: "Die Verifizierung ist auf diesem Server noch nicht vollständig eingerichtet.",
-      role_unavailable: "University Bot kann die Verifiziert-Rolle aktuell nicht vergeben. Das Serverteam muss Rollen-Hierarchie und Bot-Berechtigungen prüfen.",
+      role_unavailable: "CloudTIX kann die Verifiziert-Rolle aktuell nicht vergeben. Das Serverteam muss Rollen-Hierarchie und Bot-Berechtigungen prüfen.",
       oauth_token_failed: "Discord hat den Anmeldecode nicht akzeptiert. Starte die Prüfung bitte erneut.",
       oauth_identity_failed: "Discord konnte Identität oder Servermitgliedschaften vorübergehend nicht bereitstellen.",
       verification_failed: "Die Verbindung zur Verifizierung ist vorübergehend fehlgeschlagen. Starte die Prüfung bitte erneut.",
@@ -45,7 +45,7 @@ export const verificationCopy = {
     privacyText: "Only your Discord identity and server memberships are read. Access tokens and server lists are not stored. If User Pull is explicitly enabled, only the encrypted, revocable refresh authorization is retained.",
     reasons: {
       not_configured: "Verification has not been fully configured on this server yet.",
-      role_unavailable: "University Bot cannot assign the verified role right now. The server staff need to check the role hierarchy and bot permissions.",
+      role_unavailable: "CloudTIX cannot assign the verified role right now. The server staff need to check the role hierarchy and bot permissions.",
       oauth_token_failed: "Discord did not accept the authorization code. Please start verification again.",
       oauth_identity_failed: "Discord temporarily could not provide your identity or server memberships.",
       verification_failed: "The verification connection temporarily failed. Please try again.",
@@ -76,7 +76,7 @@ export function VerifyResult({ guildId, language: initialLanguage, outcome }: { 
   return <main data-no-translate className="min-h-screen bg-[#18191c] px-4 py-8 text-white sm:py-14">
     <div className="mx-auto max-w-3xl">
       <header className="mb-8 flex flex-wrap items-center justify-between gap-4">
-        <Link href="/" className="flex items-center gap-3"><img src={BRAND_LOGO} alt="University Bot" className="h-10 w-10 rounded-xl object-cover" /><span className="font-semibold">University Bot</span></Link>
+        <Link href="/" className="flex items-center gap-3"><img src={BRAND_LOGO} alt="CloudTIX" className="h-10 w-10 rounded-xl object-cover" /><span className="font-semibold">CloudTIX</span></Link>
         <div role="group" aria-label={selected === "en" ? "Language" : "Sprache"} className="flex rounded-xl border border-white/10 bg-[#202124] p-1">
           {(["de", "en"] as const).map(lang => <button type="button" key={lang} aria-pressed={selected === lang} onClick={() => { setSelected(lang); setLanguage(lang); }} className={`rounded-lg px-3 py-2 text-sm transition ${selected === lang ? "bg-white/10 text-white" : "text-slate-400 hover:text-white"}`}>{lang === "de" ? "Deutsch" : "English"}</button>)}
         </div>

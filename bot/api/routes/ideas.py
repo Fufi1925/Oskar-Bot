@@ -22,7 +22,7 @@ async def send_dm(bot,user_id,title,text,link=""):
         user=bot.get_user(int(user_id)) or await bot.fetch_user(int(user_id))
         from utils.dm_i18n import preserve_values
         sections = text.split("\n\n", 2)
-        panel=Panel(f"{emoji.STAR} {title}",*sections,"University Bot Ideen",tone="success" if "angenommen" in title.lower() else "warning")
+        panel=Panel(f"{emoji.STAR} {title}",*sections,"CloudTIX Ideen",tone="success" if "angenommen" in title.lower() else "warning")
         preserve_values(panel, [sections[0], *sections[2:]])
         if link:
             panel.add_item(discord.ui.ActionRow(discord.ui.Button(label="Belohnung einlösen",url=link)))
@@ -134,7 +134,7 @@ async def claim_reward(idea_id:str,data:dict,bot=Depends(get_bot)):
     guild=bot.get_guild(int(gid)) if gid.isdigit() else None
     member=guild.get_member(int(uid)) if guild else None
     if not guild or not member or not (guild.owner_id==int(uid) or member.guild_permissions.manage_guild):
-        raise HTTPException(403,"Du verwaltest diesen Server nicht oder University Bot ist dort nicht installiert.")
+        raise HTTPException(403,"Du verwaltest diesen Server nicht oder CloudTIX ist dort nicht installiert.")
     try:expires=store.claim(idea_id,uid,gid)
     except RuntimeError:raise HTTPException(409,"Diese Belohnung wurde bereits eingelöst.")
     except ValueError:raise HTTPException(404,"Belohnung nicht gefunden.")

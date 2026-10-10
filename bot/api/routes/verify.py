@@ -465,7 +465,7 @@ async def complete_oauth_verification(
                 "a server restricted by this server's staff.\n\n"
                 "Restricted server: `{blocked_server}`\n\n"
                 "**These restrictions are managed by the administrators of {server}. "
-                "Please contact them for help. University Bot does not make its own moderation decision.**"
+                "Please contact them for help. CloudTIX does not make its own moderation decision.**"
                 if matched else
                 "Your Discord account does not meet this server's minimum account age. Please contact the server staff for help."
             )
@@ -477,7 +477,7 @@ async def complete_oauth_verification(
         denial_card = Panel(
             f"{bot_emoji.CROSS_ALT} {title}"[:256],
             description[:3800],
-            "Powered by University Bot",
+            "Powered by CloudTIX",
             tone="error",
         )
         if settings.get('blacklist_custom_message'):
@@ -804,7 +804,7 @@ async def create_pull_challenge(
     owner_mention = getattr(getattr(target, "owner", None), "mention", f"<@{actor}>")
     card = Panel(
         f"{bot_emoji.WARNING} User Pull bestätigen",
-        f"{owner_mention}\n\nUniversity Bot soll die ausdrücklich autorisierten Mitglieder "
+        f"{owner_mention}\n\nCloudTIX soll die ausdrücklich autorisierten Mitglieder "
         f"von **{source.name}** zu **{target.name}** hinzufügen.",
         f"### {bot_emoji.LOCK} Bestätigungscode\n`{code}`\n\n"
         "Trage diesen vierstelligen Code innerhalb von **10 Minuten** im Dashboard ein.",

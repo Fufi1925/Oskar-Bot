@@ -210,10 +210,10 @@ Cookie-Pfad und eigener Datenbankdatei unter `$DATA_DIR`.
 
 ## Auf Zuruf behoben
 
-* **Der Bot-Name.** Er heißt **University Bot** und wird nicht übersetzt.
-  Live stand er in drei Formen da: „Universitätsbot" aus einer
-  Railway-Variable, „universitybot X" als Rest einer Umbenennung in
-  `bot/utils/config.py` und „UniversityBot Devs" in 190 Kommentarzeilen.
+* **Der Bot-Name.** Er heißt **CloudTIX** und wird nicht übersetzt.
+  Live stand er in drei Formen da: „CloudTIX" aus einer
+  Railway-Variable, „CloudTIX" als Rest einer Umbenennung in
+  `bot/utils/config.py` und „CloudTIX Devs" in 190 Kommentarzeilen.
   Jetzt gibt es je Seite eine Quelle (`dashboard/lib/brand.ts`,
   `MARKE` in `bot/utils/config.py`), die Schreibweisen auf den einen Namen
   zurückführt, und die Übersetzungstabelle schreibt den Namen nicht mehr um.

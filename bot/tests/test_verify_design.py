@@ -17,13 +17,13 @@ def test_english_defaults_migrate_stock_fields_without_overwriting_custom_text()
     settings = verify_store.normalise({
         "panel_title": f"{emoji.WARNING} Server-Verifizierung",
         "panel_text": "My server's custom instructions: {role}",
-        "panel_footer": "Bereitgestellt von University Bot",
+        "panel_footer": "Bereitgestellt von CloudTIX",
         "button_label": "Verifizieren",
         "dm_success_text": "Our custom welcome",
     })
     assert settings["panel_title"] == verify_store.DEFAULTS["panel_title"]
     assert settings["panel_text"] == "My server's custom instructions: {role}"
-    assert settings["panel_footer"] == "Powered by University Bot"
+    assert settings["panel_footer"] == "Powered by CloudTIX"
     assert settings["button_label"] == "Verify with Discord"
     assert settings["dm_success_text"] == "Our custom welcome"
     assert "How to verify" in verify_store.DEFAULTS["panel_text"]

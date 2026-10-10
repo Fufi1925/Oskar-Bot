@@ -4,7 +4,7 @@
 # ║   ░█░░░█░█░█░█░█▀▀░▄▀▄   ░█░█░█▀▀░▀▄▀░▀▀█                     ║
 # ║   ░▀▀▀░▀▀▀░▀▀░░▀▀▀░▀░▀   ░▀▀░░▀▀▀░░▀░░▀▀▀                     ║
 # ║                                                                  ║
-# ║            © 2026 University Bot Devs — All Rights Reserved              ║
+# ║            © 2026 CloudTIX Devs — All Rights Reserved              ║
 # ║                                                                  ║
 # ║   discord  ──  https://discord.gg/F3TedBAVZT                      ║
 # ║   youtube  ──  https://youtube.com/@UniversityBotDevs                   ║
@@ -18,12 +18,13 @@ from dotenv import load_dotenv
 load_dotenv()
 
 #: Der eine Name.
-MARKE = "University Bot"
+MARKE = "CloudTIX"
 
 #: Schreibweisen, die nur Varianten des Namens sind. Sie werden nach
 #: derselben Regel umgerechnet wie die Eingabe -- eine Menge mit Umlauten
 #: würde sonst nie getroffen, weil die Eingabe vorher aufgelöst wird.
 _MARKE_ROHVARIANTEN = (
+    "CloudTIX", "Universiteit Bot", "Universiteitsbot",
     "UniversityBot", "Universitätsbot", "Universität-Bot", "University Bot",
     "Uni Bot", "UB", "Oskar Bot", "Oskar-Bot", "universitybot X",
 )
@@ -57,10 +58,7 @@ def _marke(wert: str | None) -> str:
 
 
 TOKEN      = os.environ.get("TOKEN")
-# Der Name des Bots. Er wird nicht uebersetzt -- "Universitaetsbot" ist
-# eine Uebersetzung des Namens und damit ein zweiter Name fuer dasselbe.
-# Die alte Vorgabe "universitybot X" war ein Rest einer Umbenennung und
-# stand so in Hilfetexten, Einbettungen und den Cog-Meldungen.
+# Alte Konfigurationswerte werden auf den aktuellen Produktnamen zurückgeführt.
 BRAND_NAME = _marke(os.environ.get("BRAND_NAME") or os.environ.get("brand_name"))
 NAME       = BRAND_NAME
 BotName    = BRAND_NAME

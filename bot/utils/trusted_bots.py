@@ -58,7 +58,7 @@ TRUSTED_ENV = "TRUSTED_BOTS"
 #: könnte; der Template-Bot, weil er nach einem Angriff aufräumt; der
 #: Statusbot, weil er auf Partner-Servern Panels pflegt.
 ALWAYS: dict[int, str] = {
-    1530349205372145715: "University Bot (Hauptbot)",
+    1530349205372145715: "CloudTIX (Hauptbot)",
     partner_bot.BOT_ID: "University Template (Vorlagen-Bot)",
     1530378233579704370: "Statusbot",
 }

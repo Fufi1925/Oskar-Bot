@@ -1,4 +1,4 @@
-# University Status
+# CloudTIX Status
 
 Ein zweiter, sehr kleiner Bot. Er überwacht den Hauptbot und postet
 Changelogs — auch dann, wenn der Hauptbot nicht mehr läuft.
@@ -115,7 +115,7 @@ Vier Blöcke, von oben nach unten:
 -# Unverändert seit 2 Stunden · seit 14:31
 > Der Bot ist erreichbar und bereit.
 
-  ┌────┐  ## University Bot                  ← 2. Hauptbot (h2)
+  ┌────┐  ## CloudTIX                  ← 2. Hauptbot (h2)
   │ 🖼️ │  ### 🟢 Betriebsbereit                  + Profilbild
   └────┘  -# Hauptbot · Dashboard, Befehle
 > 🟢 **Erreichbar** · `HTTP 200`
@@ -131,7 +131,7 @@ Vier Blöcke, von oben nach unten:
 > 🟢 **Antwortzeit** · `47 ms` · ▰▰▰▰ schnell
 [➕ Einladen]                                   keine Website → nur das
 
--# University Status System · vor 12 Sekunden  ← 4. Fußzeile
+-# CloudTIX Status System · vor 12 Sekunden  ← 4. Fußzeile
 ```
 
 Beide Bots sind **gleich gebaut**: Profilbild, Name, Zustandszeile,

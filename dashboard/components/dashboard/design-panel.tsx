@@ -274,7 +274,7 @@ export function DesignPanel({ guildId }: { guildId: string }) {
   const weichtAb = Boolean(daten?.deviates?.abweichung);
 
   // Was die Vorschau zeigt: der Entwurf, sonst der echte Zustand.
-  const zeigtName = nickname.trim() || jetzt.name || "University Bot";
+  const zeigtName = nickname.trim() || jetzt.name || "CloudTIX";
   const zeigtAvatar = avatar ?? jetzt.avatar ?? null;
   const zeigtBanner = banner ?? jetzt.banner ?? null;
 
@@ -327,7 +327,7 @@ export function DesignPanel({ guildId }: { guildId: string }) {
                 onChange={(e) => setNickname(e.target.value)}
                 disabled={gesperrt}
                 maxLength={daten?.limits?.nickname ?? 32}
-                placeholder={jetzt.name || "University Bot"}
+                placeholder={jetzt.name || "CloudTIX"}
                 className="mt-2 w-full rounded-2xl border border-slate-800 bg-[#0f0f13] px-4 py-3 text-sm text-white outline-none focus:border-primary/50 disabled:opacity-50"
               />
               <p className="mt-1.5 text-xs text-slate-600">

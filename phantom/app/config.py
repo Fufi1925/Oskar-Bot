@@ -28,7 +28,7 @@ class Settings(BaseSettings):
     phantom_bot_owner_ids: str = ""
 
     phantom_brand_name: str = "Phantom"
-    phantom_footer: str = "Powered by University"
+    phantom_footer: str = "Powered by CloudTIX"
 
     phantom_host: str = "0.0.0.0"
     phantom_port: int = 8787

@@ -1,5 +1,5 @@
 # ══════════════════════════════════════════════════════════════════
-#  University Bot — Python dependencies
+#  CloudTIX — Python dependencies
 #
 #  Rules for this file:
 #    * no standard library modules (asyncio, typing, datetime, pathlib, ...)

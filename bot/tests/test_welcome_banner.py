@@ -111,7 +111,7 @@ def test_the_banner_renders():
 
     buffer = welcome_card.render(
         name="Fufi", avatar_bytes=None,
-        guild_name="University Support", member_count=1247,
+        guild_name="CloudTIX Support", member_count=1247,
     )
     check("ohne Avatar kommt ein Bild", buffer is not None)
     if buffer:

@@ -26,7 +26,7 @@ Disabled module pages show only their availability control. Their settings
 are unmounted until enabled, including while the state is loading or unavailable.
 Honeypot's shared switch also activates/deactivates its actual channel automation.
 Its warning text is fixed in English, and its persistent counter opens private
-information, real server/global counts and University Bot links after restarts.
+information, real server/global counts and CloudTIX links after restarts.
 Existing active warning messages are updated once after startup to apply the
 fixed warning and clickable counter without waiting for a moderation event.
 

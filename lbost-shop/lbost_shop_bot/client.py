@@ -6,7 +6,7 @@ so tickets, role panels and giveaways continue working after restarts.
 
 Text rules (placeholders, question filtering, channel naming) live in
 ``lbost_shop_app.regeln`` so the dashboard preview and this bot calculate the
-same output — the same split University Bot uses.
+same output — the same split CloudTIX uses.
 """
 from __future__ import annotations
 

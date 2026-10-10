@@ -11,7 +11,7 @@ die genau sieben Tage gelten, und meldet das hierher:
     X-Partner-Token: <PREMIUM_PARTNER_TOKEN>
     {user_id, guild_id, expires_at, duration_days}
 
-Ohne diese Meldung wuesste der University Bot nichts davon -- er kennt
+Ohne diese Meldung wuesste der CloudTIX nichts davon -- er kennt
 nur seine eigenen verkauften Keys, und im Dashboard stuende „kein
 Premium", obwohl der Nutzer welches hat.
 

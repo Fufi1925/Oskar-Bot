@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Die zweite Haelfte des Speedruns: was der University Bot einrichtet.
+Die zweite Haelfte des Speedruns: was der CloudTIX einrichtet.
 
 Geprueft wird gegen echte SQLite-Dateien in einem Temp-Ordner, nicht
 gegen Attrappen. Der Grund steht in der Geschichte dieses Projekts: die
@@ -1068,14 +1068,14 @@ def test_the_welcome_message_reads_german_and_is_filled_in():
     check("die Autorzeile ist flach", "author_name" in info, str(sorted(info)))
     check("die Fußzeile ist flach", "footer_text" in info, str(sorted(info)))
     check("die Fußzeile nennt den Bot",
-          "University Bot" in info.get("footer_text", ""),
+          "CloudTIX" in info.get("footer_text", ""),
           info.get("footer_text"))
 
     class _Icon:
         url = "https://cdn.discordapp.com/icons/1/a.png"
 
     class _Guild:
-        name = "University Support"
+        name = "CloudTIX Support"
         id = 1
         member_count = 1247
         icon = _Icon()
@@ -1096,10 +1096,10 @@ def test_the_welcome_message_reads_german_and_is_filled_in():
     embed = greet_render.build_embed(info, greet_render.placeholders(_Member()))
 
     check("der Servername steht als Autor da",
-          embed.author.name == "University Support", str(embed.author.name))
+          embed.author.name == "CloudTIX Support", str(embed.author.name))
     check("das Servericon ist gesetzt", bool(embed.author.icon_url))
     check("die Fußzeile kommt an",
-          embed.footer.text == "by University Bot", str(embed.footer.text))
+          embed.footer.text == "by CloudTIX", str(embed.footer.text))
 
     text = (embed.description or "") + (embed.author.name or "")
     leftover = _re.findall(r"\{[a-z_]+\}", text)

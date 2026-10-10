@@ -33,7 +33,7 @@ def _format_timestamp(ts: int | None) -> str:
 
 TEMPLATES.env.filters["timestamp"] = _format_timestamp
 
-# Module-level DB: request.app is the PARENT app when mounted under University,
+# Module-level DB: request.app is the PARENT app when mounted under CloudTIX,
 # so app.state.db on the sub-app is unreliable. Always use this helper.
 _db_conn = None
 _db_lock = None

@@ -94,14 +94,14 @@ class KicksButton(discord.ui.View):
                 "Honeypot watches a channel that is visible to members but not intended for normal use. "
                 "Spam bots and compromised accounts may send messages to it while scanning or posting across a server.\n\n"
                 "When a message is sent to the honeypot channel, Honeypot can automatically remove the user "
-                "by banning or kicking them.\n\n-# University Bot uses a softban: ban, then immediately unban."
+                "by banning or kicking them.\n\n-# CloudTIX uses a softban: ban, then immediately unban."
             ), accessory=discord.ui.Thumbnail(logo),
         ))
         info.add_item(discord.ui.ActionRow(
-            discord.ui.Button(label="Invite University Bot", style=discord.ButtonStyle.link,
+            discord.ui.Button(label="Invite CloudTIX", style=discord.ButtonStyle.link,
                               url=f"https://discord.com/oauth2/authorize?client_id={app_id}&permissions=8&scope=bot%20applications.commands"),
             discord.ui.Button(label="Documentation", style=discord.ButtonStyle.link, url=f"{site}/docs"),
-            discord.ui.Button(label="University Bot", style=discord.ButtonStyle.link, url=site),
+            discord.ui.Button(label="CloudTIX", style=discord.ButtonStyle.link, url=site),
         ))
         view.add_item(info)
         numbers = discord.ui.Container(accent_color=0x202124)

@@ -1,4 +1,4 @@
-# Lavalink audio node for University Bot.
+# Lavalink audio node for CloudTIX.
 #
 # Deployed as its own Railway service, pointed at this Dockerfile under
 # Settings -> Build -> Dockerfile Path: lavalink/Dockerfile

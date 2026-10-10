@@ -75,10 +75,10 @@ DEFAULTS: dict[str, Any] = {
         "Select **Verify with Discord**, sign in to Discord and approve the requested OAuth2 access. "
         "Return here once verification is complete.\n\n"
         f"### {bot_emoji.LOCK} Your privacy\n"
-        "University Bot checks your identity and server memberships against this server's rules. "
+        "CloudTIX checks your identity and server memberships against this server's rules. "
         "We never ask for your Discord password or access to your messages."
     ),
-    "panel_footer": "Powered by University Bot",
+    "panel_footer": "Powered by CloudTIX",
     "button_label": "Verify with Discord",
     "captcha_label": "Use CAPTCHA instead",
     "success_text": (
@@ -378,7 +378,7 @@ def normalise(settings: dict) -> dict:
         "panel_text": ("Klicke auf den Button unten, um dich zu verifizieren und Zugang zum Server zu erhalten.\n\n"
             f"### {bot_emoji.INFO} Anleitung\nKlicke auf **Verifizieren**, melde dich bei Discord an und bestätige OAuth2.\n\n"
             f"### {bot_emoji.LOCK} Server-Sicherheit\nDiese Verifizierung hilft dabei, den Server vor Bots und gesperrten Servermitgliedschaften zu schützen."),
-        "panel_footer": "Bereitgestellt von University Bot",
+        "panel_footer": "Bereitgestellt von CloudTIX",
         "button_label": "Verifizieren",
         "captcha_label": "Stattdessen CAPTCHA",
         "success_text": (f"Alles klar, {{user}} — du bist dabei! {bot_emoji.TADAA}\n"

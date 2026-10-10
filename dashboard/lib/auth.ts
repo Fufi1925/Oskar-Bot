@@ -3,7 +3,7 @@ import { AuthOptions } from "next-auth";
 import { getAuthSecret } from "@/lib/auth-session";
 import { DASHBOARD_AUTH_VERSION, DISCORD_USER_SCOPES, hasDashboardConsent } from "@/lib/discord-oauth";
 
-// Keep the University OAuth application isolated from LBoost Shop and every
+// Keep the CloudTIX OAuth application isolated from LBoost Shop and every
 // other bot. Dedicated names win; the old variables remain supported so
 // existing Railway deployments keep working without a migration.
 const DISCORD_CLIENT_ID = (

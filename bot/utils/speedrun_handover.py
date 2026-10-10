@@ -1,5 +1,5 @@
 """
-Was der University Bot tut, nachdem der Template-Bot gebaut hat.
+Was der CloudTIX tut, nachdem der Template-Bot gebaut hat.
 
 Der Template-Bot legt Rollen und Kanaele an, mehr nicht -- er kennt weder
 Verify noch Tickets noch die Anti-Nuke. Diese Datei ist der zweite
@@ -570,7 +570,7 @@ async def _do_welcome(bot, guild, handover: dict, report: HandoverReport, log: L
                             "Verifiziere dich, dann siehst du den ganzen Server."
                         ),
                         # Kleingedrucktes unten, wie bei einem Embed.
-                        "footer_text": "by University Bot",
+                        "footer_text": "by CloudTIX",
                     }
                 ),
                 None,

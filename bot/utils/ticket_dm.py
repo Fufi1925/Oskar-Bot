@@ -85,7 +85,7 @@ def build_user_dm(*, guild_name: str, kanal_url: str, ticket_nr: int | None = No
             f"Ein Teammitglied hat auf dein Ticket{nummer} auf "
             f"**{guild_name}** geantwortet."
         ),
-        fusszeile=f"University Bot • {guild_name}",
+        fusszeile=f"CloudTIX • {guild_name}",
         kanal_url=kanal_url,
         knopf_text="Zum Ticket",
         farbe=FARBE_ANTWORT,
@@ -102,7 +102,7 @@ def build_staff_dm(*, guild_name: str, kanal_url: str, user_name: str,
             f"**{user_name}** hat im Ticket{nummer} auf **{guild_name}** "
             f"geschrieben und noch keine Antwort bekommen."
         ),
-        fusszeile=f"University Bot • {guild_name}",
+        fusszeile=f"CloudTIX • {guild_name}",
         kanal_url=kanal_url,
         knopf_text="Zum Ticket",
         farbe=FARBE_WARTET,

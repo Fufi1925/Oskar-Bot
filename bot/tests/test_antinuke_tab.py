@@ -90,7 +90,7 @@ class Guild:
     def __init__(self, gid=GUILD):
         self.id = gid
         self.name = "Test"
-        self.me = Member(1, "University Bot", top=10)
+        self.me = Member(1, "CloudTIX", top=10)
         self.roles = [Role("@everyone", 0)]
         self._members = {}
 

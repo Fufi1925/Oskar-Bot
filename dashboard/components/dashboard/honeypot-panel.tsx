@@ -118,7 +118,7 @@ export function HoneypotPanel({ guildId }: { guildId: string }) {
     <div hidden={view !== "panel"}>
     <section className={card}><div className="mb-4 flex items-center justify-between"><h3 className="font-semibold text-white">Discord-Panel</h3><span className="rounded-lg bg-white/5 px-2 py-1 text-xs text-slate-500">Fester Warntext</span></div>
       <div className="rounded-xl border border-white/[.07] bg-[#18191c] p-5"><h4 className="text-lg font-bold text-white">{TITLE}</h4><p className="mt-3 text-sm leading-relaxed text-slate-300">This channel is used to catch spam bots. Any messages sent here will result in <strong>a softban</strong>.</p><span className="mt-4 inline-block rounded-lg border border-white/10 px-3 py-2 text-sm text-slate-300">Softbans: {data.kicks || 0}</span></div>
-      <p className="mt-3 text-xs text-slate-500">Der Knopf öffnet privat Informationen, aktuelle Statistiken und Links zu University Bot. Die Warnung ist nicht bearbeitbar.</p>
+      <p className="mt-3 text-xs text-slate-500">Der Knopf öffnet privat Informationen, aktuelle Statistiken und Links zu CloudTIX. Die Warnung ist nicht bearbeitbar.</p>
     </section>
     </div>
     <StickySaveBar id="honeypot-save-bar" count={dirty ? 1 : 0} busy={busy} shake={guard.shake} onDiscard={() => apply(data)} onSave={() => run(() => api.honeypotSave(guildId, { custom_channel_id: channel || null, delete_days: days, whitelist_roles: roles }), "Einstellungen gespeichert.")} />

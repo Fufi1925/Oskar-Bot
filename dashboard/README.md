@@ -1,6 +1,6 @@
 # dashboard/ — Web-Dashboard
 
-**University Bot** · Next.js 14 (App Router), TypeScript, Tailwind.
+**CloudTIX** · Next.js 14 (App Router), TypeScript, Tailwind.
 Öffentliche Seiten, Server-Dashboard, Admin-Bereich — und der Proxy
 unter `app/api/bot/[...path]/`, der die Rechte prüft.
 
@@ -8,7 +8,7 @@ unter `app/api/bot/[...path]/`, der die Rechte prüft.
 
 ## ✦ Overview
 
-This folder contains the University Bot web dashboard built with `Next.js 14` (App Router), `TypeScript`, and `Tailwind CSS`. It connects to the bot's FastAPI backend via a permanent Cloudflare Tunnel HTTPS URL and lets server admins manage all bot settings through a sleek, branded UI.
+This folder contains the CloudTIX web dashboard built with `Next.js 14` (App Router), `TypeScript`, and `Tailwind CSS`. It connects to the bot's FastAPI backend via a permanent Cloudflare Tunnel HTTPS URL and lets server admins manage all bot settings through a sleek, branded UI.
 
 ```
 dashboard/
@@ -55,7 +55,7 @@ dashboard/
 | Requirement | Notes |
 |---|---|
 | Node.js 18+ | — |
-| University Bot bot running | with `API_ENABLED=true` and `TUNNEL_ENABLED=true` |
+| CloudTIX bot running | with `API_ENABLED=true` and `TUNNEL_ENABLED=true` |
 | Discord OAuth app | from [Discord Developer Portal](https://discord.com/developers/applications) |
 
 ---
@@ -88,7 +88,7 @@ DISCORD_CLIENT_SECRET         = your_discord_oauth_client_secret
 
 # ── Branding ──────────────────────────────────────────────────────
 NEXT_PUBLIC_ADMIN_IDS         = your_discord_user_id
-NEXT_PUBLIC_BRAND_NAME        = "University Bot"
+NEXT_PUBLIC_BRAND_NAME        = "CloudTIX"
 NEXT_PUBLIC_BRAND_NAME_WORD   = "ZX"
 ```
 
@@ -185,11 +185,11 @@ This URL is permanent — it never changes between restarts as long as the Cloud
 
 <div align="center">
 
-## ✦ University Bot Devs
+## ✦ CloudTIX Devs
 
 *Built for protection. Designed for style.*
 
-<a href="https://discord.gg/F3TedBAVZT"><img src="https://discord.com/api/guilds/1301573144817045524/widget.png?style=banner2" alt="University Bot Development Discord Server" width="480"/></a>
+<a href="https://discord.gg/F3TedBAVZT"><img src="https://discord.com/api/guilds/1301573144817045524/widget.png?style=banner2" alt="CloudTIX Development Discord Server" width="480"/></a>
 
 <p>
   <a href="https://discord.gg/F3TedBAVZT"><img src="https://img.shields.io/badge/Discord-Join_Server-5865F2?style=for-the-badge&logo=discord&logoColor=white"/></a>
@@ -197,6 +197,6 @@ This URL is permanent — it never changes between restarts as long as the Cloud
   <a href="https://github.com/Fufi1925/Oskar-Bot"><img src="https://img.shields.io/badge/GitHub-University%20Bot-181717?style=for-the-badge&logo=github&logoColor=white"/></a>
 </p>
 
-© 2026 University Bot Devs — alle Rechte vorbehalten, siehe [LICENSE](../LICENSE)
+© 2026 CloudTIX Devs — alle Rechte vorbehalten, siehe [LICENSE](../LICENSE)
 
 </div>

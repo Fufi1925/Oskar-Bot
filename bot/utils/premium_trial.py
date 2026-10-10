@@ -14,7 +14,7 @@ gelten. Beim Einlösen meldet er das hierher:
     X-Partner-Token: <PREMIUM_PARTNER_TOKEN>
     {user_id, guild_id, expires_at, duration_days}
 
-Ohne diese Meldung wüsste der University Bot nichts davon — er kennt
+Ohne diese Meldung wüsste der CloudTIX nichts davon — er kennt
 nur seine eigenen gekauften Keys. Im Dashboard stünde dann „kein
 Premium“, obwohl der Nutzer welches hat.
 
