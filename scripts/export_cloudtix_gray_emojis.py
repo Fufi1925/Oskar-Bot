@@ -1,7 +1,7 @@
 """Export neutral vector symbols for original CloudTIX bot emoji constants.
 
 Production uses committed PNG/GIF files; Chromium is only an export dependency.
-The colorful utility tiles and their dashboard catalog are not regenerated here.
+The colorful utility tiles are not regenerated here.
 """
 import ast
 from concurrent.futures import ThreadPoolExecutor
@@ -210,7 +210,7 @@ Lucide {VERSION}; vollständige Lizenz in [LICENSE.lucide.txt](LICENSE.lucide.tx
 Das Set wird beim Bot-Start automatisch als Application Emojis hochgeladen
 und zuletzt auf die zentralen Bot-Konstanten angewendet. Auch Badge-Mappings,
 Kompatibilitätsnamen und Kategorien verwenden diese Werte. Im Dashboard stehen
-diese grauen Symbole neben den 84 bunten Utility-Kacheln. Alte IDs werden nicht gelöscht.
+ausschließlich diese grauen Symbole. Alte IDs werden nicht gelöscht.
 
 ```python
 from utils.emoji import TICKET, WARNING, ERROR, EMOJIS

@@ -9,7 +9,7 @@ Lucide 0.468.0; vollständige Lizenz in [LICENSE.lucide.txt](LICENSE.lucide.txt)
 Das Set wird beim Bot-Start automatisch als Application Emojis hochgeladen
 und zuletzt auf die zentralen Bot-Konstanten angewendet. Auch Badge-Mappings,
 Kompatibilitätsnamen und Kategorien verwenden diese Werte. Im Dashboard stehen
-diese grauen Symbole neben den 84 bunten Utility-Kacheln. Alte IDs werden nicht gelöscht.
+ausschließlich diese grauen Symbole. Alte IDs werden nicht gelöscht.
 
 ```python
 from utils.emoji import TICKET, WARNING, ERROR, EMOJIS

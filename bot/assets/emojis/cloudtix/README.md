@@ -4,20 +4,20 @@ Die ursprünglichen Bot-Symbole verwenden jetzt das [graue Set](bot-gray/README.
 silbergraue Symbole auf grauen, abgerundeten Kacheln, gelbe Warnungen und rote
 Fehler. Es wird zuletzt geladen und
 liefert die zentralen Bot-Konstanten sowie die semantischen `EMOJIS`-Schlüssel.
-Im Dashboard stehen die 148 grauen Symbole neben den 84 bunten Utility-Kacheln.
+Im Dashboard stehen ausschließlich die 148 Symbole mit grauem Hintergrund.
 Die bunten Varianten bleiben über `utility_*` verfügbar.
 
 Das neueste Bot-Set enthält [84 kräftig farbige Utility-Emojis mit abgerundeten
 Kacheln](discord-utility/README.md), darunter eine grüne Bestätigung und ein
 violettes Unterstützer-Herz. Alle Kacheln haben einen glänzenden Look mit
-Lichtreflexen und dezent leuchtenden Symbolen. Das Set dient der Dashboard-Auswahl
-und lässt sich im Bot ausdrücklich über `utility_*` verwenden.
+Lichtreflexen und dezent leuchtenden Symbolen. Das Set lässt sich im Bot
+ausdrücklich über `utility_*` verwenden und wird im Dashboard nicht angeboten.
 
 Zusätzlich gibt es [75 farbige Twemoji-Symbole für Bot-Nachrichten](discord-color/README.md).
 Diese werden ebenfalls automatisch hochgeladen und stehen als `EMOJIS["color_gift"]`
 bzw. `CT_COLOR_GIFT` im Bot bereit. Die Standardkonstanten wie `TICK`, `ERROR`,
 `WARNING` und `TICKET` verwenden das graue Set mit Hinweisfarben.
-Die Dashboard-Auswahl enthält 148 graue Symbole und 84 bunte Utility-Kacheln.
+Die Dashboard-Auswahl enthält ausschließlich 148 graue Symbole.
 
 110 weiße Lucide-Symbole, 128 × 128 Pixel, transparent. Alle Dateien sind deutlich
 unter Discords 256-KB-Grenze; `loading.gif` hat 16 Frames und läuft in einer Schleife.
@@ -40,7 +40,7 @@ Import der Cogs, damit bestehende `from utils.emoji import ...`-Imports bereits 
 richtigen Werte bekommen. Bestehende zentrale Konstanten werden entsprechend den
 `constants`-Listen in `emojis.json` automatisch auf das neue Set umgestellt.
 Discord-Abzeichen und andere nicht zugeordnete Symbole bleiben eigene Emojis.
-Im Dashboard werden ausschließlich die 84 Utility-Emojis angeboten.
+Im Dashboard werden ausschließlich die 148 grauen Emojis angeboten.
 
 Echte IDs werden atomar unter `$DATA_DIR/jsondb/cloudtix-emojis.json` gespeichert;
 ohne `DATA_DIR` unter `bot/jsondb/cloudtix-emojis.json`. Der Cache ist nicht im Git.

@@ -19,7 +19,7 @@ BOT_DIR = Path(__file__).resolve().parents[1]
 ASSETS = BOT_DIR / "assets/emojis/cloudtix"
 MANIFEST = json.loads((ASSETS / "emojis.json").read_text(encoding="utf-8"))
 # Later packs take precedence for native bot aliases. The dashboard offers
-# utility tiles and gray symbols; other collections remain available to the bot.
+# gray symbols; other collections remain available to the bot.
 for relative_manifest in ("discord-color/emojis.json", "discord-utility/emojis.json", "bot-gray/emojis.json"):
     pack_path = ASSETS / relative_manifest
     if pack_path.exists():
@@ -64,7 +64,7 @@ def load_collection(application_id=None):
     collection = {entry["key"]: _code(entry, cached) or entry["fallback"]
                   for entry in MANIFEST["emojis"]}
     # Semantic keys such as "ticket" use neutral bot artwork; explicit
-    # "utility_ticket" still selects the colorful dashboard tile.
+    # "utility_ticket" still selects the colorful Discord-only tile.
     for entry in MANIFEST["emojis"]:
         if entry.get("replaces"):
             collection[entry["replaces"]] = collection[entry["key"]]

@@ -194,7 +194,7 @@ def main():
                 "key": key, "name": f"ct_{key}_{digest[:6]}", "category": category,
                 "file": f"discord-utility/{target.name}", "animated": False,
                 "width": 128, "height": 128, "bytes": len(data), "sha256": digest,
-                "fallback": fallback, "constants": aliases.split(), "dashboard_visible": True,
+                "fallback": fallback, "constants": aliases.split(), "dashboard_visible": False,
                 "provider": "CloudTIX Utility", "glyph_provider": "Lucide 0.468.0",
                 "color": color, "style": "shiny",
                 "source_url": f"https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/{vector}.svg",
@@ -216,7 +216,7 @@ Symbole. Transparent,
 Lucide-Glyphen; die Lizenz steht in [LICENSE.lucide.txt](LICENSE.lucide.txt).
 
 Für Bot-Nachrichten in Discord, automatisch beim Start als Application Emojis
-hochgeladen. Die Dashboard-Auswahl bietet dieses farbige Set und die grauen Kacheln.
+hochgeladen. Die Dashboard-Auswahl bietet ausschließlich die grauen Kacheln.
 Die Kacheln werden über `utility_*` ausdrücklich gewählt. Die ursprünglichen
 Bot-Konstanten verwenden das separate graue Set mit Hinweisfarben.
 
@@ -239,7 +239,7 @@ gelöscht. Vektorquellen stehen unter `sources/`, regenerierbar mit
     for entry in entries:
         readme += f"| {entry['key']} | {entry['color']} | {entry['category']} | [PNG]({Path(entry['file']).name}) | `EMOJIS[\"{entry['key']}\"]` |\n"
     (OUT / "README.md").write_text(readme, encoding="utf-8")
-    print(f"Exported {len(entries)} transparent 128×128 utility tiles; largest: {max(e['bytes'] for e in entries)} bytes. Bot and dashboard.")
+    print(f"Exported {len(entries)} transparent 128×128 utility tiles; largest: {max(e['bytes'] for e in entries)} bytes. Discord-only.")
 
 
 if __name__ == "__main__":

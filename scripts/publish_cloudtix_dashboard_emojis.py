@@ -19,6 +19,15 @@ def publish():
                 if entry.get("dashboard_visible", True):
                     entries.append({**entry, "provider": entry.get("provider", manifest["provider"])})
     PUBLIC.mkdir(parents=True, exist_ok=True)
+    # Remove previews that have been retired from the dashboard catalog.
+    previous_path = PUBLIC / "emojis.json"
+    visible_files = {entry["file"] for entry in entries}
+    if previous_path.exists():
+        previous = json.loads(previous_path.read_text(encoding="utf-8"))
+        for entry in previous.get("emojis", []):
+            target = (PUBLIC / entry["file"]).resolve()
+            if entry["file"] not in visible_files and target.is_relative_to(PUBLIC.resolve()):
+                target.unlink(missing_ok=True)
     for entry in entries:
         target = PUBLIC / entry["file"]
         target.parent.mkdir(parents=True, exist_ok=True)
