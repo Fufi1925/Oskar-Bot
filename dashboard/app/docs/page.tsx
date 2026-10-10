@@ -78,7 +78,7 @@ function P({ children }: { children: React.ReactNode }) {
 /** Ein Befehl oder Wert zum Abtippen. */
 function Code({ children }: { children: React.ReactNode }) {
   return (
-    <code className="rounded-md border border-slate-800 bg-[#0e0e12] px-1.5 py-0.5 font-mono text-[13px] text-indigo-300">
+    <code className="rounded-md border border-slate-800 bg-[var(--cloudtix-field)] px-1.5 py-0.5 font-mono text-[13px] text-indigo-300">
       {children}
     </code>
   );
@@ -90,7 +90,7 @@ function Schritte({ items }: { items: string[] }) {
     <ol className="space-y-3">
       {items.map((text, i) => (
         <li key={text} className="flex gap-3">
-          <span className="mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-md border border-slate-800 bg-[#0e0e12] text-[11px] font-semibold tabular-nums text-slate-400">
+          <span className="mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-md border border-slate-800 bg-[var(--cloudtix-field)] text-[11px] font-semibold tabular-nums text-slate-400">
             {i + 1}
           </span>
           <span className="text-[15px] leading-relaxed text-slate-400">
@@ -196,12 +196,12 @@ const ABSCHNITTE: Abschnitt[] = [
           {DASHBOARD_BEREICHE.map((name) => (
             <span
               key={name}
-              className="rounded-md border border-slate-800 bg-[#0e0e12] px-2 py-1 text-[12px] text-slate-400"
+              className="rounded-md border border-slate-800 bg-[var(--cloudtix-field)] px-2 py-1 text-[12px] text-slate-400"
             >
               {name}
             </span>
           ))}
-          <span className="rounded-md border border-slate-800 bg-[#0e0e12] px-2 py-1 text-[12px] text-slate-600">
+          <span className="rounded-md border border-slate-800 bg-[var(--cloudtix-field)] px-2 py-1 text-[12px] text-slate-600">
             +{BEREICHE_GESAMT - DASHBOARD_BEREICHE.length} weitere
           </span>
         </div>
@@ -286,7 +286,7 @@ const ABSCHNITTE: Abschnitt[] = [
           ].map((m) => (
             <div
               key={m.titel}
-              className="rounded-xl border border-slate-800 bg-[#0f0f13] p-4"
+              className="rounded-xl border border-slate-800 bg-[var(--cloudtix-card)] p-4"
             >
               <h4 className="text-[15px] font-semibold text-white">
                 {m.titel}
@@ -379,7 +379,7 @@ export default function DocsPage() {
   const offen = ABSCHNITTE.find((a) => a.id === aktiv) ?? ABSCHNITTE[0];
 
   return (
-    <div className="min-h-screen bg-[#0a0a0c] font-sans text-slate-200">
+    <div className="min-h-screen bg-transparent font-sans text-slate-200">
       <SiteNav />
 
       <div className="mx-auto max-w-[1200px] px-6 py-14 lg:px-10">
@@ -403,7 +403,7 @@ export default function DocsPage() {
                 onChange={(e) => setSuche(e.target.value)}
                 placeholder="Suchen"
                 aria-label="Dokumentation durchsuchen"
-                className="w-full rounded-lg border border-slate-800 bg-[#0f0f13] py-2 pl-9 pr-8 text-[14px] text-white placeholder:text-slate-600 transition-colors focus:border-slate-700 focus:outline-none"
+                className="w-full rounded-lg border border-slate-800 bg-[var(--cloudtix-card)] py-2 pl-9 pr-8 text-[14px] text-white placeholder:text-slate-600 transition-colors focus:border-slate-700 focus:outline-none"
               />
               {suche && (
                 <button
@@ -465,7 +465,7 @@ export default function DocsPage() {
 
           {/* ── Inhalt ─────────────────────────────────────────── */}
           <main className="min-w-0">
-            <article className="rounded-2xl border border-slate-800 bg-[#0f0f13] p-6 sm:p-8">
+            <article className="rounded-2xl border border-slate-800 bg-[var(--cloudtix-card)] p-6 sm:p-8">
               <h2 className="text-[22px] font-bold tracking-tight text-white">
                 {offen.titel}
               </h2>
@@ -485,7 +485,7 @@ export default function DocsPage() {
                     setAktiv(naechster.id);
                     window.scrollTo({ top: 0, behavior: "smooth" });
                   }}
-                  className="group mt-4 flex w-full items-center justify-between rounded-2xl border border-slate-800 bg-[#0f0f13] px-6 py-4 text-left transition-colors hover:border-slate-700"
+                  className="group mt-4 flex w-full items-center justify-between rounded-2xl border border-slate-800 bg-[var(--cloudtix-card)] px-6 py-4 text-left transition-colors hover:border-slate-700"
                 >
                   <span>
                     <span className="block text-[12px] text-slate-500">

@@ -115,20 +115,19 @@ export default async function AccountPage() {
   const guildById = new Map(manageableGuilds.map(guild => [String(guild.id), guild]));
 
   const cards = [
-    { label: "Verwaltbare Server", value: number(manageableGuilds.length), hint: `${number(connectedGuilds)} davon mit dem Bot`, icon: Server, color: "text-cyan-400" },
+    { label: "Verwaltbare Server", value: number(manageableGuilds.length), hint: `${number(connectedGuilds)} davon mit dem Bot`, icon: Server, color: "text-slate-300" },
     { label: "Gesammelte XP", value: number(realStats?.total_xp), hint: `auf ${number(realStats?.guilds)} aktiven Servern`, icon: Sparkles, color: "text-indigo-400" },
-    { label: "Leveling-Nachrichten", value: number(realStats?.messages), hint: "vom Level-System erfasst", icon: MessageSquare, color: "text-emerald-400" },
-    { label: "Höchstes Level", value: number(realStats?.highest_level), hint: "dein bester Serverwert", icon: Trophy, color: "text-amber-400" },
+    { label: "Leveling-Nachrichten", value: number(realStats?.messages), hint: "vom Level-System erfasst", icon: MessageSquare, color: "text-slate-300" },
+    { label: "Höchstes Level", value: number(realStats?.highest_level), hint: "dein bester Serverwert", icon: Trophy, color: "text-slate-300" },
   ];
 
   return (
-    <div className="min-h-screen bg-[#090a0d]">
+    <div className="min-h-screen bg-transparent">
       <SiteNav />
       <main className="mx-auto max-w-6xl space-y-6 px-4 py-8 sm:px-6 lg:px-8 lg:py-12">
-        <Link href="/" className="inline-flex items-center gap-2 rounded-full border border-slate-800 bg-[#131318] px-4 py-2 text-sm text-slate-400 transition-colors hover:border-slate-700 hover:text-white">← Zur Startseite</Link>
+        <Link href="/" className="inline-flex items-center gap-2 rounded-full border border-slate-800 bg-[var(--cloudtix-card)] px-4 py-2 text-sm text-slate-400 transition-colors hover:border-slate-700 hover:text-white">← Zur Startseite</Link>
 
-        <section className="relative overflow-hidden rounded-[28px] border border-slate-800 bg-[#131318] p-6 sm:p-9">
-          <div aria-hidden="true" className="absolute inset-0 bg-[radial-gradient(circle_at_90%_20%,rgba(56,189,248,0.13),transparent_35%),radial-gradient(circle_at_15%_0%,rgba(99,102,241,0.18),transparent_42%)]" />
+        <section className="relative overflow-hidden rounded-[28px] border border-slate-800 bg-[var(--cloudtix-card)] p-6 sm:p-9">
           <div className="relative flex flex-col gap-6 sm:flex-row sm:items-center">
             <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-3xl border border-white/10 bg-indigo-500/10">
               {session.user.image ? <Image src={session.user.image} alt={`Profilbild von ${displayName}`} fill sizes="96px" unoptimized className="object-cover" /> : <div className="grid h-full place-items-center text-3xl font-black text-indigo-300">{displayName.slice(0, 2).toUpperCase()}</div>}
@@ -145,13 +144,13 @@ export default async function AccountPage() {
           </div>
         </section>
 
-        <section className="overflow-hidden rounded-[28px] border border-amber-400/20 bg-[#131318]">
-          <div className="flex flex-col gap-4 border-b border-slate-800 bg-amber-400/[0.04] px-5 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-7">
+        <section className="overflow-hidden rounded-[28px] border border-slate-800 bg-[var(--cloudtix-card)]">
+          <div className="flex flex-col gap-4 border-b border-slate-800 bg-white/[0.025] px-5 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-7">
             <div className="flex items-center gap-3">
-              <span className="grid h-11 w-11 place-items-center rounded-2xl bg-amber-400/10"><Crown className="h-5 w-5 text-amber-300" /></span>
+              <span className="grid h-11 w-11 place-items-center rounded-2xl bg-white/5"><Crown className="h-5 w-5 text-slate-200" /></span>
               <div><h2 className="text-lg font-black text-white">Dein Premium</h2><p className="text-sm text-slate-500">Kauf, Laufzeit und deine drei Premiumserver.</p></div>
             </div>
-            <Link href="/dashboard/premium" className="rounded-xl bg-amber-400 px-4 py-2.5 text-center text-sm font-black text-black hover:brightness-110">Premium verwalten</Link>
+            <Link href="/dashboard/premium" className="rounded-xl bg-white px-4 py-2.5 text-center text-sm font-black text-black hover:brightness-110">Premium verwalten</Link>
           </div>
           <div className="p-5 sm:p-7">
             {premium?.premium ? <>
@@ -188,10 +187,10 @@ export default async function AccountPage() {
         </section>
 
         <section className="grid gap-4 sm:grid-cols-2">
-          {cards.map(card => <article key={card.label} className="rounded-2xl border border-slate-800 bg-[#131318] p-5 sm:p-6"><div className="flex items-start gap-4"><span className="grid h-11 w-11 place-items-center rounded-xl bg-white/[0.04]"><card.icon className={`h-5 w-5 ${card.color}`} /></span><div><p className="text-sm font-semibold text-slate-400">{card.label}</p><p className="mt-1 text-2xl font-bold tabular-nums text-white">{card.value}</p><p className="mt-1 text-xs text-slate-600">{card.hint}</p></div></div></article>)}
+          {cards.map(card => <article key={card.label} className="rounded-2xl border border-slate-800 bg-[var(--cloudtix-card)] p-5 sm:p-6"><div className="flex items-start gap-4"><span className="grid h-11 w-11 place-items-center rounded-xl bg-white/[0.04]"><card.icon className={`h-5 w-5 ${card.color}`} /></span><div><p className="text-sm font-semibold text-slate-400">{card.label}</p><p className="mt-1 text-2xl font-bold tabular-nums text-white">{card.value}</p><p className="mt-1 text-xs text-slate-600">{card.hint}</p></div></div></article>)}
         </section>
 
-        <section className="overflow-hidden rounded-2xl border border-slate-800 bg-[#131318]">
+        <section className="overflow-hidden rounded-2xl border border-slate-800 bg-[var(--cloudtix-card)]">
           <div className="border-b border-slate-800 px-5 py-4 sm:px-6"><h2 className="text-lg font-bold text-white">Konto & Aktivität</h2><p className="mt-1 text-sm text-slate-500">Direkt aus Discord, Premium und dem Level-System.</p></div>
           <div className="grid sm:grid-cols-2">
             {[

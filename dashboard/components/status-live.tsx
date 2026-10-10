@@ -92,7 +92,7 @@ interface Verlauf {
   keep_days?: number;
 }
 
-const KARTE = "rounded-2xl border border-slate-800 bg-[#131318]";
+const KARTE = "rounded-2xl border border-slate-800 bg-[var(--cloudtix-card)]";
 
 async function hole(pfad: string) {
   const antwort = await fetch(pfad, { cache: "no-store" });
@@ -228,7 +228,7 @@ export function StatusLive({ marke }: { marke: string }) {
           "Wächter selbst sein.",
         farbe: "text-slate-400",
         rahmen: "border-slate-800",
-        flaeche: "bg-[#131318]",
+        flaeche: "bg-[var(--cloudtix-card)]",
         Icon: Clock,
       };
     }
@@ -390,7 +390,7 @@ export function StatusLive({ marke }: { marke: string }) {
               ladeVerlauf(false);
             }}
             disabled={aktualisiert}
-            className="flex shrink-0 items-center gap-2 rounded-xl border border-slate-800 bg-[#0e0e12] px-4 py-2.5 text-[13px] font-semibold text-slate-300 transition-colors hover:border-slate-700 hover:text-white disabled:opacity-40"
+            className="flex shrink-0 items-center gap-2 rounded-xl border border-slate-800 bg-[var(--cloudtix-field)] px-4 py-2.5 text-[13px] font-semibold text-slate-300 transition-colors hover:border-slate-700 hover:text-white disabled:opacity-40"
           >
             <RefreshCw className={cn("h-3.5 w-3.5", aktualisiert && "animate-spin")} />
             Aktualisieren
@@ -462,7 +462,7 @@ export function StatusLive({ marke }: { marke: string }) {
             </p>
           </div>
 
-          <div className="flex gap-1 rounded-lg border border-slate-800 bg-[#0f0f13] p-1">
+          <div className="flex gap-1 rounded-lg border border-slate-800 bg-[var(--cloudtix-card)] p-1">
             {ZEITRAEUME.map(([wert, text]) => (
               <button
                 key={wert}
@@ -505,7 +505,7 @@ export function StatusLive({ marke }: { marke: string }) {
             </button>
           </div>
         ) : !verlauf || verlauf.slots.length === 0 ? (
-          <div className="mt-5 rounded-xl border border-slate-800 bg-[#0f0f13] p-5">
+          <div className="mt-5 rounded-xl border border-slate-800 bg-[var(--cloudtix-card)] p-5">
             <p className="text-[14px] text-slate-300">
               Noch keine Aufzeichnung für diesen Zeitraum.
             </p>
@@ -525,7 +525,7 @@ export function StatusLive({ marke }: { marke: string }) {
             <UptimeBars abschnitte={verlauf.slots} />
 
             {uptime?.known && (
-              <div className="flex flex-wrap gap-x-6 gap-y-2 rounded-xl border border-slate-800 bg-[#0f0f13] px-4 py-3.5">
+              <div className="flex flex-wrap gap-x-6 gap-y-2 rounded-xl border border-slate-800 bg-[var(--cloudtix-card)] px-4 py-3.5">
                 <span className="text-[13px] text-slate-400">
                   <b className="text-[17px] font-bold text-white tabular-nums">
                     {prozent(uptime.percent ?? 0)} %
@@ -568,7 +568,7 @@ export function StatusLive({ marke }: { marke: string }) {
                   daten={punkte}
                   name="Antwortzeit"
                   einheit=" ms"
-                  farbe="#5865f2"
+                  farbe="#d4d4d4"
                   hoehe={170}
                 />
               </div>

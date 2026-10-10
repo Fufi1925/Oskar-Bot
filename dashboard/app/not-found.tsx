@@ -59,9 +59,9 @@ const WEGE = [
 
 export default function NotFound() {
   return (
-    <main className="flex min-h-screen items-center justify-center bg-[#0a0a0c] px-6 py-16 text-slate-200">
+    <main className="flex min-h-screen items-center justify-center bg-[var(--cloudtix-page-surface,#0a0a0c)] px-6 py-16 text-slate-200">
       <div className="w-full max-w-xl">
-        <div className="rounded-3xl border border-slate-800 bg-[#131318] p-6 sm:p-8">
+        <div className="rounded-3xl border border-slate-800 bg-[var(--cloudtix-card,#131318)] p-6 sm:p-8">
           <div className="flex items-center gap-3">
             <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-indigo-500/25 bg-indigo-500/10">
               <Search className="h-[18px] w-[18px] text-indigo-400" />
@@ -91,7 +91,7 @@ export default function NotFound() {
             ].map((grund) => (
               <li
                 key={grund}
-                className="flex gap-2.5 rounded-xl border border-slate-800 bg-[#0e0e12] px-4 py-3 text-[13px] leading-relaxed text-slate-400"
+                className="flex gap-2.5 rounded-xl border border-slate-800 bg-[var(--cloudtix-field,#0e0e12)] px-4 py-3 text-[13px] leading-relaxed text-slate-400"
               >
                 <span className="mt-[7px] h-1 w-1 shrink-0 rounded-full bg-slate-600" />
                 {grund}
@@ -113,7 +113,7 @@ export default function NotFound() {
                 </>
               );
               const klasse =
-                "group rounded-xl border border-slate-800 bg-[#0e0e12] p-4 transition-colors hover:border-slate-700";
+                "group rounded-xl border border-slate-800 bg-[var(--cloudtix-field,#0e0e12)] p-4 transition-colors hover:border-slate-700";
 
               return weg.extern ? (
                 <a
@@ -143,7 +143,7 @@ export default function NotFound() {
             </Link>
             <Link
               href="/"
-              className="inline-flex items-center gap-2 rounded-xl border border-slate-800 bg-[#0e0e12] px-5 py-2.5 text-[14px] font-semibold text-slate-300 transition-colors hover:border-slate-700 hover:text-white"
+              className="inline-flex items-center gap-2 rounded-xl border border-slate-800 bg-[var(--cloudtix-field,#0e0e12)] px-5 py-2.5 text-[14px] font-semibold text-slate-300 transition-colors hover:border-slate-700 hover:text-white"
             >
               Zur Startseite
             </Link>

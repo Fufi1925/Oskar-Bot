@@ -53,106 +53,104 @@ export default function BypassPage({
   const on = maintenanceOn();
 
   return (
-    <html lang="de">
-      <body
+    <div
+      style={{
+        margin: 0,
+        minHeight: "100vh",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        background: "transparent",
+        color: "#e5e5e5",
+        fontFamily:
+          'ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif',
+        padding: "24px",
+      }}
+    >
+      <main
         style={{
-          margin: 0,
-          minHeight: "100vh",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          background: "#0a0a0c",
-          color: "#e2e8f0",
-          fontFamily:
-            'ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif',
-          padding: "24px",
+          maxWidth: "400px",
+          width: "100%",
+          background: "var(--cloudtix-card)",
+          border: "1px solid rgba(255,255,255,.10)",
+          borderRadius: "1.5rem",
+          padding: "32px 30px",
         }}
       >
-        <main
+        <h1
           style={{
-            maxWidth: "400px",
-            width: "100%",
-            background: "rgba(255,255,255,.02)",
-            border: "1px solid rgba(255,255,255,.10)",
-            borderRadius: "1.5rem",
-            padding: "32px 30px",
+            margin: "0 0 6px",
+            fontSize: "18px",
+            fontWeight: 800,
+            color: "#fff",
           }}
         >
-          <h1
+          Wartungszugang
+        </h1>
+        <p
+          style={{
+            margin: "0 0 22px",
+            fontSize: "13px",
+            color: "#63666f",
+            lineHeight: 1.6,
+          }}
+        >
+          {on
+            ? "Passwort eingeben, um die Seite trotz Wartung zu öffnen."
+            : "Die Wartung ist gerade aus — hier gibt es nichts zu tun."}
+        </p>
+
+        <form action={unlock}>
+          <input
+            type="password"
+            name="password"
+            autoFocus
+            autoComplete="off"
+            placeholder="Passwort"
             style={{
-              margin: "0 0 6px",
-              fontSize: "18px",
-              fontWeight: 800,
-              color: "#fff",
+              width: "100%",
+              boxSizing: "border-box",
+              background: "rgba(255,255,255,.03)",
+              border: `1px solid ${wrong ? "rgba(248,113,113,.5)" : "rgba(255,255,255,.10)"}`,
+              borderRadius: ".9rem",
+              padding: "13px 16px",
+              fontSize: "15px",
+              color: "#e5e5e5",
+              outline: "none",
             }}
-          >
-            Wartungszugang
-          </h1>
-          <p
-            style={{
-              margin: "0 0 22px",
-              fontSize: "13px",
-              color: "#63666f",
-              lineHeight: 1.6,
-            }}
-          >
-            {on
-              ? "Passwort eingeben, um die Seite trotz Wartung zu öffnen."
-              : "Die Wartung ist gerade aus — hier gibt es nichts zu tun."}
-          </p>
+          />
 
-          <form action={unlock}>
-            <input
-              type="password"
-              name="password"
-              autoFocus
-              autoComplete="off"
-              placeholder="Passwort"
+          {wrong && (
+            <p
               style={{
-                width: "100%",
-                boxSizing: "border-box",
-                background: "rgba(255,255,255,.03)",
-                border: `1px solid ${wrong ? "rgba(248,113,113,.5)" : "rgba(255,255,255,.10)"}`,
-                borderRadius: ".9rem",
-                padding: "13px 16px",
-                fontSize: "15px",
-                color: "#e2e8f0",
-                outline: "none",
-              }}
-            />
-
-            {wrong && (
-              <p
-                style={{
-                  margin: "10px 0 0",
-                  fontSize: "13px",
-                  color: "#fca5a5",
-                }}
-              >
-                Falsches Passwort.
-              </p>
-            )}
-
-            <button
-              type="submit"
-              style={{
-                marginTop: "16px",
-                width: "100%",
-                background: "#3b82f6",
-                border: "none",
-                borderRadius: ".9rem",
-                padding: "13px",
-                fontSize: "14.5px",
-                fontWeight: 700,
-                color: "#fff",
-                cursor: "pointer",
+                margin: "10px 0 0",
+                fontSize: "13px",
+                color: "#fca5a5",
               }}
             >
-              Freischalten
-            </button>
-          </form>
-        </main>
-      </body>
-    </html>
+              Falsches Passwort.
+            </p>
+          )}
+
+          <button
+            type="submit"
+            style={{
+              marginTop: "16px",
+              width: "100%",
+              background: "#f5f5f5",
+              border: "none",
+              borderRadius: ".9rem",
+              padding: "13px",
+              fontSize: "14.5px",
+              fontWeight: 700,
+              color: "#101010",
+              cursor: "pointer",
+            }}
+          >
+            Freischalten
+          </button>
+        </form>
+      </main>
+    </div>
   );
 }

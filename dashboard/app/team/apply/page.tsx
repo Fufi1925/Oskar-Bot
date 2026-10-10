@@ -96,14 +96,14 @@ const STATUS_TEXT: Record<
   },
 };
 
-const CARD = "rounded-2xl border border-slate-800 bg-[#0f0f13]";
+const CARD = "rounded-2xl border border-slate-800 bg-[var(--cloudtix-card)]";
 
 export default function ApplyPage() {
   useWebsiteLocale();
   return (
     // useSearchParams verlangt eine Suspense-Grenze, sonst faellt die
     // ganze Seite beim Bauen auf Client-Rendering zurueck.
-    <React.Suspense fallback={<div className="min-h-screen bg-[#0a0a0c]" />}>
+    <React.Suspense fallback={<div className="min-h-screen bg-transparent" />}>
       <ApplyInner />
     </React.Suspense>
   );
@@ -270,7 +270,7 @@ function ApplyInner() {
   };
 
   return (
-    <div className="min-h-screen overflow-x-clip bg-[#0a0a0c] text-slate-200">
+    <div className="min-h-screen overflow-x-clip bg-transparent text-slate-200">
       <SiteNav />
 
       <main className="mx-auto max-w-[1100px] px-6 lg:px-12 py-14">
@@ -381,7 +381,7 @@ function ApplyInner() {
                   {STATUS_TEXT[meine.status]?.text}
                 </p>
                 {meine.reason && (
-                  <div className="mt-4 rounded-xl border border-slate-800 bg-[#0a0a0c] p-4">
+                  <div className="mt-4 rounded-xl border border-slate-800 bg-[var(--cloudtix-field)] p-4">
                     <div className="text-[10px] font-black uppercase tracking-widest text-slate-600">
                       Begründung des Teams
                     </div>
@@ -431,7 +431,7 @@ function ApplyInner() {
                       disabled={!r.open}
                       onClick={() => waehlen(r)}
                       className={cn(
-                        "rounded-2xl border border-slate-800 bg-[#0f0f13] p-5 text-left transition-colors",
+                        "rounded-2xl border border-slate-800 bg-[var(--cloudtix-card)] p-5 text-left transition-colors",
                         r.open
                           ? "hover:border-slate-700"
                           : "cursor-not-allowed opacity-50",
@@ -439,10 +439,9 @@ function ApplyInner() {
                     >
                       <div className="flex items-center gap-3">
                         <span
-                          className="grid h-10 w-10 shrink-0 place-items-center rounded-xl"
-                          style={{ background: `${r.colour}22` }}
+                          className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-slate-700 bg-white/5"
                         >
-                          <Icon className="h-5 w-5" style={{ color: r.colour }} />
+                          <Icon className="h-5 w-5 text-slate-200" />
                         </span>
                         <h3 className="text-[17px] font-bold text-white">
                           {r.label}
@@ -581,7 +580,7 @@ function ApplyInner() {
                         rows={4}
                         maxLength={grenzen.max_answer ?? 2000}
                         placeholder="Deine Antwort …"
-                        className="mt-3 w-full resize-y rounded-xl border border-slate-800 bg-[#0a0a0c] px-4 py-3 text-[15px] leading-relaxed text-white placeholder:text-slate-600 transition-colors focus:border-slate-700 focus:outline-none"
+                        className="mt-3 w-full resize-y rounded-xl border border-slate-800 bg-[var(--cloudtix-field)] px-4 py-3 text-[15px] leading-relaxed text-white placeholder:text-slate-600 transition-colors focus:border-slate-700 focus:outline-none"
                       />
                     </label>
 
@@ -616,7 +615,7 @@ function ApplyInner() {
                   className={cn(
                     "flex items-center gap-2 rounded-xl px-6 py-3 text-[15px] font-semibold text-white transition-colors",
                     fertig
-                      ? "bg-emerald-600 hover:bg-emerald-700"
+                      ? "bg-white text-black hover:bg-slate-200"
                       : "bg-slate-800 hover:bg-slate-700",
                     sendet && "opacity-50",
                   )}

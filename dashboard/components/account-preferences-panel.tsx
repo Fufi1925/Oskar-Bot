@@ -139,11 +139,11 @@ export function AccountPreferencesPanel({ userId }: { userId: string }) {
   return (
     <section
       id="einstellungen"
-      className="overflow-hidden rounded-2xl border border-slate-800 bg-[#131318]"
+      className="overflow-hidden rounded-2xl border border-slate-800 bg-[var(--cloudtix-card)]"
     >
       <div className="flex flex-col gap-4 border-b border-slate-800 px-5 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-6">
         <div>
-          <div className="flex items-center gap-2 text-fuchsia-300">
+          <div className="flex items-center gap-2 text-slate-300">
             <Globe2 className="h-5 w-5" />
             <span className="text-xs font-bold uppercase tracking-[0.2em]">
               Persönliche Einstellungen
@@ -161,7 +161,7 @@ export function AccountPreferencesPanel({ userId }: { userId: string }) {
           type="button"
           onClick={save}
           disabled={loading || saving}
-          className="inline-flex items-center justify-center gap-2 rounded-xl bg-fuchsia-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-fuchsia-500 disabled:opacity-50"
+          className="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-slate-500 disabled:opacity-50"
         >
           {saving ? (
             <Loader2 className="h-4 w-4 animate-spin" />
@@ -176,20 +176,20 @@ export function AccountPreferencesPanel({ userId }: { userId: string }) {
 
       {loading ? (
         <div className="grid place-items-center p-10">
-          <Loader2 className="h-5 w-5 animate-spin text-fuchsia-400" />
+          <Loader2 className="h-5 w-5 animate-spin text-slate-400" />
         </div>
       ) : (
         <div className="grid gap-px bg-slate-800 md:grid-cols-2">
-          <div className="space-y-5 bg-[#111116] p-5 sm:p-6">
+          <div className="space-y-5 bg-[var(--cloudtix-field)] p-5 sm:p-6">
             <label className="block">
               <span className="flex items-center gap-2 text-sm font-semibold text-slate-300">
-                <Languages className="h-4 w-4 text-fuchsia-400" />
+                <Languages className="h-4 w-4 text-slate-400" />
                 Sprache
               </span>
               <WebsiteSelect
                 value={form.language}
                 onChange={(event) => set("language", event.target.value)}
-                className="mt-2 w-full rounded-xl border border-slate-700 bg-[#0b0b0e] px-3 py-2.5 text-sm text-white outline-none focus:border-fuchsia-500"
+                className="mt-2 w-full rounded-xl border border-slate-700 bg-[var(--cloudtix-field)] px-3 py-2.5 text-sm text-white outline-none focus:border-slate-500"
               >
                 <option value="de">Deutsch</option>
                 <option value="en">English</option>
@@ -197,7 +197,7 @@ export function AccountPreferencesPanel({ userId }: { userId: string }) {
             </label>
             <fieldset>
               <legend className="flex items-center gap-2 text-sm font-semibold text-slate-300">
-                <Moon className="h-4 w-4 text-fuchsia-400" />
+                <Moon className="h-4 w-4 text-slate-400" />
                 Darstellung
               </legend>
               <div className="mt-2 grid grid-cols-2 gap-2">
@@ -226,7 +226,7 @@ export function AccountPreferencesPanel({ userId }: { userId: string }) {
               <WebsiteSelect
                 value={form.timezone}
                 onChange={(event) => set("timezone", event.target.value)}
-                className="mt-2 w-full rounded-xl border border-slate-700 bg-[#0b0b0e] px-3 py-2.5 text-sm text-white outline-none focus:border-fuchsia-500"
+                className="mt-2 w-full rounded-xl border border-slate-700 bg-[var(--cloudtix-field)] px-3 py-2.5 text-sm text-white outline-none focus:border-slate-500"
               >
                 {TIMEZONES.map((zone) => (
                   <option key={zone} value={zone}>
@@ -237,16 +237,16 @@ export function AccountPreferencesPanel({ userId }: { userId: string }) {
             </label>
           </div>
 
-          <div className="space-y-5 bg-[#111116] p-5 sm:p-6">
+          <div className="space-y-5 bg-[var(--cloudtix-field)] p-5 sm:p-6">
             <label className="block">
               <span className="flex items-center gap-2 text-sm font-semibold text-slate-300">
-                <CalendarDays className="h-4 w-4 text-fuchsia-400" />
+                <CalendarDays className="h-4 w-4 text-slate-400" />
                 Zahlenformat
               </span>
               <WebsiteSelect
                 value={form.number_format}
                 onChange={(event) => set("number_format", event.target.value)}
-                className="mt-2 w-full rounded-xl border border-slate-700 bg-[#0b0b0e] px-3 py-2.5 text-sm text-white outline-none focus:border-fuchsia-500"
+                className="mt-2 w-full rounded-xl border border-slate-700 bg-[var(--cloudtix-field)] px-3 py-2.5 text-sm text-white outline-none focus:border-slate-500"
               >
                 <option value="de-DE">Deutsch – 1.234.567,89</option>
                 <option value="en-GB">English UK – 1,234,567.89</option>
@@ -260,7 +260,7 @@ export function AccountPreferencesPanel({ userId }: { userId: string }) {
               <WebsiteSelect
                 value={form.date_format}
                 onChange={(event) => set("date_format", event.target.value)}
-                className="mt-2 w-full rounded-xl border border-slate-700 bg-[#0b0b0e] px-3 py-2.5 text-sm text-white outline-none focus:border-fuchsia-500"
+                className="mt-2 w-full rounded-xl border border-slate-700 bg-[var(--cloudtix-field)] px-3 py-2.5 text-sm text-white outline-none focus:border-slate-500"
               >
                 <option value="short">Kurz</option>
                 <option value="medium">Standard</option>
@@ -270,13 +270,13 @@ export function AccountPreferencesPanel({ userId }: { userId: string }) {
             </label>
             <label className="block">
               <span className="flex items-center gap-2 text-sm font-semibold text-slate-300">
-                <Home className="h-4 w-4 text-fuchsia-400" />
+                <Home className="h-4 w-4 text-slate-400" />
                 Bevorzugte Startseite nach dem Login
               </span>
               <WebsiteSelect
                 value={form.start_page}
                 onChange={(event) => set("start_page", event.target.value)}
-                className="mt-2 w-full rounded-xl border border-slate-700 bg-[#0b0b0e] px-3 py-2.5 text-sm text-white outline-none focus:border-fuchsia-500"
+                className="mt-2 w-full rounded-xl border border-slate-700 bg-[var(--cloudtix-field)] px-3 py-2.5 text-sm text-white outline-none focus:border-slate-500"
               >
                 <option value="/dashboard">Dashboard</option>
                 <option value="/dashboard/guilds">Serverübersicht</option>

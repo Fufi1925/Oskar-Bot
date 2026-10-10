@@ -73,21 +73,21 @@ export function VerifyResult({ guildId, language: initialLanguage, outcome }: { 
   const title = success ? c.successTitle : denied ? c.deniedTitle : c.errorTitle;
   const text = !outcome ? c.invalid : success ? c.successText : denied ? c.deniedText : c.reasons[outcome.reason || ""] || c.errorText;
   const retryAvailable = status === "error" && /^\d{17,20}$/.test(guildId);
-  return <main data-no-translate className="min-h-screen bg-[#18191c] px-4 py-8 text-white sm:py-14">
+  return <main data-no-translate className="min-h-screen bg-transparent px-4 py-8 text-white sm:py-14">
     <div className="mx-auto max-w-3xl">
       <header className="mb-8 flex flex-wrap items-center justify-between gap-4">
         <Link href="/" className="flex items-center gap-3"><img src={BRAND_LOGO} alt="CloudTIX" className="h-10 w-10 rounded-xl object-cover" /><span className="font-semibold">CloudTIX</span></Link>
-        <div role="group" aria-label={selected === "en" ? "Language" : "Sprache"} className="flex rounded-xl border border-white/10 bg-[#202124] p-1">
+        <div role="group" aria-label={selected === "en" ? "Language" : "Sprache"} className="flex rounded-xl border border-white/10 bg-[var(--cloudtix-card)] p-1">
           {(["de", "en"] as const).map(lang => <button type="button" key={lang} aria-pressed={selected === lang} onClick={() => { setSelected(lang); setLanguage(lang); }} className={`rounded-lg px-3 py-2 text-sm transition ${selected === lang ? "bg-white/10 text-white" : "text-slate-400 hover:text-white"}`}>{lang === "de" ? "Deutsch" : "English"}</button>)}
         </div>
       </header>
-      <section className="overflow-hidden rounded-3xl border border-white/[.08] bg-[#202124] shadow-xl shadow-black/10">
+      <section className="overflow-hidden rounded-3xl border border-white/[.08] bg-[var(--cloudtix-card)] shadow-xl shadow-black/10">
         <div className="p-6 sm:p-10">
           <div className={`mb-6 grid h-16 w-16 place-items-center rounded-2xl border ${tint}`}><Icon className={`h-8 w-8 ${color}`} /></div>
           <p className={`mb-3 text-sm font-medium ${color}`}>{c.label}</p>
           <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">{title}</h1>
           <p className="mt-4 max-w-xl text-base leading-7 text-slate-400">{text}</p>
-          {outcome && <div className="mt-8 rounded-2xl border border-white/[.07] bg-[#18191c] p-4 sm:p-5">
+          {outcome && <div className="mt-8 rounded-2xl border border-white/[.07] bg-[var(--cloudtix-field)] p-4 sm:p-5">
             <div className="flex items-center gap-4">
               {outcome.guild_icon ? <img src={outcome.guild_icon} alt="" className="h-12 w-12 rounded-xl" /> : <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-blue-400/10 text-xl font-medium text-blue-300">{(outcome.guild_name || "D").slice(0, 1)}</span>}
               <div className="min-w-0"><p className="text-xs text-slate-500">{c.server}</p><p className="mt-1 break-words font-medium">{outcome.guild_name || "Discord"}</p></div>
@@ -98,12 +98,12 @@ export function VerifyResult({ guildId, language: initialLanguage, outcome }: { 
           </div>}
           <div className="mt-7"><h2 className="text-sm font-medium text-white">{c.next}</h2><p className="mt-2 text-sm leading-6 text-slate-400">{success ? c.successNext : denied ? c.deniedNext : outcome ? c.errorNext : c.invalid}</p></div>
           <div className="mt-7 flex flex-col gap-3 sm:flex-row">
-            {success && <a href={`https://discord.com/channels/${encodeURIComponent(guildId)}`} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-medium transition hover:bg-[#6772f5]">{c.discord}<ArrowUpRight className="h-4 w-4" /></a>}
-            {retryAvailable && <a href={`/api/verify/start?guild=${encodeURIComponent(guildId)}&lang=${selected}`} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-medium transition hover:bg-[#6772f5]"><RefreshCw className="h-4 w-4" />{c.retry}</a>}
+            {success && <a href={`https://discord.com/channels/${encodeURIComponent(guildId)}`} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-medium transition hover:bg-primary-hover">{c.discord}<ArrowUpRight className="h-4 w-4" /></a>}
+            {retryAvailable && <a href={`/api/verify/start?guild=${encodeURIComponent(guildId)}&lang=${selected}`} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-medium transition hover:bg-primary-hover"><RefreshCw className="h-4 w-4" />{c.retry}</a>}
             <Link href="/" className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-white/10 px-5 py-3 text-sm font-medium text-slate-300 transition hover:bg-white/5">{c.home}<ArrowRight className="h-4 w-4" /></Link>
           </div>
         </div>
-        <footer className="border-t border-white/[.07] bg-[#18191c]/50 p-6 sm:px-10">
+        <footer className="border-t border-white/[.07] bg-[var(--cloudtix-field)] p-6 sm:px-10">
           <p className="flex items-center gap-2 text-sm text-slate-300"><LockKeyhole className="h-4 w-4 text-blue-300" />{c.secure}</p>
           <p className="mt-3 text-xs leading-6 text-slate-500">{c.privacyText}</p>
           <Link href="/privacy" className="mt-3 inline-block text-xs text-blue-300 hover:underline">{c.privacy}</Link>

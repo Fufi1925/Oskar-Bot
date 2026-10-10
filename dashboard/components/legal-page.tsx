@@ -20,11 +20,7 @@ export function LegalPage({
   children: React.ReactNode;
 }) {
   return (
-    <div className="min-h-screen overflow-x-clip bg-[#0a0a0c] text-slate-200 font-sans">
-      <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
-        <div className="absolute bottom-[-10%] left-[-5%] w-[40%] h-[40%] bg-indigo-600/[0.05] blur-[120px] rounded-full" />
-        <div className="absolute top-[-10%] right-[-5%] w-[35%] h-[35%] bg-indigo-600/[0.05] blur-[120px] rounded-full" />
-      </div>
+    <div className="min-h-screen overflow-x-clip bg-transparent text-slate-200 font-sans">
 
       {/* Dieselbe Leiste wie auf der Startseite.
           Vorher stand hier eine zweite, eigene Fassung -- damit sah
@@ -69,7 +65,7 @@ export function Section({
   children: React.ReactNode;
 }) {
   return (
-    <section className="bg-white/[0.02] border border-white/[0.05] rounded-3xl p-8">
+    <section className="bg-[var(--cloudtix-card)] border border-slate-800 rounded-2xl p-6 sm:p-8">
       <h2 className="text-lg font-bold text-white mb-4">{title}</h2>
       <div className="space-y-3 text-slate-400 leading-relaxed text-[15px]">
         {children}

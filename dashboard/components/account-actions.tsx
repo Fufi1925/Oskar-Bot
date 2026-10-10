@@ -4,14 +4,14 @@ import { SUPPORT_INVITE } from "@/lib/legal";
 
 const actions = [
   { label: "Dashboard", hint: "Zur persönlichen Übersicht", href: "/dashboard", icon: LayoutDashboard, color: "text-indigo-400" },
-  { label: "Meine Server", hint: "Server auswählen und verwalten", href: "/dashboard/guilds", icon: Server, color: "text-cyan-400" },
+  { label: "Meine Server", hint: "Server auswählen und verwalten", href: "/dashboard/guilds", icon: Server, color: "text-slate-400" },
   { label: "Premium", hint: "Status ansehen oder Key einlösen", href: "/dashboard/premium", icon: Gem, color: "text-amber-400" },
   { label: "Support", hint: "Hilfe auf unserem Discord-Server", href: SUPPORT_INVITE, icon: LifeBuoy, color: "text-emerald-400", external: true },
 ] as const;
 
 export function AccountActions() {
   return (
-    <section className="overflow-hidden rounded-2xl border border-slate-800 bg-[#131318]">
+    <section className="overflow-hidden rounded-2xl border border-slate-800 bg-[var(--cloudtix-card)]">
       <div className="border-b border-slate-800 px-5 py-4 sm:px-6">
         <h2 className="text-lg font-bold text-white">Schnellzugriff</h2>
         <p className="mt-1 text-sm text-slate-500">Die wichtigsten Bereiche für dein Konto.</p>

@@ -91,7 +91,7 @@ export function AccountPrivacyPanel({ userId }: { userId: string }) {
   };
 
   return (
-    <section id="datenschutz" className="overflow-hidden rounded-2xl border border-slate-800 bg-[#131318]">
+    <section id="datenschutz" className="overflow-hidden rounded-2xl border border-slate-800 bg-[var(--cloudtix-card)]">
       <div className="flex flex-col gap-4 border-b border-slate-800 px-5 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-6">
         <div>
           <div className="flex items-center gap-2 text-indigo-300"><ShieldCheck className="h-5 w-5" /><span className="text-xs font-bold uppercase tracking-[0.2em]">Datenschutzbereich</span></div>
@@ -105,13 +105,13 @@ export function AccountPrivacyPanel({ userId }: { userId: string }) {
       </div>
 
       <div className="grid gap-px bg-slate-800 md:grid-cols-3">
-        <button type="button" onClick={() => setDetails(value => !value)} className="flex items-center gap-3 bg-[#111116] p-5 text-left hover:bg-[#15151b]">
-          <Database className="h-5 w-5 text-cyan-400" /><span className="flex-1"><strong className="block text-sm text-white">Gespeicherte Daten</strong><span className="mt-1 block text-xs text-slate-500">{inventory.reduce((sum, item) => sum + Number(item.count || 0), 0)} Datensätze in {inventory.length || 10} Bereichen</span></span><ChevronDown className={`h-4 w-4 text-slate-600 transition-transform ${details ? "rotate-180" : ""}`} />
+        <button type="button" onClick={() => setDetails(value => !value)} className="flex items-center gap-3 bg-[var(--cloudtix-field)] p-5 text-left hover:bg-[var(--cloudtix-card-hover)]">
+          <Database className="h-5 w-5 text-slate-400" /><span className="flex-1"><strong className="block text-sm text-white">Gespeicherte Daten</strong><span className="mt-1 block text-xs text-slate-500">{inventory.reduce((sum, item) => sum + Number(item.count || 0), 0)} Datensätze in {inventory.length || 10} Bereichen</span></span><ChevronDown className={`h-4 w-4 text-slate-600 transition-transform ${details ? "rotate-180" : ""}`} />
         </button>
-        <button type="button" onClick={() => setCookies(value => !value)} className="flex items-center gap-3 bg-[#111116] p-5 text-left hover:bg-[#15151b]">
+        <button type="button" onClick={() => setCookies(value => !value)} className="flex items-center gap-3 bg-[var(--cloudtix-field)] p-5 text-left hover:bg-[var(--cloudtix-card-hover)]">
           <Cookie className="h-5 w-5 text-amber-400" /><span className="flex-1"><strong className="block text-sm text-white">Cookie-Einstellungen</strong><span className="mt-1 block text-xs text-slate-500">Nur technisch notwendige Cookies</span></span><ChevronDown className={`h-4 w-4 text-slate-600 transition-transform ${cookies ? "rotate-180" : ""}`} />
         </button>
-        <a href="#gefahrenbereich" className="flex items-center gap-3 bg-[#111116] p-5 hover:bg-[#15151b]">
+        <a href="#gefahrenbereich" className="flex items-center gap-3 bg-[var(--cloudtix-field)] p-5 hover:bg-[var(--cloudtix-card-hover)]">
           <FileClock className="h-5 w-5 text-rose-400" /><span><strong className="block text-sm text-white">Löschantrag stellen</strong><span className="mt-1 block text-xs text-slate-500">Mit Status und Rücknahmefrist</span></span>
         </a>
       </div>

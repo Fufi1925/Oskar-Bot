@@ -195,7 +195,7 @@ function initials(name: string) {
 }
 
 const KARTE =
-  "rounded-2xl border border-slate-800 bg-[#0f0f13] transition-colors";
+  "rounded-2xl border border-slate-800 bg-[var(--cloudtix-card)] transition-colors";
 
 /**
  * Ein Abschnitt im Stil dieser Seite.
@@ -220,7 +220,7 @@ function Block({
   children: React.ReactNode;
 }) {
   return (
-    <section className="rounded-2xl border border-slate-800 bg-[#0f0f13] p-6 sm:p-7">
+    <section className="rounded-2xl border border-slate-800 bg-[var(--cloudtix-card)] p-6 sm:p-7">
       <h2 className="mb-4 text-lg font-bold text-white">{title}</h2>
       <div className="space-y-3 text-[15px] leading-relaxed text-slate-400">
         {children}
@@ -346,14 +346,7 @@ export default async function TeamPage() {
                   className={`${KARTE} group flex items-start gap-3.5 p-4 hover:border-slate-700`}
                 >
                   <span
-                    className="mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-xl border"
-                    style={{
-                      // Die Farbe kommt aus dem Bot, damit Website und
-                      // Discord-Panel dieselbe Rolle gleich einfärben.
-                      borderColor: `${rolle.colour}40`,
-                      backgroundColor: `${rolle.colour}1a`,
-                      color: rolle.colour,
-                    }}
+                    className="mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-slate-700 bg-white/5 text-slate-200"
                   >
                     <Icon className="h-4 w-4" />
                   </span>

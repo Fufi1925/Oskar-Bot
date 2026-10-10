@@ -79,7 +79,7 @@ export function AccountApplicationsPanel({ userId }: { userId: string }) {
   return (
     <section
       id="bewerbungen"
-      className="overflow-hidden rounded-2xl border border-slate-800 bg-[#131318]"
+      className="overflow-hidden rounded-2xl border border-slate-800 bg-[var(--cloudtix-card)]"
     >
       <div className="flex flex-col gap-4 border-b border-slate-800 px-5 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-6">
         <div>
@@ -111,7 +111,7 @@ export function AccountApplicationsPanel({ userId }: { userId: string }) {
         </div>
       ) : application ? (
         <div className="grid gap-px bg-slate-800 md:grid-cols-[0.75fr_1.25fr]">
-          <div className="bg-[#111116] p-5 sm:p-6">
+          <div className="bg-[var(--cloudtix-field)] p-5 sm:p-6">
             <p className="text-xs font-semibold text-slate-600">
               Laufende oder letzte Bewerbung
             </p>
@@ -147,7 +147,7 @@ export function AccountApplicationsPanel({ userId }: { userId: string }) {
               )}
             </dl>
           </div>
-          <div className="bg-[#111116] p-5 sm:p-6">
+          <div className="bg-[var(--cloudtix-field)] p-5 sm:p-6">
             <h3 className="flex items-center gap-2 font-bold text-white">
               <MessageSquareText className="h-4 w-4 text-violet-400" />
               Entscheidung und Rückmeldung

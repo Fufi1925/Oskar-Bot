@@ -47,7 +47,7 @@ interface Befehl {
 function Zeile({ befehl, prefix }: { befehl: Befehl; prefix: string }) {
   useWebsiteLocale();
   return (
-    <div className="rounded-xl border border-slate-800 bg-[#0f0f13] px-4 py-3 transition-colors hover:border-slate-700">
+    <div className="rounded-xl border border-slate-800 bg-[var(--cloudtix-card)] px-4 py-3 transition-colors hover:border-slate-700">
       <div className="flex items-start gap-3">
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
@@ -155,12 +155,12 @@ export default function CommandsPage() {
   }, [rest]);
 
   return (
-    <div className="min-h-screen overflow-x-clip bg-[#0a0a0c] text-slate-200">
+    <div className="min-h-screen overflow-x-clip bg-transparent text-slate-200">
       <SiteNav />
 
       <main className="mx-auto max-w-[1100px] px-6 lg:px-12 py-16">
         <div className="mb-10">
-          <span className="inline-flex items-center gap-2 rounded-full border border-slate-800 bg-[#131318] px-4 py-1.5 text-[13px] text-indigo-300">
+          <span className="inline-flex items-center gap-2 rounded-full border border-slate-800 bg-[var(--cloudtix-card)] px-4 py-1.5 text-[13px] text-indigo-300">
             <Terminal className="h-3.5 w-3.5" />
             Befehle
           </span>
@@ -182,7 +182,7 @@ export default function CommandsPage() {
               value={suche}
               onChange={(e) => setSuche(e.target.value)}
               placeholder="Befehl suchen …"
-              className="w-full rounded-xl border border-slate-800 bg-[#131318] py-3 pl-11 pr-4 text-[15px] text-white placeholder:text-slate-600 focus:outline-none focus:border-slate-700 transition-colors"
+              className="w-full rounded-xl border border-slate-800 bg-[var(--cloudtix-card)] py-3 pl-11 pr-4 text-[15px] text-white placeholder:text-slate-600 focus:outline-none focus:border-slate-700 transition-colors"
             />
           </div>
 
@@ -195,7 +195,7 @@ export default function CommandsPage() {
                   "rounded-lg border px-3 py-1.5 text-[13px] transition-colors",
                   !kategorie
                     ? "border-indigo-500/40 bg-indigo-500/10 text-indigo-300"
-                    : "border-slate-800 bg-[#131318] text-slate-400 hover:border-slate-700",
+                    : "border-slate-800 bg-[var(--cloudtix-card)] text-slate-400 hover:border-slate-700",
                 )}
               >
                 Alle ({alle.length})
@@ -209,7 +209,7 @@ export default function CommandsPage() {
                     "rounded-lg border px-3 py-1.5 text-[13px] transition-colors",
                     kategorie === k.name
                       ? "border-indigo-500/40 bg-indigo-500/10 text-indigo-300"
-                      : "border-slate-800 bg-[#131318] text-slate-400 hover:border-slate-700",
+                      : "border-slate-800 bg-[var(--cloudtix-card)] text-slate-400 hover:border-slate-700",
                   )}
                 >
                   {k.name} ({k.count})
@@ -226,7 +226,7 @@ export default function CommandsPage() {
         )}
 
         {fehler && !laden && (
-          <div className="rounded-2xl border border-slate-800 bg-[#0f0f13] p-6">
+          <div className="rounded-2xl border border-slate-800 bg-[var(--cloudtix-card)] p-6">
             <p className="text-[15px] text-slate-300">{fehler}</p>
             <p className="mt-2 text-[13px] text-slate-500">
               Der Bot antwortet gerade nicht. Die Befehle stehen auch im
@@ -277,7 +277,7 @@ export default function CommandsPage() {
                     <button
                       type="button"
                       onClick={() => setAlleZeigen((a) => !a)}
-                      className="flex w-full items-center justify-between gap-4 rounded-xl border border-slate-800 bg-[#131318] px-5 py-4 text-left transition-colors hover:border-slate-700"
+                      className="flex w-full items-center justify-between gap-4 rounded-xl border border-slate-800 bg-[var(--cloudtix-card)] px-5 py-4 text-left transition-colors hover:border-slate-700"
                     >
                       <span>
                         <span className="block text-[16px] font-bold text-white">
@@ -318,7 +318,7 @@ export default function CommandsPage() {
           </>
         )}
 
-        <div className="mt-16 rounded-2xl border border-slate-800 bg-[#0f0f13] p-6">
+        <div className="mt-16 rounded-2xl border border-slate-800 bg-[var(--cloudtix-card)] p-6">
           <h3 className="text-[16px] font-bold text-white">
             Etwas nicht gefunden?
           </h3>

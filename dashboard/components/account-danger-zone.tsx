@@ -92,7 +92,7 @@ export function AccountDangerZone({ userId, username }: { userId: string; userna
       </div>
 
       {step > 0 && step < 3 && <div className="fixed inset-0 z-[120] grid place-items-center bg-black/80 p-4 backdrop-blur-md">
-        <div role="dialog" aria-modal="true" className="relative w-full max-w-lg rounded-[26px] border border-red-500/30 bg-[#151519] p-6 shadow-2xl shadow-black/70 sm:p-8">
+        <div role="dialog" aria-modal="true" className="relative w-full max-w-lg rounded-[26px] border border-red-500/30 bg-[var(--cloudtix-card)] p-6 shadow-2xl shadow-black/70 sm:p-8">
           <button type="button" onClick={() => { setStep(0); setTyped(""); }} aria-label="Schließen" className="absolute right-4 top-4 rounded-lg p-2 text-slate-500 hover:bg-white/5 hover:text-white"><X className="h-5 w-5" /></button>
           <span className="grid h-12 w-12 place-items-center rounded-2xl bg-red-500/10"><ShieldAlert className="h-6 w-6 text-red-400" /></span>
           {step === 1 ? <>
@@ -111,7 +111,7 @@ export function AccountDangerZone({ userId, username }: { userId: string; userna
       </div>}
 
       {step === 3 && request && <div className="fixed inset-0 z-[120] grid place-items-center bg-black/80 p-4 backdrop-blur-md">
-        <div role="dialog" aria-modal="true" className="w-full max-w-lg rounded-[26px] border border-red-500/30 bg-[#151519] p-7 text-center shadow-2xl shadow-black/70 sm:p-9">
+        <div role="dialog" aria-modal="true" className="w-full max-w-lg rounded-[26px] border border-red-500/30 bg-[var(--cloudtix-card)] p-7 text-center shadow-2xl shadow-black/70 sm:p-9">
           <AlertTriangle className="mx-auto h-12 w-12 text-red-400" />
           <h2 className="mt-5 text-2xl font-bold text-white">Deine Datenlöschung wurde beantragt</h2>
           {seconds > 0 && request.status === "undo" ? <><p className="mt-3 text-sm text-slate-400">Der Antrag wird in <strong className="text-white">{seconds} Sekunden</strong> an Fufi zur Prüfung weitergegeben.</p><button type="button" disabled={busy} onClick={undo} className="mt-7 w-full rounded-xl bg-red-600 px-5 py-3.5 font-bold text-white hover:bg-red-500 disabled:opacity-50">Rückgängig machen ({seconds}s)</button></> : <><p className="mt-3 text-sm leading-6 text-slate-400">Die Rücknahmefrist ist abgelaufen. Fufi erhält eine Discord-DM und prüft den Antrag im Admin-Dashboard. Die Löschung erfolgt nach Genehmigung innerhalb von 24–98 Stunden.</p><button type="button" onClick={() => { setRequest({ ...request, status: "pending" }); setStep(0); }} className="mt-7 rounded-xl border border-slate-700 px-5 py-3 font-semibold text-white hover:bg-white/5">Verstanden</button></>}

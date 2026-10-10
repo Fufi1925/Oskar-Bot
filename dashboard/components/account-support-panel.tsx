@@ -58,11 +58,11 @@ export function AccountSupportPanel({ userId }: { userId: string }) {
   return (
     <section
       id="support"
-      className="overflow-hidden rounded-2xl border border-slate-800 bg-[#131318]"
+      className="overflow-hidden rounded-2xl border border-slate-800 bg-[var(--cloudtix-card)]"
     >
       <div className="flex flex-col gap-4 border-b border-slate-800 px-5 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-6">
         <div>
-          <div className="flex items-center gap-2 text-sky-300">
+          <div className="flex items-center gap-2 text-slate-300">
             <LifeBuoy className="h-5 w-5" />
             <span className="text-xs font-bold uppercase tracking-[0.2em]">
               Support
@@ -87,13 +87,13 @@ export function AccountSupportPanel({ userId }: { userId: string }) {
       </div>
 
       <div className="grid gap-px bg-slate-800 lg:grid-cols-[1.35fr_0.65fr]">
-        <div className="bg-[#111116] p-5 sm:p-6">
+        <div className="bg-[var(--cloudtix-field)] p-5 sm:p-6">
           <h3 className="flex items-center gap-2 font-bold text-white">
-            <Headphones className="h-4 w-4 text-sky-400" />
+            <Headphones className="h-4 w-4 text-slate-400" />
             Eigene offene Tickets
           </h3>
           {loading ? (
-            <Loader2 className="mt-5 h-5 w-5 animate-spin text-sky-400" />
+            <Loader2 className="mt-5 h-5 w-5 animate-spin text-slate-400" />
           ) : support?.tickets?.length ? (
             <div className="mt-4 space-y-2">
               {support.tickets.map((ticket: any) => (
@@ -104,7 +104,7 @@ export function AccountSupportPanel({ userId }: { userId: string }) {
                   rel="noreferrer"
                   className="flex items-center gap-3 rounded-xl border border-slate-800 bg-black/20 p-3 hover:border-slate-700"
                 >
-                  <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-sky-400/10 text-sm font-black text-sky-300">
+                  <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-slate-400/10 text-sm font-black text-slate-300">
                     #{ticket.ticket_number || "–"}
                   </span>
                   <span className="min-w-0 flex-1">
@@ -135,7 +135,7 @@ export function AccountSupportPanel({ userId }: { userId: string }) {
           )}
         </div>
 
-        <div className="bg-[#111116] p-5 sm:p-6">
+        <div className="bg-[var(--cloudtix-field)] p-5 sm:p-6">
           <h3 className="flex items-center gap-2 font-bold text-white">
             <Radio className="h-4 w-4 text-emerald-400" />
             Live-Status des Bots

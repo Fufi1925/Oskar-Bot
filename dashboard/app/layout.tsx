@@ -26,6 +26,7 @@ import { AuthProvider } from "@/components/auth-provider";
 import { GlobalPopups } from "@/components/global-popups";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { PublicFooter } from "@/components/public-footer";
+import { PublicWebsiteSurface } from "@/components/public-website-surface";
 import { LanguageProvider } from "@/lib/i18n/LanguageContext";
 import { SUPPORT_INVITE } from "@/lib/legal";
 
@@ -88,8 +89,10 @@ export default function RootLayout({
       <body className="font-sans antialiased text-slate-200">
         <AuthProvider>
           <LanguageProvider initialLanguage={language}>
-            {children}
-            <PublicFooter supportInvite={SUPPORT_INVITE} email={footerEmail} />
+            <PublicWebsiteSurface>
+              {children}
+              <PublicFooter supportInvite={SUPPORT_INVITE} email={footerEmail} />
+            </PublicWebsiteSurface>
             <Toaster />
             {/* Globale Hinweise bleiben während der wichtigen
                 Login-Erfolgsanzeige geschlossen. Erst nach der Weiterleitung

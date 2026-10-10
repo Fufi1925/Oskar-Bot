@@ -92,17 +92,16 @@ export default function LoginSuccessPage() {
   }, [router, sessionUserId, status]);
 
   return (
-    <main className="fixed inset-0 z-[10000] grid min-h-screen place-items-center overflow-hidden bg-[#070708] px-5">
-      <div className="login-success-glow pointer-events-none absolute h-80 w-80 rounded-full bg-emerald-500/10 blur-3xl" />
+    <main className="fixed inset-0 z-[10000] grid min-h-screen place-items-center overflow-hidden bg-transparent px-5">
       <section
         role="status"
         aria-live="polite"
-        className="login-success-card relative w-full max-w-sm overflow-hidden rounded-2xl border border-white/[0.06] bg-[#141415] px-6 py-9 text-center shadow-2xl shadow-black/60 sm:px-10"
+        className="login-success-card relative w-full max-w-sm overflow-hidden rounded-2xl border border-white/[0.06] bg-[var(--cloudtix-card)] px-6 py-9 text-center shadow-2xl shadow-black/60 sm:px-10"
       >
         <div className="relative mx-auto h-20 w-20">
-          <span className="login-success-ring absolute inset-0 rounded-full border border-emerald-400/30" />
-          <div className="login-success-check absolute inset-2 grid place-items-center rounded-full bg-emerald-500 shadow-lg shadow-emerald-500/25">
-            <Check className="h-9 w-9 text-white" strokeWidth={2.5} />
+          <span className="login-success-ring absolute inset-0 rounded-full border border-white/30" />
+          <div className="login-success-check absolute inset-2 grid place-items-center rounded-full bg-white shadow-lg shadow-black/25">
+            <Check className="h-9 w-9 text-black" strokeWidth={2.5} />
           </div>
         </div>
         <h1 className="mt-5 text-2xl font-black text-white">Erfolgreich!</h1>
@@ -113,7 +112,7 @@ export default function LoginSuccessPage() {
           <span className="login-dot">.</span>
         </p>
         <div className="mx-auto mt-6 h-1 w-32 overflow-hidden rounded-full bg-white/5">
-          <div className="login-success-progress h-full rounded-full bg-emerald-500" />
+          <div className="login-success-progress h-full rounded-full bg-white" />
         </div>
       </section>
       <style jsx>{`

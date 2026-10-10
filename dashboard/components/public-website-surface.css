@@ -1,0 +1,62 @@
+/* Scoped to public routes; the dashboard never receives this wrapper. */
+.cloudtix-public-site {
+  --cloudtix-page: #080808;
+  --cloudtix-page-surface: transparent;
+  --cloudtix-card: #101010;
+  --cloudtix-field: #0b0b0b;
+  --cloudtix-card-hover: #161616;
+  position: relative;
+  isolation: isolate;
+  min-height: 100svh;
+  background: var(--cloudtix-page);
+  color: #f5f5f5;
+}
+
+.cloudtix-dot-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.cloudtix-dot-grid {
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(circle, rgb(255 255 255 / .11) 1px, transparent 1px);
+  background-size: 26px 26px;
+  background-position: 13px 13px;
+}
+
+/* The mask reveals white copies of the same dots, with no solid cursor glow. */
+.cloudtix-dot-highlight {
+  opacity: 0;
+  background-image: radial-gradient(circle, #fff 1px, transparent 1px);
+  -webkit-mask-image: radial-gradient(circle 90px at var(--dot-pointer-x, -200px) var(--dot-pointer-y, -200px), #000 15%, transparent 100%);
+  mask-image: radial-gradient(circle 90px at var(--dot-pointer-x, -200px) var(--dot-pointer-y, -200px), #000 15%, transparent 100%);
+  transition: opacity 180ms ease;
+}
+
+.cloudtix-public-site .cloudtix-dotted { background: transparent; }
+.cloudtix-public-site ::selection { background: #d4d4d4; color: #080808; }
+.cloudtix-public-site main h1 { letter-spacing: -.04em; }
+.cloudtix-public-site :is(input, textarea, select) { color-scheme: dark; }
+.cloudtix-public-site :is(input, textarea)::placeholder { color: #858585; }
+.cloudtix-public-site :is(a, button, input, textarea, select):focus-visible { outline-color: #d4d4d4; }
+
+/* Existing public controls use the same bright primary action as the homepage. */
+.cloudtix-public-site :is([class~="bg-primary"], [class~="bg-indigo-600"], [class~="bg-zinc-400"]) {
+  background-color: #f5f5f5;
+  color: #101010;
+}
+.cloudtix-public-site :is([class~="bg-primary"], [class~="bg-indigo-600"], [class~="bg-zinc-400"]):enabled:hover,
+.cloudtix-public-site a:is([class~="bg-primary"], [class~="bg-indigo-600"], [class~="bg-zinc-400"]):hover {
+  background-color: #dcdcdc;
+}
+
+@media (hover: none), (pointer: coarse) {
+  .cloudtix-dot-highlight { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cloudtix-dot-highlight { transition: none; }
+}
