@@ -12,6 +12,7 @@
 # ║                                                                  ║
 # ╚══════════════════════════════════════════════════════════════════╝
 
+from utils.branding import brand_logo_url
 import asyncio
 from discord.ext import commands, tasks
 from discord import *
@@ -149,7 +150,7 @@ class TimeSelect(Select):
         )
         embed.set_author(
             name="Added No Prefix",
-            icon_url="https://cdn.discordapp.com/icons/1166303696263585852/eeb00b2cf541438e88cdf842394c5b30.png?size=1024",
+            icon_url=brand_logo_url(),
         )
         embed.set_footer(
             text="DM will be sent to the user in case No prefix is expired."

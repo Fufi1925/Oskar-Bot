@@ -41,6 +41,7 @@ from __future__ import annotations
 import logging
 import os
 
+from utils.branding import brand_logo_url
 import discord
 from discord.ext import commands
 from discord.ext.commands import Cog
@@ -83,8 +84,7 @@ class KicksButton(discord.ui.View):
         if not site.startswith(("https://", "http://")):
             site = "https://universtiy-bot.up.railway.app"
         app_id = getattr(getattr(bot, "user", None), "id", None) or os.getenv("DISCORD_CLIENT_ID") or "1530349205372145715"
-        avatar = getattr(getattr(bot, "user", None), "display_avatar", None)
-        logo = str(avatar.url) if avatar else f"{site}/icon-512.png"
+        logo = brand_logo_url()
         view = discord.ui.LayoutView(timeout=None)
         info = discord.ui.Container(accent_color=0x202124)
         info.add_item(discord.ui.Section(

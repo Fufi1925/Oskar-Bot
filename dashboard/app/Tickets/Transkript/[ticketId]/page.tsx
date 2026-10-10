@@ -1,4 +1,5 @@
 /* eslint-disable @next/next/no-img-element -- Discord CDN media has runtime dimensions and must remain byte-for-byte linked. */
+import { BRAND_LOGO } from "@/lib/brand";
 import { getServerSession } from "next-auth/next";
 import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
@@ -110,7 +111,7 @@ function Message({ message, compact = false }: { message: AnyData; compact?: boo
   return <article className={`discord-message ${compact ? "compact" : ""}`} id={`message-${message.id}`}>
     {compact
       ? <time className="compact-time" dateTime={message.created_at}>{new Date(message.created_at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}</time>
-      : <img className="avatar" src={message.author.avatar_url || "/icon-192.png"} alt="" />}
+      : <img className="avatar" src={message.author.avatar_url || BRAND_LOGO} alt="" />}
     <div className="message-body">
       {message.reply && <div className="reply-line"><span>↪</span> <strong>{message.reply.author || "Original message"}</strong> {message.reply.content}</div>}
       {!compact && <div className="message-meta">

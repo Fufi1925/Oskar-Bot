@@ -107,6 +107,8 @@ class universitybot(commands.AutoShardedBot):
         await bot_settings.load()
         await feature_flags.load()
         await guild_modules.load()
+        from utils.branding import sync_discord_branding
+        await sync_discord_branding(self)
         from utils import interaction_notices
         interaction_notices.install(self)
         from utils import dm_delivery

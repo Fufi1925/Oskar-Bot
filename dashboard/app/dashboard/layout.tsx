@@ -16,6 +16,7 @@
 
 "use client";
 
+import { BRAND_LOGO } from "@/lib/brand";
 import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -487,7 +488,7 @@ export default function DashboardLayout({
         )}
       >
         <div className="flex h-[62px] shrink-0 items-center gap-2.5 border-b border-white/[.06] px-4">
-          <img src="/icon-192.png" alt="University Bot" className="h-8 w-8 rounded-lg object-cover" />
+          <img src={BRAND_LOGO} alt="University Bot" className="h-8 w-8 rounded-lg object-cover" />
           <span className="truncate text-[15px] font-bold text-white">University Bot</span>
           <button
             onClick={() => setIsSidebarOpen(false)}

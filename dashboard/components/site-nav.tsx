@@ -32,7 +32,7 @@ import { LanguageSwitcher } from "@/components/language-switcher";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { SUPPORT_INVITE } from "@/lib/legal";
 import { cn } from "@/lib/utils";
-import { normalisiereMarke } from "@/lib/brand";
+import { BRAND_LOGO, normalisiereMarke } from "@/lib/brand";
 
 const BRAND = normalisiereMarke(process.env.NEXT_PUBLIC_BRAND_NAME);
 
@@ -243,7 +243,7 @@ export function SiteNav() {
         >
           <span className={cn("grid shrink-0 place-items-center overflow-hidden rounded-xl border border-blue-400/20 bg-blue-500/10 transition-[width,height] duration-500", compact ? "h-8 w-8" : "h-9 w-9")}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/icon-192.png" alt="" className="h-full w-full object-cover" />
+            <img src={BRAND_LOGO} alt="" className="h-full w-full object-cover" />
           </span>
           <span className="hidden min-w-0 sm:block">
             <strong className={cn("block truncate font-extrabold leading-none tracking-tight text-white transition-[font-size] duration-500", compact ? "text-[14px]" : "text-[16px]")}>{BRAND}</strong>
@@ -364,7 +364,7 @@ export function SiteNav() {
             <div className="relative flex items-center gap-3 border-b border-white/[.08] px-4 py-4 sm:px-5">
               <div className="grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-2xl border border-blue-300/20 bg-blue-500/10 shadow-[0_8px_24px_rgba(37,99,235,.18)]">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src="/icon-192.png" alt="" className="h-full w-full object-cover" />
+                <img src={BRAND_LOGO} alt="" className="h-full w-full object-cover" />
               </div>
               <div className="min-w-0 flex-1">
                 <span className="block truncate text-[17px] font-black tracking-tight text-white">{BRAND}</span>

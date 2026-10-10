@@ -34,6 +34,15 @@
 /** Der eine Name. */
 export const BRAND = "University Bot";
 
+/** Version of the shared Cloudtix artwork; also refreshes cached favicons. */
+export const BRAND_ASSET_VERSION = "26d55bf24aa4";
+
+export function brandAsset(filename: string): string {
+  return `/${encodeURIComponent(filename)}?v=${BRAND_ASSET_VERSION}`;
+}
+
+export const BRAND_LOGO = brandAsset("cloudtix_pf weiß.gif");
+
 /** Eine Schreibweise in eine Vergleichsform bringen. */
 function schluessel(wert: string): string {
   return (wert || "")

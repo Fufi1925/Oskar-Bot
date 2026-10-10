@@ -75,7 +75,7 @@ import {
 } from "lucide-react";
 import { SiteNav, INVITE_URL } from "@/components/site-nav";
 import { cn } from "@/lib/utils";
-import { normalisiereMarke } from "@/lib/brand";
+import { BRAND_LOGO, normalisiereMarke } from "@/lib/brand";
 
 const HomepageWorldMap = dynamic(
   () => import("@/components/home/homepage-world-map").then((modul) => modul.HomepageWorldMap),
@@ -656,7 +656,7 @@ export function LegacyHomepage() {
             </div>
             <div className="absolute left-5 top-5 z-10 flex items-center gap-3 rounded-2xl border border-white/15 bg-black/25 p-2.5 pr-4 shadow-2xl backdrop-blur-xl sm:left-8 sm:top-8">
               <span className="grid h-11 w-11 place-items-center overflow-hidden rounded-xl border border-white/15 bg-black/45">
-                <Image src="/icon-192.png" alt="University Bot Logo" width={44} height={44} className="h-11 w-11 object-cover" priority />
+                <Image src={BRAND_LOGO} alt="University Bot Logo" width={44} height={44} unoptimized className="h-11 w-11 object-cover" priority />
               </span>
               <div><p className="text-sm font-bold text-white">University Bot</p><p className="text-[10px] uppercase tracking-[.16em] text-white/45">Discord neu gedacht</p></div>
             </div>

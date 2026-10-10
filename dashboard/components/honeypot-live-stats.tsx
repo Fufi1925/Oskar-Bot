@@ -1,5 +1,6 @@
 "use client";
 
+import { BRAND_LOGO } from "@/lib/brand";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
@@ -49,7 +50,7 @@ export function HoneypotLiveStats() {
   ];
   return <main className="min-h-screen bg-[#0b0c0f] text-white">
     <header className="border-b border-white/[.07]"><div className="mx-auto flex max-w-4xl items-center justify-between gap-4 px-5 py-5">
-      <Link href="/" className="flex items-center gap-3"><Image src="/icon-192.png" alt="University Bot" width={40} height={40} className="rounded-xl" /><span className="text-lg font-semibold sm:text-xl">University Bot <span className="text-slate-500">/ Honeypot</span></span></Link>
+      <Link href="/" className="flex items-center gap-3"><Image src={BRAND_LOGO} alt="University Bot" width={40} height={40} unoptimized className="rounded-xl object-cover" /><span className="text-lg font-semibold sm:text-xl">University Bot <span className="text-slate-500">/ Honeypot</span></span></Link>
       <a href={invite} target="_blank" rel="noopener noreferrer" className="shrink-0 rounded-xl bg-orange-400 px-4 py-2.5 text-sm font-semibold text-black transition hover:bg-orange-300">Invite Bot</a>
     </div></header>
     <div className="mx-auto max-w-4xl space-y-6 px-5 pb-16 pt-10 sm:pt-14">

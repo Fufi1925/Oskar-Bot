@@ -1,3 +1,4 @@
+{% set brand_logo = root_path ~ "/static/cloudtix_pf%20wei%C3%9F.gif?v=26d55bf24aa4" %}
 <!DOCTYPE html>
 <html lang="de">
 <head>
@@ -6,10 +7,10 @@
   <meta name="robots" content="noindex, nofollow">
   <meta name="color-scheme" content="dark">
   <title>{% block title %}{{ brand }}{% endblock %}</title>
-  <link rel="icon" href="{{ root_path }}/static/favicon.ico" sizes="any">
-  <link rel="icon" type="image/png" sizes="32x32" href="{{ root_path }}/static/favicon-32.png">
-  <link rel="apple-touch-icon" href="{{ root_path }}/static/apple-touch-icon.png">
-  <link rel="stylesheet" href="{{ root_path }}/static/css/louckup.css">
+  <link rel="icon" href="{{ root_path }}/static/favicon.ico?v=26d55bf24aa4" sizes="any">
+  <link rel="icon" type="image/png" sizes="32x32" href="{{ root_path }}/static/favicon-32.png?v=26d55bf24aa4">
+  <link rel="apple-touch-icon" href="{{ root_path }}/static/apple-touch-icon.png?v=26d55bf24aa4">
+  <link rel="stylesheet" href="{{ root_path }}/static/css/louckup.css?v=26d55bf24aa4">
 </head>
 <body>
   {% if flash %}<div class="meldung" role="status">{{ flash }}</div>{% endif %}

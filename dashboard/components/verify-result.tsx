@@ -1,5 +1,6 @@
 "use client";
 
+import { BRAND_LOGO } from "@/lib/brand";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { ArrowRight, Check, ShieldCheck, ShieldX, RefreshCw, LockKeyhole, ArrowUpRight, AlertTriangle } from "lucide-react";
@@ -75,7 +76,7 @@ export function VerifyResult({ guildId, language: initialLanguage, outcome }: { 
   return <main data-no-translate className="min-h-screen bg-[#18191c] px-4 py-8 text-white sm:py-14">
     <div className="mx-auto max-w-3xl">
       <header className="mb-8 flex flex-wrap items-center justify-between gap-4">
-        <Link href="/" className="flex items-center gap-3"><img src="/icon-192.png" alt="University Bot" className="h-10 w-10 rounded-xl" /><span className="font-semibold">University Bot</span></Link>
+        <Link href="/" className="flex items-center gap-3"><img src={BRAND_LOGO} alt="University Bot" className="h-10 w-10 rounded-xl object-cover" /><span className="font-semibold">University Bot</span></Link>
         <div role="group" aria-label={selected === "en" ? "Language" : "Sprache"} className="flex rounded-xl border border-white/10 bg-[#202124] p-1">
           {(["de", "en"] as const).map(lang => <button type="button" key={lang} aria-pressed={selected === lang} onClick={() => { setSelected(lang); setLanguage(lang); }} className={`rounded-lg px-3 py-2 text-sm transition ${selected === lang ? "bg-white/10 text-white" : "text-slate-400 hover:text-white"}`}>{lang === "de" ? "Deutsch" : "English"}</button>)}
         </div>

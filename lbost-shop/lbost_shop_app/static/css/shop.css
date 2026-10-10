@@ -9,3 +9,5 @@
 .verprechen{display:flex;flex-wrap:wrap;gap:10px;margin-top:16px}
 .verprechen span{padding:9px 12px;border:1px solid rgba(52,211,153,.22);border-radius:999px;background:rgba(52,211,153,.07);color:#8ee9c3;font-size:11px;font-weight:850}
 .unterseite{width:min(1080px,100%);margin:0 auto;padding:0 0 72px}
+
+.logo img, .small-logo img { width:100%;height:100%;object-fit:cover;border-radius:inherit; }

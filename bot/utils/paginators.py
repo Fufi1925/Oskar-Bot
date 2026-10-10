@@ -13,6 +13,7 @@
 # ╚══════════════════════════════════════════════════════════════════╝
 
 from __future__ import annotations
+from utils.branding import brand_logo_url
 import os 
 import discord
 from utils.config import BotName
@@ -55,7 +56,7 @@ class FieldPagePaginator(menus.ListPageSource):
             self.embed.set_footer(
                 text=text,
                 icon_url=
-                "https://cdn.discordapp.com/icons/699587669059174461/f689b4366447d5a23eda8d0ec749c1ba.png?width=115&height=115"
+                brand_logo_url()
             )
             #self.embed.timestamp = discord.utils.utcnow()
         return self.embed
@@ -104,7 +105,7 @@ class DescriptionEmbedPaginator(menus.ListPageSource):
             self.embed.set_footer(
                 text=text,
                 icon_url=
-                "https://cdn.discordapp.com/icons/699587669059174461/f689b4366447d5a23eda8d0ec749c1ba.png?width=115&height=115"
+                brand_logo_url()
             )
 
         return self.embed

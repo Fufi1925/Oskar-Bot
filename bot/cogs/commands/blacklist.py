@@ -12,6 +12,7 @@
 # ║                                                                  ║
 # ╚══════════════════════════════════════════════════════════════════╝
 
+from utils.branding import brand_logo_url
 import asyncio
 import discord
 from utils.emoji import CROSS, TICK
@@ -51,7 +52,7 @@ class BlacklistWordSource(menus.ListPageSource):
 
         embed.set_footer(
             text='Users having Administrator can use Blacklisted Word',
-            icon_url="https://cdn.discordapp.com/avatars/1396114795102470196/198b9bc616ec574f6fd2f7121a1d3abc.webp?size=4096"
+            icon_url=brand_logo_url()
         )
         return embed
 

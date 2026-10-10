@@ -17,7 +17,7 @@
 import type { Metadata, Viewport } from "next";
 import { cookies } from "next/headers";
 import type { Language } from "@/lib/i18n/translations";
-import { normalisiereMarke } from "@/lib/brand";
+import { brandAsset, normalisiereMarke } from "@/lib/brand";
 import "./globals.css";
 
 import { Toaster } from "@/components/ui/sonner";
@@ -43,12 +43,13 @@ export const metadata: Metadata = {
   description: "Advanced Discord community management and security.",
   icons: {
     icon: [
-      { url: "/favicon-32.png", sizes: "32x32", type: "image/png" },
-      { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
-      { url: "/icon-512.png", sizes: "512x512", type: "image/png" },
+      { url: brandAsset("favicon-16.png"), sizes: "16x16", type: "image/png" },
+      { url: brandAsset("favicon-32.png"), sizes: "32x32", type: "image/png" },
+      { url: brandAsset("icon-192.png"), sizes: "192x192", type: "image/png" },
+      { url: brandAsset("icon-512.png"), sizes: "512x512", type: "image/png" },
     ],
-    shortcut: "/favicon.ico",
-    apple: "/apple-touch-icon.png",
+    shortcut: brandAsset("favicon.ico"),
+    apple: brandAsset("apple-touch-icon.png"),
   },
 };
 
