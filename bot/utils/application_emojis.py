@@ -18,11 +18,12 @@ LOG = logging.getLogger("cloudtix.emojis")
 BOT_DIR = Path(__file__).resolve().parents[1]
 ASSETS = BOT_DIR / "assets/emojis/cloudtix"
 MANIFEST = json.loads((ASSETS / "emojis.json").read_text(encoding="utf-8"))
-COLOR_MANIFEST = ASSETS / "discord-color/emojis.json"
-if COLOR_MANIFEST.exists():
-    # Discord-only packs share the same upload/cache and bot constants, but
-    # opt out of dashboard catalogs with dashboard_visible=false.
-    MANIFEST["emojis"].extend(json.loads(COLOR_MANIFEST.read_text(encoding="utf-8"))["emojis"])
+# Later packs take precedence for native bot aliases. The dashboard retains
+# the white pack; additional collections opt out via dashboard_visible=false.
+for relative_manifest in ("discord-color/emojis.json", "discord-utility/emojis.json"):
+    pack_path = ASSETS / relative_manifest
+    if pack_path.exists():
+        MANIFEST["emojis"].extend(json.loads(pack_path.read_text(encoding="utf-8"))["emojis"])
 API = "https://discord.com/api/v10"
 _VERIFIED_APP_ENV = "CLOUDTIX_VERIFIED_EMOJI_APPLICATION_ID"
 

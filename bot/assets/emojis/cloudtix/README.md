@@ -1,5 +1,9 @@
 # CloudTIX Application Emojis
 
+Das neueste Bot-Set enthält [24 kräftig farbige Utility-Emojis mit abgerundeten
+Kacheln](discord-utility/README.md), darunter eine grüne Bestätigung und ein
+violettes Unterstützer-Herz. Es liefert die aktuellen Standard-Bot-Symbole.
+
 Zusätzlich gibt es [75 farbige Twemoji-Symbole für Bot-Nachrichten](discord-color/README.md).
 Diese werden ebenfalls automatisch hochgeladen und stehen als `EMOJIS["color_gift"]`
 bzw. `CT_COLOR_GIFT` im Bot bereit. Einige Standardkonstanten wie `TICK`, `ERROR`,
