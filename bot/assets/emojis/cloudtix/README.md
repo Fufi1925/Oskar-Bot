@@ -1,6 +1,6 @@
 # CloudTIX Application Emojis
 
-Das neueste Bot-Set enthält [24 kräftig farbige Utility-Emojis mit abgerundeten
+Das neueste Bot-Set enthält [84 kräftig farbige Utility-Emojis mit abgerundeten
 Kacheln](discord-utility/README.md), darunter eine grüne Bestätigung und ein
 violettes Unterstützer-Herz. Es liefert die aktuellen Standard-Bot-Symbole.
 
