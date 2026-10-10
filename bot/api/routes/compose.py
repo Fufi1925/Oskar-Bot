@@ -471,18 +471,13 @@ async def fetch(
 # Die Emoji-Auswahl
 # --------------------------------------------------------------------- #
 #
-# Der Bot hat gut 140 eigene Emojis. Wer sie in einer Nachricht
-# benutzen wollte, musste bisher ihre Schreibweise kennen --
-# `<:name:1234567890>`, achtzehnstellige ID inklusive. In der Praxis
-# heisst das: aus dem Quelltext abschreiben oder im Chat `\:name:`
-# tippen und das Ergebnis kopieren.
-#
-# Diese Route liefert die Liste, damit das Dashboard eine Auswahl
-# anbieten kann.
+# The CloudTIX manifest supplies every bundled preview; the synchronized
+# application cache supplies real Discord codes. Other bot emojis come from
+# the active constants, including runtime overlays and compatibility aliases.
 
 # Wie die Emoji-Namen auf Gruppen verteilt werden.
 #
-# Reine Sortierhilfe fuers Dashboard, damit nicht 142 Kacheln in einer
+# Reine Sortierhilfe fuers Dashboard, damit nicht alle Kacheln in einer
 # Reihe stehen. Ein Emoji faellt in die erste Gruppe, deren Muster
 # passt; was uebrig bleibt, landet unter "Sonstige" -- deshalb kann
 # diese Liste nie etwas verschlucken.
@@ -552,86 +547,72 @@ async def guild_emojis(guild_id: int, bot: "universitybot" = Depends(get_bot)):
 
 
 @router.get("/emojis", summary="Die eigenen Emojis des Bots")
-async def emojis():
-    """Alle Custom-Emojis, gruppiert und mit fertiger Schreibweise.
+async def emojis(bot: "universitybot" = Depends(get_bot)):
+    """Bundled CloudTIX previews, real application IDs, and active legacy emojis.
 
-    Gelesen wird ``utils/emoji.py`` ueber den Syntaxbaum, nicht ueber
-    ``dir()``: das Modul enthaelt neben den Emojis auch Dictionaries,
-    Hilfsfunktionen und Aliase, und ein ``dir()`` haette die alle
-    mitgenommen. Der Syntaxbaum liefert genau die Zuweisungen auf
-    oberster Ebene, deren Wert wie ein Discord-Emoji aussieht.
-
-    Damit kann die Liste nicht von der Quelle abweichen: es gibt keine
-    zweite, gepflegte Aufstellung, die man vergessen koennte.
+    Reading literal assignments from the syntax tree misses the application
+    pack and returns obsolete IDs for constants replaced at import time.
+    Pending assets are visible but cannot be inserted until Discord assigns an ID.
     """
-
-    import ast
     import re as _re
-    from pathlib import Path
+    from utils import emoji as active_emojis
+    from utils.application_emojis import catalog
 
-    source_path = Path(__file__).resolve().parent.parent.parent / "utils" / "emoji.py"
-    try:
-        tree = ast.parse(source_path.read_text(encoding="utf-8"))
-    except Exception as exc:  # pragma: no cover - nur bei kaputter Datei
-        raise HTTPException(
-            status_code=500,
-            detail=f"Die Emoji-Liste ließ sich nicht lesen: {exc}",
-        ) from exc
-
+    application_id = bot.application_id or (bot.user.id if bot.user else None)
+    pack = catalog(application_id)
+    category_labels = {
+        "Security": "Sicherheit",
+        "Support": "Support",
+        "Community": "Community",
+        "Music": "Musik",
+        "UI": "Oberfläche",
+    }
     pattern = _re.compile(r"^<(a?):([A-Za-z0-9_]+):(\d+)>$")
     seen: set[str] = set()
     items: list[dict] = []
 
-    for node in tree.body:
-        if not isinstance(node, ast.Assign) or len(node.targets) != 1:
-            continue
-        target = node.targets[0]
-        if not isinstance(target, ast.Name):
-            continue
-        if not isinstance(node.value, ast.Constant) or not isinstance(
-            node.value.value, str
-        ):
-            continue
+    # All bundled assets appear even when an upload is still missing. The
+    # local preview needs no Discord ID and remains available on mobile too.
+    for entry in pack["emojis"]:
+        raw = entry["discord_code"]
+        match = pattern.fullmatch(raw) if raw else None
+        if raw:
+            seen.add(raw)
+        items.append({
+            "key": f"CT_{entry['key'].upper()}",
+            "name": entry["name"],
+            "id": match.group(3) if match else None,
+            "animated": bool(match.group(1)) if match else entry["animated"],
+            "raw": raw,
+            "group": f"CloudTIX · {category_labels.get(entry['category'], entry['category'])}",
+            "url": f"/emojis/cloudtix/{entry['file']}",
+            "source": "cloudtix",
+        })
 
-        raw = node.value.value
-        match = pattern.match(raw)
-        if match is None:
+    remaining: list[dict] = []
+    for key, raw in vars(active_emojis).items():
+        if not isinstance(raw, str):
             continue
-
-        # Mehrere Namen zeigen auf dasselbe Emoji (DELETE und
-        # DELETE_ALT1 etwa). Zweimal dieselbe Kachel anzubieten waere
-        # nur verwirrend.
-        if raw in seen:
+        match = pattern.fullmatch(raw)
+        if match is None or raw in seen:
             continue
         seen.add(raw)
-
-        items.append(
-            {
-                "key": target.id,
-                "name": match.group(2),
-                "id": match.group(3),
-                "animated": bool(match.group(1)),
-                # Genau das, was in den Text muss.
-                "raw": raw,
-                "group": _emoji_group(target.id),
-                # Fuer die Vorschau im Browser: Discord liefert jedes
-                # Emoji auch als Bild.
-                "url": (
-                    f"https://cdn.discordapp.com/emojis/{match.group(3)}."
-                    f"{'gif' if match.group(1) else 'png'}?size=48"
-                ),
-            }
-        )
-
-    items.sort(key=lambda entry: (entry["group"] == "Sonstige", entry["group"],
-                                  entry["key"]))
-
-    groups: list[str] = []
-    for entry in items:
-        if entry["group"] not in groups:
-            groups.append(entry["group"])
-
-    return {"emojis": items, "groups": groups, "count": len(items)}
+        remaining.append({
+            "key": key,
+            "name": match.group(2),
+            "id": match.group(3),
+            "animated": bool(match.group(1)),
+            "raw": raw,
+            "group": _emoji_group(key),
+            "url": (f"https://cdn.discordapp.com/emojis/{match.group(3)}."
+                    f"{'gif' if match.group(1) else 'png'}?size=48"),
+            "source": "legacy",
+        })
+    remaining.sort(key=lambda entry: (entry["group"] == "Sonstige", entry["group"], entry["key"]))
+    items.extend(remaining)
+    groups = list(dict.fromkeys(entry["group"] for entry in items))
+    return {"emojis": items, "groups": groups, "count": len(items),
+            "cloudtix_count": pack["total"], "cloudtix_ready": pack["ready"]}
 
 
 # ── Vorgefertigte Texte ───────────────────────────────────────────────

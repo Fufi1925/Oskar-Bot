@@ -3,25 +3,19 @@
 /**
  * Auswahl für die eigenen Emojis des Bots.
  *
- * Der Bot bringt rund 140 eigene Emojis mit. Um eines davon in eine
- * Nachricht zu setzen, musste man bisher seine Schreibweise kennen --
- * `<:name:1530375445785084005>`, achtzehnstellige ID inklusive. In der
- * Praxis hieß das: aus dem Quelltext abschreiben oder im Chat
- * `\:name:` tippen und das Ergebnis herüberkopieren.
- *
  * Hier stehen sie als Kacheln, nach Zweck gruppiert und durchsuchbar.
  * Ein Klick setzt das Emoji an der Stelle ein, an der der Cursor
  * gerade steht -- nicht am Ende. Wer mitten im Satz eines braucht,
  * müsste es sonst von Hand dorthin schieben.
  *
- * Die Liste kommt vom Bot und wird dort aus `utils/emoji.py` gelesen.
- * Eine zweite, hier gepflegte Aufstellung würde beim ersten neuen
- * Emoji auseinanderlaufen.
+ * Der Bot liefert den vollständigen CloudTIX-Katalog, echte Discord-Codes
+ * und weitere aktive Bot-Emojis. Vorschauen ohne Discord-ID werden angezeigt,
+ * können aber erst nach dem Upload eingefügt werden.
  */
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
-import { Loader2, Search, Smile, X } from "lucide-react";
+import { Loader2, RefreshCw, Search, Smile, X } from "lucide-react";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { PopoverLayer } from "@/components/ui/popover-layer";
@@ -29,12 +23,13 @@ import { PopoverLayer } from "@/components/ui/popover-layer";
 export interface BotEmoji {
   key: string;
   name: string;
-  id: string;
+  id: string | null;
   animated: boolean;
   /** Die fertige Schreibweise, genau so wie sie in den Text muss. */
-  raw: string;
+  raw: string | null;
   group: string;
   url: string;
+  source?: "cloudtix" | "legacy";
 }
 
 /**
@@ -47,7 +42,7 @@ export interface BotEmoji {
 export function insertAtCursor(
   field: HTMLTextAreaElement | HTMLInputElement | null,
   value: string,
-  insert: string
+  insert: string,
 ): { text: string; caret: number } {
   // Ohne Feld -- etwa wenn es gerade nicht sichtbar ist -- hinten
   // anhängen. Das ist die Stelle, an der ein Mensch es erwartet.
@@ -76,6 +71,7 @@ export function EmojiPicker({
   const [error, setError] = useState("");
   const [emojis, setEmojis] = useState<BotEmoji[]>([]);
   const [query, setQuery] = useState("");
+  const [reload, setReload] = useState(0);
   const pathname = usePathname();
   const guildId = pathname.match(/\/dashboard\/guild\/(\d{15,22})/)?.[1] || "";
   // Warum das Feld per Portal an `document.body` haengt
@@ -111,35 +107,43 @@ export function EmojiPicker({
   // Erst laden, wenn jemand die Auswahl öffnet. Sie hängt an jedem
   // Textfeld; alle beim Aufbau der Seite laden zu lassen wären ein
   // Dutzend gleicher Abfragen für etwas, das oft nicht gebraucht wird.
-  const load = useCallback(async () => {
-    if (emojis.length || loading) return;
-    setLoading(true);
-    try {
-      const [botAnswer, guildAnswer] = await Promise.all([
-        api.getBotEmojis(),
-        guildId ? api.getGuildEmojis(guildId).catch(() => ({ emojis: [] })) : Promise.resolve({ emojis: [] }),
-      ]);
-      const botEmojis: BotEmoji[] = botAnswer?.emojis ?? [];
-      const serverEmojis: BotEmoji[] = guildAnswer?.emojis ?? [];
-      // Server emojis are deliberately appended: the bot's curated groups
-      // stay in their familiar order and the current server gets one live
-      // section at the very bottom.
-      const seen = new Set(botEmojis.map((entry) => entry.raw));
-      setEmojis([
-        ...botEmojis,
-        ...serverEmojis.filter((entry) => !seen.has(entry.raw)),
-      ]);
-      setError("");
-    } catch (err: any) {
-      setError(err?.message || "Die Emojis ließen sich nicht laden.");
-    } finally {
-      setLoading(false);
-    }
-  }, [emojis.length, guildId, loading]);
-
   useEffect(() => {
-    if (open) load();
-  }, [open, load]);
+    if (!open) return;
+    let cancelled = false;
+    setLoading(true);
+    setError("");
+    setEmojis([]);
+    // Refresh when opened so newly uploaded IDs and a changed server appear.
+    // Loading/error state is not a dependency: failures must not retry in a loop.
+    Promise.all([
+      api.getBotEmojis(),
+      guildId
+        ? api.getGuildEmojis(guildId).catch(() => ({ emojis: [] }))
+        : Promise.resolve({ emojis: [] }),
+    ])
+      .then(([botAnswer, guildAnswer]) => {
+        if (cancelled) return;
+        const botEmojis: BotEmoji[] = botAnswer?.emojis ?? [];
+        const serverEmojis: BotEmoji[] = guildAnswer?.emojis ?? [];
+        const seen = new Set(
+          botEmojis.map((entry) => entry.raw).filter(Boolean),
+        );
+        setEmojis([
+          ...botEmojis,
+          ...serverEmojis.filter((entry) => entry.raw && !seen.has(entry.raw)),
+        ]);
+      })
+      .catch((err: any) => {
+        if (!cancelled)
+          setError(err?.message || "Die Emojis ließen sich nicht laden.");
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, guildId, reload]);
 
   // Especially on mobile, the search input otherwise keeps the software
   // keyboard focus when the user taps back into the rich-text field.
@@ -162,7 +166,8 @@ export function EmojiPicker({
       ? emojis.filter(
           (entry) =>
             entry.name.toLowerCase().includes(needle) ||
-            entry.key.toLowerCase().includes(needle)
+            entry.key.toLowerCase().includes(needle) ||
+            entry.group.toLowerCase().includes(needle),
         )
       : emojis;
 
@@ -175,6 +180,9 @@ export function EmojiPicker({
     return [...buckets.entries()];
   }, [emojis, query]);
 
+  const cloudtix = emojis.filter((entry) => entry.source === "cloudtix");
+  const cloudtixReady = cloudtix.filter((entry) => entry.raw).length;
+
   return (
     <div className={cn("relative", className)} ref={boxRef}>
       <button
@@ -185,7 +193,7 @@ export function EmojiPicker({
           "inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-[11px] font-black uppercase tracking-wider transition-colors",
           open
             ? "border-primary/50 text-primary bg-primary/10"
-            : "border-slate-800 text-slate-500 hover:text-slate-300 hover:border-slate-700"
+            : "border-slate-800 text-slate-500 hover:text-slate-300 hover:border-slate-700",
         )}
       >
         <Smile className="h-3.5 w-3.5" />
@@ -200,83 +208,111 @@ export function EmojiPicker({
         maxHeight={420}
         minHeight={160}
         fill
-        className="rounded-2xl border border-slate-700 cloudtix-workspace-card bg-[#0d1728] shadow-2xl shadow-black/50"
+        className="rounded-2xl border border-white/10 cloudtix-workspace-card bg-[#101010] shadow-2xl shadow-black/50"
       >
-          <div className="flex items-center gap-2 p-2.5 border-b border-slate-800 shrink-0">
-            <div className="relative flex-1">
-              <Search className="h-3.5 w-3.5 text-slate-600 absolute left-2.5 top-1/2 -translate-y-1/2" />
-              <input
-                autoFocus
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder="Suchen"
-                className="w-full cloudtix-workspace-field bg-[#0e0e12] border border-slate-800 rounded-lg pl-8 pr-2 py-1.5 text-[12px] text-slate-200 placeholder:text-slate-600 focus:outline-none focus:border-slate-700"
-              />
+        <div className="flex items-center gap-2 p-2.5 border-b border-slate-800 shrink-0">
+          <div className="relative flex-1">
+            <Search className="h-3.5 w-3.5 text-slate-600 absolute left-2.5 top-1/2 -translate-y-1/2" />
+            <input
+              autoFocus
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Suchen"
+              className="w-full cloudtix-workspace-field bg-[#0e0e12] border border-slate-800 rounded-lg pl-8 pr-2 py-1.5 text-[12px] text-slate-200 placeholder:text-slate-600 focus:outline-none focus:border-slate-700"
+            />
+          </div>
+          <button
+            type="button"
+            onClick={() => setReload((value) => value + 1)}
+            disabled={loading}
+            aria-label="Emoji-Auswahl aktualisieren"
+            title="Emoji-Auswahl aktualisieren"
+            className="p-1.5 rounded-lg text-slate-500 hover:text-white disabled:opacity-40"
+          >
+            <RefreshCw className="h-3.5 w-3.5" />
+          </button>
+          <button
+            type="button"
+            onClick={() => setOpen(false)}
+            aria-label="Emoji-Auswahl schließen"
+            className="p-1.5 rounded-lg text-slate-600 hover:text-slate-300"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
+
+        <div className="flex-1 min-h-0 overflow-y-auto p-2.5">
+          {loading && (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-5 w-5 text-primary animate-spin opacity-50" />
             </div>
-            <button
-              type="button"
-              onClick={() => setOpen(false)}
-              className="p-1.5 rounded-lg text-slate-600 hover:text-slate-300"
-            >
-              <X className="h-3.5 w-3.5" />
-            </button>
-          </div>
+          )}
 
-          <div className="flex-1 min-h-0 overflow-y-auto p-2.5">
-            {loading && (
-              <div className="flex items-center justify-center py-8">
-                <Loader2 className="h-5 w-5 text-primary animate-spin opacity-50" />
-              </div>
-            )}
+          {error && !loading && (
+            <p className="text-[12px] text-red-300/80 py-4 px-1 leading-relaxed">
+              {error}
+            </p>
+          )}
 
-            {error && !loading && (
-              <p className="text-[12px] text-red-300/80 py-4 px-1 leading-relaxed">
-                {error}
+          {!loading && !error && grouped.length === 0 && (
+            <p className="text-[12px] text-slate-600 py-6 text-center">
+              Nichts gefunden.
+            </p>
+          )}
+
+          {grouped.map(([group, entries]) => (
+            <div key={group} className="mb-3 last:mb-0">
+              <p className="text-[10px] font-black uppercase tracking-widest text-slate-600 mb-1.5 px-0.5">
+                {group} · {entries.length}
               </p>
-            )}
-
-            {!loading && !error && grouped.length === 0 && (
-              <p className="text-[12px] text-slate-600 py-6 text-center">
-                Nichts gefunden.
-              </p>
-            )}
-
-            {grouped.map(([group, entries]) => (
-              <div key={group} className="mb-3 last:mb-0">
-                <p className="text-[10px] font-black uppercase tracking-widest text-slate-600 mb-1.5 px-0.5">
-                  {group}
-                </p>
-                <div className="grid grid-cols-8 gap-1">
-                  {entries.map((entry) => (
-                    <button
-                      key={entry.raw}
-                      type="button"
-                      title={`:${entry.name}:`}
-                      onClick={() => {
-                        onPick(entry.raw);
-                        // Offen lassen: wer eines einsetzt, setzt oft
-                        // gleich noch eines. Zum Schließen gibt es das
-                        // Kreuz, Escape und den Klick daneben.
-                      }}
-                      className="aspect-square grid place-items-center rounded-lg hover:bg-white/[0.06] transition-colors p-1"
-                    >
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={entry.url}
-                        alt={`:${entry.name}:`}
-                        loading="lazy"
-                        className="h-5 w-5 object-contain"
-                      />
-                    </button>
-                  ))}
-                </div>
+              <div className="grid grid-cols-8 gap-1">
+                {entries.map((entry) => (
+                  <button
+                    key={entry.raw || entry.key}
+                    type="button"
+                    disabled={!entry.raw}
+                    title={
+                      entry.raw
+                        ? `:${entry.name}:`
+                        : `${entry.key} – noch nicht bei Discord verfügbar`
+                    }
+                    aria-label={
+                      entry.raw
+                        ? entry.key
+                        : `${entry.key} – noch nicht verfügbar`
+                    }
+                    onClick={() => {
+                      if (entry.raw) onPick(entry.raw);
+                      // Offen lassen: wer eines einsetzt, setzt oft
+                      // gleich noch eines. Zum Schließen gibt es das
+                      // Kreuz, Escape und den Klick daneben.
+                    }}
+                    className="aspect-square grid place-items-center rounded-lg enabled:hover:bg-white/[0.08] disabled:opacity-40 disabled:cursor-not-allowed transition-colors p-1"
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={entry.url}
+                      alt={`:${entry.name}:`}
+                      loading="lazy"
+                      className="h-5 w-5 object-contain"
+                    />
+                  </button>
+                ))}
               </div>
-            ))}
-          </div>
+            </div>
+          ))}
+        </div>
 
-          <p className="text-[10px] text-slate-600 px-3 py-2 border-t border-slate-800 leading-relaxed shrink-0">
-            Wird an der Stelle eingefügt, an der der Cursor steht.
-          </p>
+        <p className="text-[10px] text-slate-600 px-3 py-2 border-t border-slate-800 leading-relaxed shrink-0">
+          {cloudtix.length > 0 && (
+            <span className="block mb-1">
+              CloudTIX: {cloudtixReady} / {cloudtix.length} verfügbar.
+              {cloudtixReady < cloudtix.length &&
+                " Fehlende Emojis sind noch nicht bei Discord verfügbar."}
+            </span>
+          )}
+          Wird an der Stelle eingefügt, an der der Cursor steht.
+        </p>
       </PopoverLayer>
     </div>
   );
