@@ -104,7 +104,7 @@ export function GuildAccessPanel({ guildId }: { guildId: string }) {
   );
 
   if (denied) return (
-    <div className="relative overflow-hidden rounded-3xl border border-blue-400/25 bg-[#10141d] min-h-[430px]">
+    <div className="relative overflow-hidden rounded-3xl border border-blue-400/25 cloudtix-workspace-card bg-[#10141d] min-h-[430px]">
       {/* A real preview of the page remains visible underneath, like the
           Premium lock. It cannot be clicked and contains no access data. */}
       <div aria-hidden="true" className="pointer-events-none select-none p-6 blur-[7px] opacity-35">
@@ -114,7 +114,7 @@ export function GuildAccessPanel({ guildId }: { guildId: string }) {
         </div>
         <div className="grid gap-5 md:grid-cols-2">
           {[0, 1].map((column) => (
-            <div key={column} className="rounded-2xl border border-slate-700 bg-[#131318] p-5">
+            <div key={column} className="rounded-2xl border border-slate-700 cloudtix-workspace-card bg-[#131318] p-5">
               <div className="h-4 w-36 rounded bg-slate-400/30" />
               <div className="mt-5 h-11 rounded-xl border border-slate-700 bg-black/30" />
               <div className="mt-4 space-y-3">
@@ -130,7 +130,7 @@ export function GuildAccessPanel({ guildId }: { guildId: string }) {
         </div>
       </div>
 
-      <div className="absolute inset-0 flex items-center justify-center bg-[#090b0f]/55 backdrop-blur-[2px] p-6">
+      <div className="absolute inset-0 flex items-center justify-center cloudtix-workspace-field bg-[#090b0f]/55 backdrop-blur-[2px] p-6">
         <div className="max-w-md text-center">
           <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl border border-blue-400/35 bg-blue-500/15 shadow-xl shadow-blue-500/10">
             <KeyRound className="h-7 w-7 text-blue-300" />
@@ -164,7 +164,7 @@ export function GuildAccessPanel({ guildId }: { guildId: string }) {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <section className="rounded-3xl border border-slate-800 bg-[#131318] overflow-hidden">
+        <section className="rounded-3xl border border-slate-800 cloudtix-workspace-card bg-[#131318] overflow-hidden">
           <header className="p-6 border-b border-slate-800">
             <div className="flex items-center gap-3">
               <UsersRound className="h-5 w-5 text-violet-400" />
@@ -209,7 +209,7 @@ export function GuildAccessPanel({ guildId }: { guildId: string }) {
           </div>
         </section>
 
-        <section className="rounded-3xl border border-slate-800 bg-[#131318] overflow-hidden">
+        <section className="rounded-3xl border border-slate-800 cloudtix-workspace-card bg-[#131318] overflow-hidden">
           <header className="p-6 border-b border-slate-800">
             <div className="flex items-center gap-3 mb-5">
               <UserRound className="h-5 w-5 text-blue-400" />

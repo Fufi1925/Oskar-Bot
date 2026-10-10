@@ -1,29 +1,6 @@
 "use client";
 
-/**
- * Die Übersicht eines Servers.
- *
- * ── Was hier steht ──────────────────────────────────────────────────
- *
- *   1. Kopfzeile: Fortschritt der Einrichtung, vier Kennzahlen.
- *   2. Nächste Schritte — die drei wichtigsten Module, die noch
- *      fehlen. Nicht irgendwelche: nach Wichtigkeit geordnet.
- *   3. Eingerichtet / Noch offen, jeweils als schlichte Liste.
- *   4. Sicherung & Wiederherstellung im zweiten Reiter.
- *
- * ── Warum „nächste Schritte“ ────────────────────────────────────────
- *
- * Die alte Seite warf viele gleich aussehende Kacheln aus, die meisten
- * grau. Wer neu ist, sieht daran nicht, womit er anfangen soll —
- * Begrüßung und Anti-Nuke sind wichtiger als Spitznamen. Die
- * Reihenfolge steht in `WICHTIGKEIT`.
- *
- * ── Warum Listen statt Kacheln ──────────────────────────────────────
- *
- * 17 Kacheln à 3 Spalten sind sechs Reihen, die man absuchen muss.
- * Eine Liste liest man von oben nach unten, und der Name steht immer
- * an derselben Stelle.
- */
+/** Server overview, setup progress, module cards and configuration transfer. */
 
 import { websiteLocale, useWebsiteLocale } from "@/lib/i18n/locale";
 import React, { useEffect, useMemo, useState } from "react";
@@ -172,7 +149,7 @@ const WOZU: Record<string, string> = {
   supportqueue: "Organisiert wartende Nutzer in einem Support-Sprachkanal.",
 };
 
-const CARD = "rounded-2xl border border-slate-800 bg-[#131318]";
+const CARD = "rounded-2xl border border-slate-800 cloudtix-workspace-card bg-[#131318]";
 
 interface ModuleState {
   key: string;
@@ -201,54 +178,10 @@ interface StatusPayload {
   };
 }
 
-/** Eine Zeile in einer der beiden Listen. */
-function Zeile({
-  mod,
-  guildId,
-  fertig,
-}: {
-  mod: ModuleState;
-  guildId: string;
-  fertig: boolean;
-}) {
+function Zeile({ mod, guildId, fertig }: { mod: ModuleState; guildId: string; fertig: boolean }) {
   useWebsiteLocale();
   const Icon = MODULE_ICONS[mod.key] || Settings;
-  return (
-    <Link
-      href={`/dashboard/guild/${guildId}/${mod.path}`}
-      className="group flex items-center gap-3.5 rounded-xl border border-slate-800 bg-[#0f0f13] px-4 py-3 transition-colors hover:border-slate-700"
-    >
-      <Icon
-        className={cn(
-          "h-[18px] w-[18px] shrink-0",
-          fertig ? "text-emerald-400" : "text-slate-600",
-        )}
-      />
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2">
-          <span className="text-[14px] font-semibold text-white">
-            {mod.label}
-          </span>
-          {fertig && mod.entries > 0 && (
-            <span className="text-[11px] text-slate-600">
-              {mod.entries} {mod.entries === 1 ? "Eintrag" : "Einträge"}
-            </span>
-          )}
-        </div>
-        <p className="mt-0.5 truncate text-[12px] text-slate-500">
-          {WOZU[mod.key] || "Im Dashboard einstellbar."}
-        </p>
-      </div>
-      {fertig ? (
-        <span className="flex shrink-0 items-center gap-1 rounded-md border border-emerald-500/25 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-400">
-          <Check className="h-2.5 w-2.5" />
-          Aktiv
-        </span>
-      ) : (
-        <ChevronRight className="h-4 w-4 shrink-0 text-slate-700 transition-colors group-hover:text-slate-400" />
-      )}
-    </Link>
-  );
+  return <Link href={`/dashboard/guild/${guildId}/${mod.path}`} className="cloudtix-workspace-module-card"><Icon size={19} /><div><strong>{mod.label}</strong><p>{WOZU[mod.key] || "Im Dashboard einstellbar."}</p><small data-active={String(fertig)}>{fertig ? `Eingerichtet${mod.entries > 0 ? ` · ${mod.entries} ${mod.entries === 1 ? "Eintrag" : "Einträge"}` : ""}` : "Einrichtung öffnen"}</small></div>{fertig ? <Check size={14} className="text-emerald-300" /> : <ArrowRight size={14} />}</Link>;
 }
 
 export default function GuildOverviewPage({
@@ -262,6 +195,7 @@ export default function GuildOverviewPage({
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<"overview" | "backup">("overview");
   const [alleOffenen, setAlleOffenen] = useState(false);
+  const [query, setQuery] = useState("");
 
   useEffect(() => {
     Promise.all([
@@ -313,230 +247,27 @@ export default function GuildOverviewPage({
     { label: "Bots", wert: data.guild.bot_count, icon: Bot },
   ];
 
-  const farbe =
-    data.completion >= 70
-      ? "text-emerald-400"
-      : data.completion >= 35
-        ? "text-amber-400"
-        : "text-slate-400";
-  const balken =
-    data.completion >= 70
-      ? "bg-emerald-500"
-      : data.completion >= 35
-        ? "bg-amber-500"
-        : "bg-slate-600";
+  const completion = Math.max(0, Math.min(100, data.completion));
+  const matches = (mod: ModuleState) => `${mod.label} ${WOZU[mod.key] || ""}`.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase());
+  const activeModules = sortiert.aktiv.filter(matches);
+  const openModules = (query.trim() ? sortiert.offen : restOffen).filter(matches);
 
-  return (
-    <div className="space-y-5">
-      {/* Reiter */}
-      <div className="flex gap-1 rounded-xl border border-slate-800 bg-[#131318] p-1 w-fit">
-        {(
-          [
-            ["overview", "Übersicht", Activity],
-            ["backup", "Sicherung", FileJson],
-          ] as const
-        ).map(([id, label, Icon]) => (
-          <button
-            key={id}
-            type="button"
-            onClick={() => setTab(id)}
-            className={cn(
-              "flex items-center gap-2 rounded-lg px-4 py-2 text-[13px] transition-colors",
-              tab === id
-                ? "bg-white/[0.07] text-white font-semibold"
-                : "text-slate-400 hover:text-white",
-            )}
-          >
-            <Icon className="h-3.5 w-3.5" />
-            {label}
-          </button>
-        ))}
+  return <div className="cloudtix-workspace-server-overview">
+    <header className="cloudtix-workspace-page-heading"><div><p className="cloudtix-workspace-eyebrow">DEINE SERVERZENTRALE</p><h1>Alles im Überblick.</h1><p>Sieh, wie deine Community wächst, und richte ihre nächsten Module ein.</p></div><div className="cloudtix-workspace-segmented">{([["overview", "Übersicht", Activity], ["backup", "Konfiguration", FileJson]] as const).map(([id, label, Icon]) => <button key={id} type="button" aria-pressed={tab === id} onClick={() => setTab(id)}><Icon size={14} />{label}</button>)}</div></header>
+    {tab === "backup" ? <ConfigTransferPanel guildId={params.guildId} /> : <>
+      <section className="cloudtix-workspace-stat-grid" aria-label="Deine Serverzahlen">{kennzahlen.map(metric => <div key={metric.label} className="cloudtix-workspace-stat"><metric.icon size={18} /><span>{metric.label}</span><strong>{metric.wert}</strong><small>Auf deinem Discord-Server</small></div>)}</section>
+      <div className="cloudtix-workspace-setup-grid">
+        <section className="cloudtix-workspace-setup-card"><p className="cloudtix-workspace-eyebrow">DEINE EINRICHTUNG</p><h2>Dein Server nimmt Form an.</h2><p>CloudTIX ist so vielseitig wie deine Community. Wähle die Module, die zu ihr passen.</p><div className="cloudtix-workspace-setup-progress"><strong>{Math.round(completion)}%</strong><span>{data.active_count} von {data.total_count} Modulen eingerichtet</span></div><div className="cloudtix-workspace-progress-track" role="progressbar" aria-label="Einrichtung" aria-valuenow={completion} aria-valuemin={0} aria-valuemax={100}><div style={{ width: `${completion}%` }} /></div></section>
+        <section className="cloudtix-workspace-setup-card"><p className="cloudtix-workspace-eyebrow">DEIN SERVER-TARIF</p><Crown size={24} className="text-slate-300" /><h2>{premium?.frozen ? "Premium pausiert" : premium?.active ? "Premium aktiv" : "CloudTIX Free"}</h2><p>Verwalte den Premiumstatus und die verfügbaren Funktionen für diesen Server.</p><Link href={`/dashboard/guild/${params.guildId}/premium`} className="cloudtix-workspace-action is-secondary mt-5">Premium verwalten<ArrowRight size={14} /></Link></section>
       </div>
-
-      {tab === "backup" ? (
-        <ConfigTransferPanel guildId={params.guildId} />
-      ) : (
-        <>
-          <div className={cn(CARD, "flex flex-col gap-4 p-5 sm:flex-row sm:items-center")}><span className={cn("grid h-11 w-11 place-items-center rounded-xl",premium?.runtime?"bg-amber-400/10":"bg-slate-800")}><Crown className={cn("h-5 w-5",premium?.runtime?"text-amber-300":"text-slate-600")}/></span><div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><h2 className="font-black text-white">Server-Tarif</h2><span className={cn("rounded-full px-2.5 py-1 text-[10px] font-black",premium?.runtime?"bg-amber-400/10 text-amber-300":"bg-slate-800 text-slate-500")}>{premium?.frozen?"Premium · eingefroren":premium?.active?"Premium aktiv":"Free"}</span></div><p className="mt-1 text-xs text-slate-500">{data.active_count} Module aktiv · {data.total_count-data.active_count} Module aus · {data.total_count} Module insgesamt</p></div><Link href={`/dashboard/guild/${params.guildId}/premium`} className="rounded-xl border border-slate-700 px-4 py-2.5 text-center text-xs font-bold text-slate-300 hover:text-white">Premiumstatus öffnen</Link></div>
-
-          {/* Fortschritt und Kennzahlen */}
-          <div className={cn(CARD, "p-5 sm:p-6")}>
-            <div className="flex flex-wrap items-end justify-between gap-4">
-              <div>
-                <h2 className="text-[18px] font-bold text-white">
-                  Einrichtung
-                </h2>
-                <p className="mt-1 text-[13px] text-slate-500">
-                  {data.active_count} von {data.total_count} Modulen sind
-                  eingerichtet
-                </p>
-              </div>
-              <span className={cn("text-[32px] font-extrabold leading-none", farbe)}>
-                {data.completion}%
-              </span>
-            </div>
-
-            <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-slate-800">
-              <div
-                className={cn("h-full rounded-full transition-all duration-500", balken)}
-                style={{ width: `${data.completion}%` }}
-              />
-            </div>
-
-            <div className="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
-              {kennzahlen.map((k) => (
-                <div
-                  key={k.label}
-                  className="rounded-xl border border-slate-800 bg-[#0f0f13] px-4 py-3"
-                >
-                  <k.icon className="h-4 w-4 text-slate-600" />
-                  <p className="mt-2 text-[20px] font-bold leading-none text-white">
-                    {k.wert}
-                  </p>
-                  <p className="mt-1.5 text-[11px] text-slate-500">{k.label}</p>
-                </div>
-              ))}
-            </div>
-
-            <div className="mt-5 flex flex-wrap items-center gap-x-6 gap-y-2 border-t border-slate-800 pt-4 text-[12px]">
-              <span className="text-slate-500">
-                Präfix{" "}
-                <code className="rounded bg-white/[0.06] px-1.5 py-0.5 font-mono text-slate-300">
-                  {data.prefix}
-                </code>
-              </span>
-              {data.guild.boost_level > 0 && (
-                <span className="text-slate-500">
-                  Boost{" "}
-                  <span className="text-pink-400">
-                    Stufe {data.guild.boost_level} &middot; {data.guild.boost_count}
-                  </span>
-                </span>
-              )}
-              <span className="text-slate-500">
-                Sicherheitsstufe{" "}
-                <span className="text-slate-300 capitalize">
-                  {data.guild.verification_level}
-                </span>
-              </span>
-            </div>
-          </div>
-
-          {/* Der Verlauf. Steht direkt unter den Kennzahlen, weil er
-              dieselbe Frage in der Zeit beantwortet: die Kopfzeile
-              sagt, wie viele Mitglieder es sind, das Diagramm sagt,
-              ob es mehr werden. */}
-          <HistoryCharts guildId={params.guildId} />
-
-          {/* Nächste Schritte */}
-          {naechste.length > 0 && (
-            <div className={cn(CARD, "p-5 sm:p-6")}>
-              <h2 className="text-[16px] font-bold text-white">
-                Als Nächstes
-              </h2>
-              <p className="mt-1 text-[13px] text-slate-500">
-                Die drei Module, die am meisten bringen und noch fehlen.
-              </p>
-
-              <div className="mt-4 grid gap-3 lg:grid-cols-3">
-                {naechste.map((mod) => {
-                  const Icon = MODULE_ICONS[mod.key] || Settings;
-                  return (
-                    <Link
-                      key={mod.key}
-                      href={`/dashboard/guild/${params.guildId}/${mod.path}`}
-                      className="group rounded-xl border border-slate-800 bg-[#0f0f13] p-4 transition-colors hover:border-indigo-500/40"
-                    >
-                      <div className="flex items-center gap-2.5">
-                        <Icon className="h-[18px] w-[18px] text-indigo-400" />
-                        <span className="text-[15px] font-semibold text-white">
-                          {mod.label}
-                        </span>
-                      </div>
-                      <p className="mt-2 text-[13px] leading-relaxed text-slate-400">
-                        {WOZU[mod.key] || "Im Dashboard einstellbar."}
-                      </p>
-                      <span className="mt-3 inline-flex items-center gap-1.5 text-[13px] text-indigo-400">
-                        Einrichten
-                        <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
-                      </span>
-                    </Link>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* Eingerichtet */}
-          {sortiert.aktiv.length > 0 && (
-            <div className={cn(CARD, "p-5 sm:p-6")}>
-              <div className="mb-4 flex items-baseline gap-2.5">
-                <h2 className="text-[16px] font-bold text-white">
-                  Eingerichtet
-                </h2>
-                <span className="text-[13px] text-slate-600">
-                  {sortiert.aktiv.length}
-                </span>
-              </div>
-              <div className="space-y-2">
-                {sortiert.aktiv.map((mod) => (
-                  <Zeile key={mod.key} mod={mod} guildId={params.guildId} fertig />
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Noch offen */}
-          {restOffen.length > 0 && (
-            <div className={cn(CARD, "p-5 sm:p-6")}>
-              <div className="mb-4 flex items-baseline gap-2.5">
-                <h2 className="text-[16px] font-bold text-white">Noch offen</h2>
-                <span className="text-[13px] text-slate-600">
-                  {restOffen.length}
-                </span>
-              </div>
-
-              <div className="space-y-2">
-                {(alleOffenen ? restOffen : restOffen.slice(0, 5)).map((mod) => (
-                  <Zeile
-                    key={mod.key}
-                    mod={mod}
-                    guildId={params.guildId}
-                    fertig={false}
-                  />
-                ))}
-              </div>
-
-              {restOffen.length > 5 && (
-                <button
-                  type="button"
-                  onClick={() => setAlleOffenen((a) => !a)}
-                  className="mt-3 text-[13px] text-slate-500 transition-colors hover:text-white"
-                >
-                  {alleOffenen
-                    ? "Weniger anzeigen"
-                    : `Alle ${restOffen.length} anzeigen`}
-                </button>
-              )}
-            </div>
-          )}
-
-          {sortiert.offen.length === 0 && (
-            <div
-              className={cn(
-                CARD,
-                "flex items-center gap-3 border-emerald-500/25 p-5",
-              )}
-            >
-              <Check className="h-5 w-5 shrink-0 text-emerald-400" />
-              <p className="text-[14px] text-slate-300">
-                Alles eingerichtet. Feinheiten stellst du in den einzelnen
-                Reitern ein.
-              </p>
-            </div>
-          )}
-        </>
-      )}
-    </div>
-  );
+      <div className="cloudtix-workspace-note flex flex-wrap items-center gap-x-6 gap-y-2"><span>Präfix <code className="ml-2 text-slate-200">{data.prefix}</code></span><span>Sicherheitsstufe <strong className="ml-2 font-medium capitalize text-slate-300">{data.guild.verification_level}</strong></span>{data.guild.boost_level > 0 && <span>Boost-Stufe <strong className="ml-2 font-medium text-slate-300">{data.guild.boost_level} · {data.guild.boost_count} Boosts</strong></span>}</div>
+      {naechste.length > 0 && <section><div className="cloudtix-workspace-section-heading"><div><h2>Deine nächsten Schritte</h2><p>Starte mit diesen Modulen und ergänze später den Rest.</p></div></div><div className="grid gap-4 lg:grid-cols-3">{naechste.map(mod => <Zeile key={mod.key} mod={mod} guildId={params.guildId} fertig={false} />)}</div></section>}
+      <HistoryCharts guildId={params.guildId} />
+      <section><div className="cloudtix-workspace-section-heading"><div><h2>Deine Module</h2><p>Öffne eine Einrichtung oder passe ein bestehendes Modul an.</p></div><label className="relative w-full sm:w-64"><Settings size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" /><input value={query} onChange={event => setQuery(event.target.value)} aria-label="Server-Module suchen" placeholder="Modul suchen …" className="w-full rounded-xl border border-white/10 py-2.5 pl-9 pr-3" /></label></div>
+        {activeModules.length > 0 && <div className="mb-6"><p className="cloudtix-workspace-eyebrow">EINGERICHTET · {activeModules.length}</p><div className="cloudtix-workspace-module-grid">{activeModules.map(mod => <Zeile key={mod.key} mod={mod} guildId={params.guildId} fertig />)}</div></div>}
+        {openModules.length > 0 && <div><p className="cloudtix-workspace-eyebrow">{query.trim() ? "VERFÜGBARE MODULE" : "WEITERE MÖGLICHKEITEN"} · {openModules.length}</p><div className="cloudtix-workspace-module-grid">{(alleOffenen || query.trim() ? openModules : openModules.slice(0, 6)).map(mod => <Zeile key={mod.key} mod={mod} guildId={params.guildId} fertig={false} />)}</div>{!query.trim() && openModules.length > 6 && <button type="button" onClick={() => setAlleOffenen(current => !current)} className="cloudtix-workspace-action is-secondary mt-4">{alleOffenen ? "Weniger anzeigen" : `Alle ${openModules.length} Module anzeigen`}</button>}</div>}
+        {query.trim() && !activeModules.length && !openModules.length && <div className="cloudtix-workspace-empty"><Settings size={24} /><h2>Kein passendes Modul</h2><p>Versuche einen anderen Namen oder eine Funktion.</p><button type="button" onClick={() => setQuery("")} className="cloudtix-workspace-action is-secondary">Suche zurücksetzen</button></div>}
+      </section>
+    </>}
+  </div>;
 }

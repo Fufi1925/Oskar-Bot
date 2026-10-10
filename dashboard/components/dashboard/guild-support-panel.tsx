@@ -95,10 +95,10 @@ export function GuildSupportPanel({ guildId }: { guildId: string }) {
           [Clock3, "1. Anfrage prüfen", "Du siehst Name, Profilbild, Dashboard-Rolle und Nachricht des Supporters."],
           [UserCheck, "2. Selbst entscheiden", "Nur du kannst die Hilfe annehmen oder ablehnen. Es gibt keinen automatischen Zugriff."],
           [LockKeyhole, "3. Jederzeit beenden", "Beim Schließen wird der Zugriff sofort entzogen und du bewertest die Hilfe."],
-        ].map(([Icon, title, text]) => { const I = Icon as React.ElementType; return <div key={String(title)} className="rounded-2xl border border-slate-800 bg-[#111116] p-5"><I className="h-5 w-5 text-indigo-300" /><h2 className="mt-4 text-sm font-black text-white">{title as string}</h2><p className="mt-2 text-xs leading-5 text-slate-500">{text as string}</p></div>; })}
+        ].map(([Icon, title, text]) => { const I = Icon as React.ElementType; return <div key={String(title)} className="rounded-2xl border border-slate-800 cloudtix-workspace-card bg-[#111116] p-5"><I className="h-5 w-5 text-indigo-300" /><h2 className="mt-4 text-sm font-black text-white">{title as string}</h2><p className="mt-2 text-xs leading-5 text-slate-500">{text as string}</p></div>; })}
       </section>
 
-      <section className="grid overflow-hidden rounded-2xl border border-slate-800 bg-[#111116] lg:grid-cols-2">
+      <section className="grid overflow-hidden rounded-2xl border border-slate-800 cloudtix-workspace-card bg-[#111116] lg:grid-cols-2">
         <div className="border-b border-slate-800 p-5 lg:border-b-0 lg:border-r"><h2 className="flex items-center gap-2 text-sm font-black text-white"><ScanSearch className="h-4 w-4 text-emerald-300" />Was ein angenommener Supporter darf</h2><ul className="mt-3 space-y-2 text-xs leading-5 text-slate-400"><li>• Server-Dashboard und aktuelle Einstellungen öffnen</li><li>• schreibgeschützte Dashboard- und Discord-Diagnosen starten</li><li>• Probleme mit Bot-Rechten, Rollen, Webhooks und Verbindungen prüfen</li></ul></div>
         <div className="p-5"><h2 className="flex items-center gap-2 text-sm font-black text-white"><Eye className="h-4 w-4 text-rose-300" />Was weiterhin geschützt bleibt</h2><ul className="mt-3 space-y-2 text-xs leading-5 text-slate-400"><li>• Niemand erhält Zugriff ohne deine ausdrückliche Annahme</li><li>• Owner-only-Bereiche und die Vergabe von Dashboard-Zugriff bleiben geschützt</li><li>• Support-Scans führen niemals automatisch Änderungen aus</li></ul></div>
       </section>
@@ -110,18 +110,18 @@ export function GuildSupportPanel({ guildId }: { guildId: string }) {
 
       {loading && <div className="grid min-h-32 place-items-center"><Loader2 className="h-5 w-5 animate-spin text-indigo-400" /></div>}
       {!loading && owner === false && (
-        <div className="rounded-2xl border border-slate-800 bg-[#111116] p-6 text-sm text-slate-400">
+        <div className="rounded-2xl border border-slate-800 cloudtix-workspace-card bg-[#111116] p-6 text-sm text-slate-400">
           Support-Anfragen und Freigaben sind ausschließlich für den tatsächlichen Serverinhaber sichtbar.
         </div>
       )}
       {!loading && owner && cases.length === 0 && (
-        <div className="rounded-2xl border border-dashed border-slate-800 bg-[#0d0d11] p-8 text-center"><ShieldCheck className="mx-auto h-7 w-7 text-emerald-400/70" /><p className="mt-3 text-sm font-bold text-slate-300">Keine offene Admin-Anfrage</p><p className="mt-1 text-xs text-slate-600">Dein Server-Dashboard ist für das Support-Team gesperrt.</p></div>
+        <div className="rounded-2xl border border-dashed border-slate-800 cloudtix-workspace-field bg-[#0d0d11] p-8 text-center"><ShieldCheck className="mx-auto h-7 w-7 text-emerald-400/70" /><p className="mt-3 text-sm font-bold text-slate-300">Keine offene Admin-Anfrage</p><p className="mt-1 text-xs text-slate-600">Dein Server-Dashboard ist für das Support-Team gesperrt.</p></div>
       )}
 
       {owner && shownCases.map((fall) => {
         const status = STATUS[fall.status] || STATUS.closed;
         return (
-          <section key={fall.id} className={`overflow-hidden rounded-2xl border bg-[#111116] ${fall.status === "pending" ? "border-amber-400/25 shadow-[0_16px_50px_rgba(245,158,11,.06)]" : fall.status === "accepted" ? "border-emerald-400/20" : "border-slate-800"}`}>
+          <section key={fall.id} className={`overflow-hidden rounded-2xl border cloudtix-workspace-card bg-[#111116] ${fall.status === "pending" ? "border-amber-400/25 shadow-[0_16px_50px_rgba(245,158,11,.06)]" : fall.status === "accepted" ? "border-emerald-400/20" : "border-slate-800"}`}>
             <div className="flex flex-wrap items-start justify-between gap-4 p-5 sm:p-6">
               <div className="flex min-w-0 items-center gap-3">
                 {fall.supporter_avatar ? <img src={fall.supporter_avatar} alt="" className="h-12 w-12 rounded-full object-cover ring-2 ring-white/10" /> : <span className="grid h-12 w-12 place-items-center rounded-full bg-indigo-500/10"><ShieldCheck className="h-5 w-5 text-indigo-300" /></span>}
@@ -170,7 +170,7 @@ export function GuildSupportPanel({ guildId }: { guildId: string }) {
 
       {decision && (
         <div role="dialog" aria-modal="true" className="fixed inset-0 z-[10050] grid place-items-center bg-black/80 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-md rounded-3xl border border-slate-700 bg-[#131318] p-6 shadow-2xl">
+          <div className="w-full max-w-md rounded-3xl border border-slate-700 cloudtix-workspace-card bg-[#131318] p-6 shadow-2xl">
             <span className={`grid h-12 w-12 place-items-center rounded-2xl ${decision.type === "declined" ? "bg-amber-500/10" : "bg-emerald-500/10"}`}>
               {decision.type === "declined" ? <AlertTriangle className="h-6 w-6 text-amber-300" /> : <ShieldCheck className="h-6 w-6 text-emerald-300" />}
             </span>
@@ -190,7 +190,7 @@ export function GuildSupportPanel({ guildId }: { guildId: string }) {
 
       {acceptedName && (
         <div role="dialog" aria-modal="true" className="fixed inset-0 z-[10060] grid place-items-center bg-black/80 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-md rounded-3xl border border-emerald-400/25 bg-[#131318] p-6 text-center shadow-2xl">
+          <div className="w-full max-w-md rounded-3xl border border-emerald-400/25 cloudtix-workspace-card bg-[#131318] p-6 text-center shadow-2xl">
             <span className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-emerald-500/10"><CheckCircle2 className="h-7 w-7 text-emerald-300" /></span>
             <h3 className="mt-4 text-xl font-black text-white">Du hast die Hilfe angenommen</h3>
             <p className="mt-2 text-sm leading-6 text-slate-400"><strong className="text-white">{acceptedName}</strong> wird sich nun um dein Problem kümmern. Der Admin kann deinen Server scannen, nach Dashboard- und Discord-Problemen suchen und bis zum Schließen auf das Server-Dashboard zugreifen.</p>
@@ -201,7 +201,7 @@ export function GuildSupportPanel({ guildId }: { guildId: string }) {
 
       {closeId !== null && (
         <div role="dialog" aria-modal="true" className="fixed inset-0 z-[10050] grid place-items-center bg-black/80 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-lg rounded-3xl border border-slate-700 bg-[#131318] p-6 shadow-2xl">
+          <div className="w-full max-w-lg rounded-3xl border border-slate-700 cloudtix-workspace-card bg-[#131318] p-6 shadow-2xl">
             <span className="grid h-12 w-12 place-items-center rounded-2xl bg-amber-500/10"><Star className="h-6 w-6 text-amber-300" /></span>
             <h3 className="mt-4 text-xl font-black text-white">Diesen Supportfall schließen?</h3>
             <p className="mt-2 text-sm leading-6 text-slate-400">Der Admin-Zugriff wird sofort entzogen. Bitte bewerte unseren Admin von 1 bis 10 Sternen.</p>
@@ -211,7 +211,7 @@ export function GuildSupportPanel({ guildId }: { guildId: string }) {
               ))}
             </div>
             <p className="mt-2 text-center text-xs font-bold text-amber-300">{rating ? `${rating}/10 Sterne` : "Bitte Bewertung auswählen"}</p>
-            <textarea value={ratingNote} onChange={(e) => setRatingNote(e.target.value)} maxLength={1000} rows={3} placeholder="Optional: Was war gut oder was können wir verbessern?" className="mt-4 w-full resize-none rounded-xl border border-slate-800 bg-[#09090c] px-4 py-3 text-sm text-white outline-none focus:border-amber-500/40" />
+            <textarea value={ratingNote} onChange={(e) => setRatingNote(e.target.value)} maxLength={1000} rows={3} placeholder="Optional: Was war gut oder was können wir verbessern?" className="mt-4 w-full resize-none rounded-xl border border-slate-800 cloudtix-workspace-field bg-[#09090c] px-4 py-3 text-sm text-white outline-none focus:border-amber-500/40" />
             <div className="mt-5 grid grid-cols-2 gap-3">
               <button onClick={() => { setCloseId(null); setRating(0); setRatingNote(""); }} className="rounded-xl border border-slate-700 py-3 text-sm font-bold text-slate-300">Abbrechen</button>
               <button onClick={schliessen} disabled={!rating || busy === closeId} className="rounded-xl bg-rose-500 py-3 text-sm font-black text-white disabled:opacity-40">Bewerten und schließen</button>

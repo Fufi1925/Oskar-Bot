@@ -42,7 +42,7 @@ import { toast } from "sonner";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
-const CARD = "bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6";
+const CARD = "cloudtix-workspace-card bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6";
 
 interface Quelle {
   key: string;
@@ -163,7 +163,7 @@ export function BotLogsPanel({ guildId }: { guildId: string }) {
             </div>
           </div>
           <div className="flex shrink-0 items-center gap-2">
-            <div className="rounded-2xl border border-slate-800 bg-[#0f0f13] px-4 py-2.5 text-center">
+            <div className="rounded-2xl border border-slate-800 cloudtix-workspace-card bg-[#0f0f13] px-4 py-2.5 text-center">
               <div className="text-lg font-bold text-white">
                 {daten.active}
                 <span className="text-sm text-slate-500">/{daten.total}</span>
@@ -172,7 +172,7 @@ export function BotLogsPanel({ guildId }: { guildId: string }) {
             </div>
             <button
               onClick={laden}
-              className="rounded-2xl border border-slate-800 bg-[#0f0f13] p-3 text-slate-300 transition hover:bg-white/[0.04]"
+              className="rounded-2xl border border-slate-800 cloudtix-workspace-card bg-[#0f0f13] p-3 text-slate-300 transition hover:bg-white/[0.04]"
               title="Neu laden"
             >
               <RefreshCw className="h-4 w-4" />
@@ -199,7 +199,7 @@ export function BotLogsPanel({ guildId }: { guildId: string }) {
                   refs.current[q.key] = el;
                 }}
                 className={cn(
-                  "overflow-hidden rounded-3xl border bg-[#131318] transition-all duration-500",
+                  "overflow-hidden rounded-3xl border cloudtix-workspace-card bg-[#131318] transition-all duration-500",
                   istHell
                     ? "border-amber-400 ring-2 ring-amber-400/40"
                     : "border-slate-800"
@@ -224,7 +224,7 @@ export function BotLogsPanel({ guildId }: { guildId: string }) {
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="font-semibold text-white">{q.label}</span>
                       {q.channel_name && (
-                        <span className="rounded-lg bg-[#0f0f13] px-2 py-0.5 font-mono text-xs text-slate-400">
+                        <span className="rounded-lg cloudtix-workspace-card bg-[#0f0f13] px-2 py-0.5 font-mono text-xs text-slate-400">
                           #{q.channel_name}
                         </span>
                       )}
@@ -270,7 +270,7 @@ export function BotLogsPanel({ guildId }: { guildId: string }) {
                               channel_id: e.target.value || null,
                             })
                           }
-                          className="flex-1 rounded-2xl border border-slate-800 bg-[#0f0f13] px-4 py-3 text-sm text-white outline-none focus:border-primary/50 disabled:opacity-50"
+                          className="flex-1 rounded-2xl border border-slate-800 cloudtix-workspace-card bg-[#0f0f13] px-4 py-3 text-sm text-white outline-none focus:border-primary/50 disabled:opacity-50"
                         >
                           <option value="">Nicht protokollieren</option>
                           {kanaele.map((k: any) => (
@@ -282,7 +282,7 @@ export function BotLogsPanel({ guildId }: { guildId: string }) {
 
                         <Link
                           href={`/dashboard/guild/${guildId}/${q.seite}`}
-                          className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-2xl border border-slate-800 bg-[#0f0f13] px-4 py-3 text-sm text-slate-300 transition hover:bg-white/[0.04]"
+                          className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-2xl border border-slate-800 cloudtix-workspace-card bg-[#0f0f13] px-4 py-3 text-sm text-slate-300 transition hover:bg-white/[0.04]"
                         >
                           <ExternalLink className="h-3.5 w-3.5" />
                           Modul öffnen

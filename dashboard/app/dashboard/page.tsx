@@ -7,11 +7,9 @@ import {
   ArrowRight,
   Bot,
   ChevronRight,
-  Home,
   LifeBuoy,
   Plus,
   Server as ServerIcon,
-  Settings,
   ShieldAlert,
   Users,
 } from "lucide-react";
@@ -19,6 +17,7 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { api } from "@/lib/api";
 import { SUPPORT_INVITE } from "@/lib/legal";
+import { fetchDelegatedGuilds } from "@/lib/guild-auth";
 import { MyServersChart } from "@/components/dashboard/my-servers-chart";
 
 export const dynamic = "force-dynamic";
@@ -31,7 +30,7 @@ const MANAGE_GUILD = BigInt(0x20);
 const ADMINISTRATOR = BigInt(0x8);
 
 function iconUrl(id: string, icon: string | null) {
-  return icon ? `https://cdn.discordapp.com/icons/${id}/${icon}.png?size=64` : null;
+  return icon ? /^https?:\/\//i.test(icon) ? icon : `https://cdn.discordapp.com/icons/${id}/${icon}.png?size=64` : null;
 }
 
 export default async function DashboardPage() {
@@ -46,7 +45,7 @@ export default async function DashboardPage() {
     botInfo = await api.getBotInfo();
   } catch (err: any) {
     error = err?.message || "Die Bot-API antwortet nicht.";
-    botInfo = { name: "Bot", guilds: 0, users: 0, commands: 0, latency: "0ms" };
+    botInfo = { name: "CloudTIX", guilds: 0, users: 0, commands: 0, latency: "0ms" };
   }
 
   try {
@@ -119,6 +118,18 @@ export default async function DashboardPage() {
     }
   }
 
+  if (session?.user?.id) {
+    try {
+      const delegated = await fetchDelegatedGuilds(session.user.id);
+      const known = new Set(myGuilds.map(guild => guild.id));
+      for (const guild of delegated) {
+        if (known.has(guild.id)) continue;
+        myGuilds.push({ id: guild.id, name: guild.name, icon: guild.icon, hasBot: true, memberCount: guild.member_count });
+        known.add(guild.id);
+      }
+    } catch { /* Existing Discord-managed servers remain available. */ }
+  }
+
   const connected = myGuilds.filter((g) => g.hasBot);
   const ohneBot = myGuilds.filter((g) => !g.hasBot);
   const vorschau = myGuilds.slice(0, 6);
@@ -126,287 +137,36 @@ export default async function DashboardPage() {
 
   const zahl = (n: number) => n.toLocaleString(websiteLocale());
 
-  return (
-    <div className="space-y-5">
-      <Link
-        href="/"
-        className="inline-flex items-center gap-1.5 rounded-lg border border-slate-800 bg-[#131318] px-3 py-1.5 text-[12px] font-semibold text-slate-400 transition-colors hover:border-slate-700 hover:text-white"
-      >
-        <Home className="h-3.5 w-3.5 text-sky-400" />
-        Zur Startseite
-      </Link>
-      {/* ── Begrüßung ─────────────────────────────────────── */}
-      <div className="flex flex-wrap items-center gap-4">
-        {session?.user?.image && (
-          <Image
-            src={session.user.image}
-            alt=""
-            width={48}
-            height={48}
-            unoptimized
-            className="rounded-xl"
-          />
-        )}
-        <div className="min-w-0 flex-1">
-          <h1 className="text-[24px] sm:text-[28px] font-bold tracking-tight text-white">
-            Hallo, {firstName}
-          </h1>
-          <p className="mt-0.5 text-[14px] text-slate-500">
-            {connected.length > 0
-              ? `Du verwaltest ${zahl(connected.length)} ${
-                  connected.length === 1 ? "Server" : "Server"
-                } mit dem Bot.`
-              : "Füge den Bot zu einem Server hinzu, um loszulegen."}
-          </p>
-        </div>
+  const metrics = [
+    { label: "Verbundene Server", value: zahl(connected.length), note: `${zahl(myGuilds.length)} Server für dich verfügbar`, icon: ServerIcon },
+    { label: "Deine Community", value: erreichte > 0 ? zahl(erreichte) : "—", note: "Mitglieder deiner verbundenen Server", icon: Users },
+    { label: "CloudTIX Netzwerk", value: error ? "—" : zahl(botInfo?.guilds ?? 0), note: "Server mit CloudTIX insgesamt", icon: Bot },
+    { label: "Discord-Verbindung", value: typeof botStatus?.latency === "number" && Number.isFinite(botStatus.latency) ? `${Math.round(botStatus.latency)} ms` : error ? "—" : botInfo?.latency || "—", note: "Aktuelle Antwortzeit des Bots", icon: Activity },
+  ];
+  const shortcuts = [
+    { title: "Deine Server", text: "Wähle deine Community und richte ihre Module ein.", icon: ServerIcon, href: "/dashboard/guilds", external: false },
+    { title: "CloudTIX hinzufügen", text: "Starte auf einem weiteren Discord-Server.", icon: Plus, href: BOT_INVITE_URL, external: true },
+    { title: "Wir helfen dir weiter", text: "Sprich mit unserem Support auf Discord.", icon: LifeBuoy, href: SUPPORT_INVITE, external: true },
+  ];
 
-        {error && (
-          <span className="flex items-center gap-2 rounded-lg border border-amber-500/25 bg-amber-500/10 px-3 py-2 text-[13px] text-amber-300">
-            <ShieldAlert className="h-4 w-4 shrink-0" />
-            Bot offline — Zahlen unvollständig
-          </span>
-        )}
-      </div>
-
-      {/* ── Zahlen ────────────────────────────────────────── */}
-      {/*
-        Vier Kacheln mit Symbolrahmen und 0.18em Sperrung waren das
-        Lauteste auf der Seite -- dabei ist die Serverliste der Grund,
-        warum jemand hier ist. Jetzt eine Zeile, die man überfliegt.
-      */}
-      <div className="flex flex-wrap gap-x-8 gap-y-3 rounded-2xl border border-slate-800 bg-[#131318] px-5 py-4">
-        {[
-          {
-            wert: zahl(connected.length),
-            label: "deiner Server",
-            hint: myGuilds.length > connected.length
-              ? `${zahl(myGuilds.length)} verwaltbar`
-              : null,
-            icon: ServerIcon,
-          },
-          {
-            wert: erreichte > 0 ? zahl(erreichte) : "—",
-            label: "Mitglieder erreicht",
-            hint: null,
-            icon: Users,
-          },
-          {
-            wert: zahl(botInfo?.guilds ?? 0),
-            label: "Server insgesamt",
-            hint: null,
-            icon: Bot,
-          },
-          {
-            wert: botStatus
-              ? `${Math.round(botStatus.latency)} ms`
-              : botInfo?.latency || "—",
-            label: "zu Discord",
-            hint: null,
-            icon: Activity,
-          },
-        ].map((k) => (
-          <div key={k.label} className="flex items-center gap-2.5">
-            <k.icon className="h-4 w-4 shrink-0 text-slate-600" />
-            <div>
-              <span className="text-[17px] font-semibold tabular-nums text-white">
-                {k.wert}
-              </span>{" "}
-              <span className="text-[13px] text-slate-500">{k.label}</span>
-              {k.hint && (
-                <span className="ml-1.5 text-[12px] text-slate-600">
-                  ({k.hint})
-                </span>
-              )}
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* ── Deine Server ──────────────────────────────────── */}
-      <section className="rounded-2xl border border-slate-800 bg-[#131318] p-5 sm:p-6">
-        <div className="mb-4 flex items-baseline justify-between gap-4">
-          <h2 className="text-[16px] font-bold text-white">Deine Server</h2>
-          {myGuilds.length > vorschau.length && (
-            <Link
-              href="/dashboard/guilds"
-              className="flex shrink-0 items-center gap-1.5 text-[13px] text-indigo-400 transition-colors hover:text-indigo-300"
-            >
-              Alle {zahl(myGuilds.length)}
-              <ArrowRight className="h-3.5 w-3.5" />
-            </Link>
-          )}
-        </div>
-
-        {vorschau.length === 0 ? (
-          <div className="py-10 text-center">
-            <ServerIcon className="mx-auto mb-3 h-8 w-8 text-slate-700" />
-            <p className="text-[15px] text-slate-300">Noch keine Server</p>
-            <p className="mx-auto mt-1.5 max-w-sm text-[13px] leading-relaxed text-slate-500">
-              Du brauchst auf einem Discord-Server das Recht „Server
-              verwalten“ oder „Administrator“, damit er hier auftaucht.
-            </p>
-            <a
-              href={BOT_INVITE_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="mt-5 inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-[14px] font-semibold text-white transition-colors hover:bg-primary-hover"
-            >
-              <Plus className="h-4 w-4" />
-              Bot hinzufügen
-            </a>
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {vorschau.map((guild) => {
-              const url = iconUrl(guild.id, guild.icon);
-              const inhalt = (
-                <>
-                  {url ? (
-                    <Image
-                      src={url}
-                      alt=""
-                      width={36}
-                      height={36}
-                      unoptimized
-                      className="shrink-0 rounded-lg"
-                    />
-                  ) : (
-                    <div className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-indigo-500/15 text-[14px] font-bold text-indigo-300">
-                      {guild.name.charAt(0).toUpperCase()}
-                    </div>
-                  )}
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-[14px] font-semibold text-white">
-                      {guild.name}
-                    </p>
-                    <p className="mt-0.5 text-[12px] text-slate-500">
-                      {guild.hasBot
-                        ? guild.memberCount !== null
-                          ? `${zahl(guild.memberCount)} Mitglieder`
-                          : "Verbunden"
-                        : "Bot noch nicht hinzugefügt"}
-                    </p>
-                  </div>
-                  {guild.hasBot ? (
-                    <ChevronRight className="h-4 w-4 shrink-0 text-slate-700 transition-colors group-hover:text-slate-400" />
-                  ) : (
-                    <span className="shrink-0 rounded-md border border-slate-800 px-2 py-0.5 text-[11px] text-slate-500">
-                      Hinzufügen
-                    </span>
-                  )}
-                </>
-              );
-
-              const klasse =
-                "group flex items-center gap-3 rounded-xl border border-slate-800 bg-[#0f0f13] px-4 py-3 transition-colors hover:border-slate-700";
-
-              return guild.hasBot ? (
-                <Link
-                  key={guild.id}
-                  href={`/dashboard/guild/${guild.id}`}
-                  className={klasse}
-                >
-                  {inhalt}
-                </Link>
-              ) : (
-                <a
-                  key={guild.id}
-                  href={BOT_INVITE_URL}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className={klasse}
-                >
-                  {inhalt}
-                </a>
-              );
-            })}
-          </div>
-        )}
-
-        {ohneBot.length > 0 && vorschau.length > 0 && (
-          <p className="mt-4 border-t border-slate-800 pt-4 text-[13px] text-slate-500">
-            Auf {zahl(ohneBot.length)}{" "}
-            {ohneBot.length === 1 ? "Server" : "Servern"} fehlt der Bot noch —
-            ein Klick auf den Eintrag lädt ihn ein.
-          </p>
-        )}
+  return <div className="cloudtix-workspace-home">
+    <header className="cloudtix-workspace-page-heading"><div><p className="cloudtix-workspace-eyebrow">DEIN CLOUDTIX WORKSPACE</p><h1>Hallo, <span data-no-translate>{firstName}</span>.</h1><p>Deine Server, deine Community und deine nächsten Schritte – alles an einem Ort.</p></div><Link href="/dashboard/guilds" className="cloudtix-workspace-action">Server verwalten<ArrowRight size={15} /></Link></header>
+    {error && <div role="status" className="cloudtix-workspace-note flex items-center gap-3"><ShieldAlert size={17} className="shrink-0 text-amber-300" />CloudTIX ist gerade nicht erreichbar. Einige Zahlen sind nicht verfügbar.</div>}
+    <section className="cloudtix-workspace-stat-grid" aria-label="Dein Überblick">{metrics.map(metric => <div key={metric.label} className="cloudtix-workspace-stat"><metric.icon size={19} /><span>{metric.label}</span><strong>{metric.value}</strong><small>{metric.note}</small></div>)}</section>
+    <div className="cloudtix-workspace-home-grid">
+      <section className="cloudtix-workspace-home-servers"><div className="cloudtix-workspace-section-heading"><div><h2>Deine Server</h2><p>Hier geht es zu deiner Community.</p></div><Link href="/dashboard/guilds">Alle ansehen<ArrowRight size={13} /></Link></div>
+        {vorschau.length ? <div>{vorschau.map(guild => {
+          const src = iconUrl(guild.id, guild.icon);
+          const content = <>{src ? <Image src={src} alt="" width={40} height={40} unoptimized /> : <b>{guild.name.charAt(0).toUpperCase()}</b>}<div><strong>{guild.name}</strong><small>{guild.hasBot ? guild.memberCount !== null ? `${zahl(guild.memberCount)} Mitglieder · Verbunden` : "Mit CloudTIX verbunden" : "CloudTIX noch nicht hinzugefügt"}</small></div>{guild.hasBot ? <ChevronRight size={16} /> : <Plus size={16} />}</>;
+          return guild.hasBot ? <Link key={guild.id} href={`/dashboard/guild/${guild.id}`} className="cloudtix-workspace-server-row">{content}</Link> : <a key={guild.id} href={`${BOT_INVITE_URL}${BOT_INVITE_URL.includes("?") ? "&" : "?"}guild_id=${guild.id}&disable_guild_select=true`} target="_blank" rel="noopener noreferrer" className="cloudtix-workspace-server-row">{content}</a>;
+        })}</div> : <div className="cloudtix-workspace-empty"><ServerIcon size={28} /><h2>Dein erster Server wartet.</h2><p>Du brauchst „Server verwalten“, Administratorrechte oder eine Dashboard-Freigabe, damit ein Server hier erscheint.</p><a href={BOT_INVITE_URL} target="_blank" rel="noopener noreferrer" className="cloudtix-workspace-action"><Plus size={15} />CloudTIX hinzufügen</a></div>}
+        {ohneBot.length > 0 && <p className="mt-5 text-xs leading-relaxed text-slate-500">Auf {zahl(ohneBot.length)} {ohneBot.length === 1 ? "Server fehlt" : "Servern fehlt"} CloudTIX noch. Öffne einen Eintrag, um den Bot hinzuzufügen.</p>}
       </section>
-
-      {/* ── Verlauf ───────────────────────────────────────── */}
-      {/*
-        Steht unter der Serverliste, nicht darüber: die Liste ist der
-        Grund, warum jemand hier ist. Der Verlauf ist die Antwort auf
-        die zweite Frage — "und wie läuft es?".
-
-        Nur verbundene Server: für einen Server ohne Bot gibt es
-        nichts zu messen, und ein leeres Diagramm mit "noch keine
-        Daten" wäre die falsche Erklärung dafür.
-      */}
-      {connected.length > 0 && (
-        <MyServersChart
-          guilds={connected.map((g) => ({
-            id: g.id,
-            name: g.name,
-            memberCount: g.memberCount,
-          }))}
-        />
-      )}
-
-      {/* ── Schnellzugriff ────────────────────────────────── */}
-      <div className="grid gap-3 sm:grid-cols-3">
-        {[
-          {
-            titel: "Alle Server",
-            text: "Suchen und einrichten",
-            icon: ServerIcon,
-            href: "/dashboard/guilds",
-          },
-          {
-            titel: "Bot hinzufügen",
-            text: "Auf einen weiteren Server",
-            icon: Plus,
-            href: BOT_INVITE_URL,
-            extern: true,
-          },
-          {
-            titel: "Support",
-            text: "Frag uns auf Discord",
-            icon: LifeBuoy,
-            href: SUPPORT_INVITE,
-            extern: true,
-          },
-        ].map((item) => {
-          const inhalt = (
-            <>
-              <item.icon className="h-[18px] w-[18px] shrink-0 text-slate-600 transition-colors group-hover:text-indigo-400" />
-              <div className="min-w-0">
-                <p className="text-[14px] font-semibold text-white">
-                  {item.titel}
-                </p>
-                <p className="mt-0.5 text-[12px] text-slate-500">{item.text}</p>
-              </div>
-            </>
-          );
-          const klasse =
-            "group flex items-center gap-3 rounded-xl border border-slate-800 bg-[#131318] px-4 py-3.5 transition-colors hover:border-slate-700";
-
-          return item.extern ? (
-            <a
-              key={item.titel}
-              href={item.href}
-              target="_blank"
-              rel="noopener noreferrer"
-              className={klasse}
-            >
-              {inhalt}
-            </a>
-          ) : (
-            <Link key={item.titel} href={item.href} className={klasse}>
-              {inhalt}
-            </Link>
-          );
-        })}
-      </div>
+      <aside className="cloudtix-workspace-shortcuts">{shortcuts.map(item => {
+        const content = <><item.icon size={20} /><div><strong>{item.title}</strong><p>{item.text}</p></div><ArrowRight size={14} /></>;
+        return item.external ? <a key={item.title} href={item.href} target="_blank" rel="noopener noreferrer" className="cloudtix-workspace-shortcut">{content}</a> : <Link key={item.title} href={item.href} className="cloudtix-workspace-shortcut">{content}</Link>;
+      })}</aside>
     </div>
-  );
+    {connected.length > 0 && <MyServersChart guilds={connected.map(guild => ({ id: guild.id, name: guild.name, memberCount: guild.memberCount }))} />}
+  </div>;
 }

@@ -30,7 +30,7 @@ import { InlineToggle } from "@/components/dashboard/form-elements";
 import { useSaveGuard } from "@/components/dashboard/save-bar";
 
 const INPUT =
-  "w-full bg-[#0e0e12] border border-slate-800 rounded-xl px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-primary/50 transition-colors";
+  "w-full cloudtix-workspace-field bg-[#0e0e12] border border-slate-800 rounded-xl px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-primary/50 transition-colors";
 
 function Field({ label, hint, children }: any) {
   return (
@@ -46,7 +46,7 @@ function Field({ label, hint, children }: any) {
 
 function Stat({ label, value }: any) {
   return (
-    <div className="bg-[#0e0e12] border border-slate-800 rounded-2xl px-4 py-3">
+    <div className="cloudtix-workspace-field bg-[#0e0e12] border border-slate-800 rounded-2xl px-4 py-3">
       <p className="text-lg font-black text-white">{value}</p>
       <p className="text-[11px] text-slate-500 mt-0.5">{label}</p>
     </div>
@@ -110,7 +110,7 @@ export function AnonChatPanel({ guildId }: { guildId: string }) {
   return (
     <section className="space-y-6">
       {/* ── What this is ─────────────────────────────── */}
-      <div className="relative bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-4">
+      <div className="relative cloudtix-workspace-card bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-4">
         <div className="flex gap-3">
           <div className="h-10 w-10 rounded-2xl bg-primary/15 grid place-items-center shrink-0">
             <Lock className="h-5 w-5 text-primary" />
@@ -158,7 +158,7 @@ export function AnonChatPanel({ guildId }: { guildId: string }) {
               "flex items-center gap-2 px-4 h-11 rounded-xl text-xs font-black uppercase tracking-widest border transition-all",
               tab === t.id
                 ? "bg-primary/15 border-primary/40 text-primary"
-                : "bg-[#0e0e12] border-slate-800 text-slate-400 hover:text-slate-200"
+                : "cloudtix-workspace-field bg-[#0e0e12] border-slate-800 text-slate-400 hover:text-slate-200"
             )}
           >
             <t.icon className="h-3.5 w-3.5" />
@@ -170,7 +170,7 @@ export function AnonChatPanel({ guildId }: { guildId: string }) {
       {/* ══ Channels ═════════════════════════════════ */}
       {tab === "channels" && (
         <div className="space-y-5">
-          <div className="relative bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5">
+          <div className="relative cloudtix-workspace-card bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5">
             <div className="flex items-center justify-between gap-4">
               <p className="text-xs font-black uppercase tracking-widest text-slate-500">
                 Kanal anonym machen
@@ -243,7 +243,7 @@ export function AnonChatPanel({ guildId }: { guildId: string }) {
 
       {/* ══ Blocked ══════════════════════════════════ */}
       {tab === "blocked" && (
-        <div className="relative bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5">
+        <div className="relative cloudtix-workspace-card bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5">
           <div>
             <p className="text-xs font-black uppercase tracking-widest text-slate-500">
               Vom anonymen Chat ausgeschlossen
@@ -263,7 +263,7 @@ export function AnonChatPanel({ guildId }: { guildId: string }) {
               {data.blocked.map((b: any) => (
                 <div
                   key={b.user_id}
-                  className="flex items-center gap-3 bg-[#0e0e12] border border-slate-800 rounded-2xl px-4 py-3"
+                  className="flex items-center gap-3 cloudtix-workspace-field bg-[#0e0e12] border border-slate-800 rounded-2xl px-4 py-3"
                 >
                   {b.avatar ? (
                     // eslint-disable-next-line @next/next/no-img-element
@@ -358,7 +358,7 @@ function ChannelCard({ guildId, channel, modes, busy, act, open, onToggleOpen }:
   return (
     <div
       className={cn(
-        "bg-[#131318] border rounded-3xl p-5 space-y-4",
+        "cloudtix-workspace-card bg-[#131318] border rounded-3xl p-5 space-y-4",
         channel.problem
           ? "border-red-500/30"
           : channel.enabled
@@ -439,7 +439,7 @@ function ChannelCard({ guildId, channel, modes, busy, act, open, onToggleOpen }:
                     "text-left rounded-2xl border p-4 transition-all",
                     value("mode") === m.id
                       ? "bg-primary/10 border-primary/40"
-                      : "bg-[#0e0e12] border-slate-800 hover:border-slate-700"
+                      : "cloudtix-workspace-field bg-[#0e0e12] border-slate-800 hover:border-slate-700"
                   )}
                 >
                   {m.id === "webhook" ? (
@@ -491,7 +491,7 @@ function ChannelCard({ guildId, channel, modes, busy, act, open, onToggleOpen }:
           </Field>
 
           {/* Preview */}
-          <div className="rounded-2xl bg-[#0b1626] border border-slate-800/70 p-4 space-y-3">
+          <div className="rounded-2xl cloudtix-workspace-card bg-[#0b1626] border border-slate-800/70 p-4 space-y-3">
             <p className="text-[10px] font-black uppercase tracking-widest text-slate-600 flex items-center gap-1">
               <Eye className="h-3 w-3" /> Ausprobieren
             </p>
@@ -687,7 +687,7 @@ function LogTab({ guildId, busy, act }: any) {
   }, [entries, query]);
 
   return (
-    <div className="relative bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5">
+    <div className="relative cloudtix-workspace-card bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5">
       <div className="rounded-xl bg-amber-500/[0.06] border border-amber-500/20 p-3.5 flex gap-2.5">
         <Info className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
         <p className="text-[12px] text-amber-200/80 leading-relaxed">
@@ -727,7 +727,7 @@ function LogTab({ guildId, busy, act }: any) {
           {filtered.map((entry) => (
             <div
               key={entry.id}
-              className="bg-[#0e0e12] border border-slate-800 rounded-2xl px-4 py-3 space-y-2"
+              className="cloudtix-workspace-field bg-[#0e0e12] border border-slate-800 rounded-2xl px-4 py-3 space-y-2"
             >
               <div className="flex items-center gap-2.5 flex-wrap">
                 {entry.avatar ? (

@@ -30,7 +30,7 @@ import { EmojiText } from "@/components/dashboard/emoji-field";
 import { DiscordEmojiText } from "@/components/dashboard/discord-emoji";
 
 const INPUT =
-  "w-full bg-[#0e0e12] border border-slate-800 rounded-xl px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-primary/50 transition-colors";
+  "w-full cloudtix-workspace-field bg-[#0e0e12] border border-slate-800 rounded-xl px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-primary/50 transition-colors";
 
 /** Exactly the placeholders utils/greet_render.py understands. */
 const TOKENS = [
@@ -286,7 +286,7 @@ export function WelcomeForm({
     <div className="grid grid-cols-1 xl:grid-cols-5 gap-6">
       {/* ══ Form ═══════════════════════════════════════ */}
       <div className="xl:col-span-3 space-y-6">
-        <div className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5">
+        <div className="cloudtix-workspace-card bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5">
           <Field label="Kanal" hint={kind === "leave" ? "Hier landet die Abschiedsnachricht." : "Hier landet die Begrüßung."}>
             <ChannelPicker
               disabled={saving || testing}
@@ -311,7 +311,7 @@ export function WelcomeForm({
                     "text-left rounded-2xl border p-4 transition-all",
                     (config.welcome_type || "simple") === o.id
                       ? "bg-primary/10 border-primary/40"
-                      : "bg-[#0e0e12] border-slate-800 hover:border-slate-700"
+                      : "cloudtix-workspace-field bg-[#0e0e12] border-slate-800 hover:border-slate-700"
                   )}
                 >
                   <o.icon className={cn(
@@ -346,7 +346,7 @@ export function WelcomeForm({
         </div>
 
         {/* Placeholders */}
-        <div className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-3">
+        <div className="cloudtix-workspace-card bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-3">
           <div>
             <p className="text-xs font-black uppercase tracking-widest text-slate-500">
               Platzhalter
@@ -370,7 +370,7 @@ export function WelcomeForm({
           </div>
         </div>
 
-        {kind === "leave" && <section className="rounded-2xl border border-white/[.07] bg-[#202124] p-4 sm:p-6 space-y-5">
+        {kind === "leave" && <section className="rounded-2xl border border-white/[.07] cloudtix-workspace-card bg-[#202124] p-4 sm:p-6 space-y-5">
           <InlineToggle disabled={saving || testing} checked={!!config.image_enabled} onCheckedChange={value => setConfig({ ...config, image_enabled: value })} label="Bild beim Abschied" hint="Die Abschiedskarte mit Profilbild und Mitgliedsnummer." />
           <Field label="Eigenes Hintergrundbild" hint="Leer lassen für den gezeichneten Hintergrund.">
             <input aria-label="Eigenes Hintergrundbild" value={config.image_url || ""} disabled={!config.image_enabled || saving || testing} onChange={e => setConfig({ ...config, image_url: e.target.value })} placeholder="https://…/hintergrund.png" className={INPUT} />
@@ -380,7 +380,7 @@ export function WelcomeForm({
 
         {/* Text */}
         {!isEmbed && (
-          <div className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6">
+          <div className="cloudtix-workspace-card bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6">
             <Field label="Nachricht">
               <EmojiText
                 disabled={saving || testing}
@@ -403,7 +403,7 @@ export function WelcomeForm({
 
         {/* Embed */}
         {isEmbed && (
-          <div className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5">
+          <div className="cloudtix-workspace-card bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5">
             <Field
               label="Text über der Karte"
               hint="Optional. Nützlich, um jemanden zu pingen — in der Karte selbst gibt es keine Benachrichtigung."
@@ -565,7 +565,7 @@ export function WelcomeForm({
       {/* ══ Preview + actions ══════════════════════════ */}
       <div className="xl:col-span-2 space-y-5">
         <div className="xl:sticky xl:top-6 space-y-5">
-          <div className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-4">
+          <div className="cloudtix-workspace-card bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-4">
             <p className="text-xs font-black uppercase tracking-widest text-slate-500 flex items-center gap-2">
               <Eye className="h-3.5 w-3.5" /> Vorschau
             </p>
@@ -648,7 +648,7 @@ export function WelcomeForm({
 
           {/* The save button used to live here, four screens below the
               field you were editing. It is one bar at the bottom now. */}
-          <div className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-3">
+          <div className="cloudtix-workspace-card bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-3">
             <button
               onClick={sendTest}
               disabled={testing}
@@ -662,7 +662,7 @@ export function WelcomeForm({
             </p>
           </div>
 
-          <div className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-3">
+          <div className="cloudtix-workspace-card bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-3">
             <p className="text-xs font-black uppercase tracking-widest text-slate-500">
               Vorlagen
             </p>
@@ -678,7 +678,7 @@ export function WelcomeForm({
                       : { embed_data: t.embed as any }),
                   })
                 }
-                className="w-full text-left px-4 py-3 rounded-xl bg-[#0e0e12] border border-slate-800 text-sm text-slate-300 hover:text-primary hover:border-primary/30 transition-all"
+                className="w-full text-left px-4 py-3 rounded-xl cloudtix-workspace-field bg-[#0e0e12] border border-slate-800 text-sm text-slate-300 hover:text-primary hover:border-primary/30 transition-all"
               >
                 {t.name}
               </button>

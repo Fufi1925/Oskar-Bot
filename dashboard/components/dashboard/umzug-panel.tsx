@@ -249,7 +249,7 @@ export function UmzugPanel() {
   return (
     <div className="space-y-4">
       {/* ── Kopf ──────────────────────────────────────────────────── */}
-      <div className="rounded-2xl border border-primary/40 bg-[#131318] p-5">
+      <div className="rounded-2xl border border-primary/40 cloudtix-workspace-card bg-[#131318] p-5">
         <div className="flex items-start gap-3">
           <div className="rounded-xl bg-primary/15 p-2.5">
             <PackageOpen className="h-5 w-5 text-slate-200" />
@@ -282,7 +282,7 @@ export function UmzugPanel() {
       </div>
 
       {/* ── Schritt 1: herunterladen ──────────────────────────────── */}
-      <div className="rounded-2xl border border-[#1e1f22] bg-[#131318] p-5">
+      <div className="rounded-2xl border border-[#1e1f22] cloudtix-workspace-card bg-[#131318] p-5">
         <div className="mb-4 flex items-center gap-2">
           <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-xs font-bold text-white">
             1
@@ -308,7 +308,7 @@ export function UmzugPanel() {
               ].map((k) => (
                 <div
                   key={k.text}
-                  className="rounded-xl border border-[#1e1f22] bg-[#0f0f13] p-3"
+                  className="rounded-xl border border-[#1e1f22] cloudtix-workspace-card bg-[#0f0f13] p-3"
                 >
                   <div className="text-lg font-semibold text-white">{k.wert}</div>
                   <div className="text-xs text-slate-500">{k.text}</div>
@@ -351,7 +351,7 @@ export function UmzugPanel() {
                 <div
                   key={d.pfad}
                   className={`flex items-center gap-3 px-3 py-2 text-xs ${
-                    i % 2 ? "bg-[#0f0f13]" : "bg-[#0e0e12]"
+                    i % 2 ? "cloudtix-workspace-card bg-[#0f0f13]" : "cloudtix-workspace-field bg-[#0e0e12]"
                   }`}
                 >
                   <FileArchive className="h-3.5 w-3.5 shrink-0 text-slate-600" />
@@ -371,7 +371,7 @@ export function UmzugPanel() {
               {dateien.length > 8 && (
                 <button
                   onClick={() => setAlleZeigen(!alleZeigen)}
-                  className="w-full bg-[#0f0f13] px-3 py-2 text-xs text-slate-200 hover:bg-[#16161c]"
+                  className="w-full cloudtix-workspace-card bg-[#0f0f13] px-3 py-2 text-xs text-slate-200 hover:cloudtix-workspace-card bg-[#16161c]"
                 >
                   {alleZeigen
                     ? "Weniger anzeigen"
@@ -396,7 +396,7 @@ export function UmzugPanel() {
               <button
                 onClick={laden}
                 disabled={beschaeftigt}
-                className="inline-flex items-center gap-2 rounded-xl border border-[#1e1f22] bg-[#0f0f13] px-4 py-2.5 text-sm text-slate-300 transition hover:bg-[#16161c] disabled:opacity-50"
+                className="inline-flex items-center gap-2 rounded-xl border border-[#1e1f22] cloudtix-workspace-card bg-[#0f0f13] px-4 py-2.5 text-sm text-slate-300 transition hover:cloudtix-workspace-card bg-[#16161c] disabled:opacity-50"
               >
                 <RefreshCw className="h-4 w-4" />
                 Neu einlesen
@@ -414,7 +414,7 @@ export function UmzugPanel() {
       </div>
 
       {/* ── Schritt 2: einspielen ─────────────────────────────────── */}
-      <div className="rounded-2xl border border-[#1e1f22] bg-[#131318] p-5">
+      <div className="rounded-2xl border border-[#1e1f22] cloudtix-workspace-card bg-[#131318] p-5">
         <div className="mb-4 flex items-center gap-2">
           <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-xs font-bold text-white">
             2
@@ -435,7 +435,7 @@ export function UmzugPanel() {
         <button
           onClick={() => dateiRef.current?.click()}
           disabled={beschaeftigt}
-          className="flex w-full flex-col items-center gap-2 rounded-xl border-2 border-dashed border-[#1e1f22] bg-[#0f0f13] px-4 py-8 transition hover:border-primary/50 hover:bg-[#16161c] disabled:opacity-50"
+          className="flex w-full flex-col items-center gap-2 rounded-xl border-2 border-dashed border-[#1e1f22] cloudtix-workspace-card bg-[#0f0f13] px-4 py-8 transition hover:border-primary/50 hover:cloudtix-workspace-card bg-[#16161c] disabled:opacity-50"
         >
           <Upload className="h-6 w-6 text-slate-500" />
           <span className="text-sm text-slate-300">
@@ -451,7 +451,7 @@ export function UmzugPanel() {
         {/* Was drinsteckt — vor dem Einspielen, nicht danach. */}
         {bericht && (
           <div className="mt-4 space-y-3">
-            <div className="rounded-xl border border-[#1e1f22] bg-[#0f0f13] p-4">
+            <div className="rounded-xl border border-[#1e1f22] cloudtix-workspace-card bg-[#0f0f13] p-4">
               <div className="mb-3 flex items-center gap-2">
                 <ShieldCheck className="h-4 w-4 text-emerald-400" />
                 <span className="text-sm font-medium text-white">

@@ -4,8 +4,8 @@ import { Suspense, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { signIn, useSession } from "next-auth/react";
-import { ArrowLeft, Info, Loader2 } from "lucide-react";
-import { BRAND, BRAND_LOGO } from "@/lib/brand";
+import { ArrowLeft, ArrowRight, Check, Info, Loader2, ShieldCheck } from "lucide-react";
+import { BRAND, BRAND_LOGO, brandAsset } from "@/lib/brand";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
 import { loginCallbackUrl, loginDestination } from "@/lib/auth-navigation";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -25,6 +25,13 @@ function LoginPanel() {
   const submitting = useRef(false);
   const requested = params.get("next") || params.get("callbackUrl");
   const copy = (de: string, en: string) => language === "en" ? en : de;
+  const requestedPath = loginDestination(requested).split(/[?#]/)[0];
+  const destinationName = requestedPath.startsWith("/dashboard/admin") ? copy("Admin-Dashboard", "Admin dashboard")
+    : requestedPath.startsWith("/dashboard/guild/") ? copy("Serververwaltung", "Server workspace")
+    : requestedPath.startsWith("/dashboard/guilds") ? copy("Deine Server", "Your servers")
+    : requestedPath.startsWith("/dashboard/premium") ? "Premium"
+    : requestedPath === "/dashboard" ? copy("Dein Dashboard", "Your dashboard")
+    : copy("Deine ausgewählte Seite", "Your selected page");
 
   const destination = () => {
     let target = loginDestination(requested, "/dashboard", window.location.origin);
@@ -60,10 +67,21 @@ function LoginPanel() {
         <Link href="/" className={styles.back}><ArrowLeft size={15} />{copy("Zur Startseite", "Back to home")}</Link>
         <div className={styles.controls}><ThemeToggle embedded /><LanguageSwitcher /></div>
       </div>
-      <section data-no-translate className={styles.card} aria-labelledby="login-title">
-        <div className={styles.logo}><img src={BRAND_LOGO} alt="" width={76} height={76} /></div>
-        <h1 id="login-title">{BRAND}</h1>
-        <p className={styles.description}>{copy("Melde dich an, um deine Server zu verwalten, Module einzurichten und deine Community im Blick zu behalten.", "Sign in to manage your servers, configure modules and keep your community running smoothly.")}</p>
+      <div className={styles.layout} data-no-translate>
+      <section className={styles.intro} aria-labelledby="workspace-title">
+        <div className={styles.wordmark}><img src={BRAND_LOGO} alt="" width={38} height={38} />{BRAND}<span>WORKSPACE</span></div>
+        <p className={styles.eyebrow}>{copy("ALLES FÜR DEINE COMMUNITY", "EVERYTHING FOR YOUR COMMUNITY")}</p>
+        <h1 id="workspace-title">{copy("Deine Community.", "Your community.")}<br /><span>{copy("Dein Überblick.", "Your workspace.")}</span></h1>
+        <p className={styles.introDescription}>{copy("Von der ersten Begrüßung bis zum letzten Support-Ticket. Gestalte deinen Server mit CloudTIX an einem Ort.", "From the first welcome to the latest support ticket. Shape your server with CloudTIX in one place.")}</p>
+        <div className={styles.artwork}><img src={brandAsset("cloudtix_pf weiß.gif")} alt="" width={1000} height={400} /></div>
+        <div className={styles.features}>{[copy("Server verwalten", "Manage servers"), copy("Community gestalten", "Build your community"), copy("Schutz einrichten", "Set up protection")].map(label => <span key={label}><Check size={13} />{label}</span>)}</div>
+      </section>
+      <section className={styles.card} aria-labelledby="login-title">
+        <div className={styles.logo}><ShieldCheck size={24} /></div>
+        <p className={styles.eyebrow}>{copy("DEIN ZUGANG ZU CLOUDTIX", "YOUR ACCESS TO CLOUDTIX")}</p>
+        <h2 id="login-title">{copy("Willkommen zurück.", "Welcome back.")}</h2>
+        <p className={styles.description}>{copy("Verbinde dein Discord-Konto und öffne deinen Workspace.", "Connect your Discord account and open your workspace.")}</p>
+        <div className={styles.destination}><span>{copy("Nach der Anmeldung", "After signing in")}</span><strong>{destinationName}<ArrowRight size={14} /></strong></div>
         <p className={styles.label}>{copy("ANMELDUNG", "AUTHENTICATION")}</p>
         <button type="button" className={styles.continue} disabled={busy || status === "loading"} onClick={() => void continueWithDiscord()}>
           {busy || status === "loading" ? <Loader2 size={19} className="animate-spin" /> : <DiscordIcon />}
@@ -71,7 +89,9 @@ function LoginPanel() {
         </button>
         <p className={styles.label}>{copy("INFORMATIONEN", "INFORMATION")}</p>
         <div className={styles.info}><Info size={17} /><p>{copy("Die Anmeldung erfolgt sicher über Discord. Es gelten unsere ", "Sign in securely through Discord. Our ")}<Link href="/terms" target="_blank" rel="noopener noreferrer">{copy("Nutzungsbedingungen", "Terms of Service")}</Link>{copy(". Wie wir deine Daten verarbeiten, erfährst du in der ", " apply. Read about how we process your data in our ")}<Link href="/privacy" target="_blank" rel="noopener noreferrer">{copy("Datenschutzerklärung", "Privacy Policy")}</Link>.</p></div>
+        <p className={styles.secure}><ShieldCheck size={13} />{copy("Dein Passwort bleibt bei Discord.", "Your password stays with Discord.")}</p>
       </section>
+      </div>
       <p className={styles.bottom} data-no-translate>{copy("Dein Server. Deine Community. CloudTIX.", "Your server. Your community. CloudTIX.")}</p>
     </main>
   );

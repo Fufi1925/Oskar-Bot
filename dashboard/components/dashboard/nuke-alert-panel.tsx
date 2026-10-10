@@ -151,7 +151,7 @@ export function NukeAlertPanel({ guildId }: { guildId: string }) {
     );
   }
 
-  if (!data) return <div className="rounded-2xl border border-white/[.07] bg-[#202124] p-6"><p className="text-sm text-slate-400">Angriffsmeldungen konnten nicht geladen werden.</p><button type="button" onClick={load} className="mt-4 text-sm text-blue-300">Erneut laden</button></div>;
+  if (!data) return <div className="rounded-2xl border border-white/[.07] cloudtix-workspace-card bg-[#202124] p-6"><p className="text-sm text-slate-400">Angriffsmeldungen konnten nicht geladen werden.</p><button type="button" onClick={load} className="mt-4 text-sm text-blue-300">Erneut laden</button></div>;
 
   const missing: string[] = data?.missing_permissions || [];
 
@@ -189,7 +189,7 @@ export function NukeAlertPanel({ guildId }: { guildId: string }) {
       )}
 
       {/* ── Settings ─────────────────────────────────── */}
-      <div className="bg-[#202124] border border-white/[.07] rounded-2xl p-4 sm:p-6 space-y-5">
+      <div className="cloudtix-workspace-card bg-[#202124] border border-white/[.07] rounded-2xl p-4 sm:p-6 space-y-5">
         <div className="flex items-center gap-3">
           <div className="h-10 w-10 rounded-2xl bg-primary/15 grid place-items-center shrink-0">
             <Bell className="h-5 w-5 text-primary" />
@@ -258,7 +258,7 @@ export function NukeAlertPanel({ guildId }: { guildId: string }) {
         {/* Was das System tut — und was nicht.
             Die Regeln sind bewusst still: das ist erklärungsbedürftig,
             weil Schweigen leicht wie ein Ausfall aussieht. */}
-        <div className="rounded-2xl bg-[#18191c] border border-white/[.07] p-4 space-y-2.5">
+        <div className="rounded-2xl cloudtix-workspace-field bg-[#18191c] border border-white/[.07] p-4 space-y-2.5">
           <p className="text-xs font-semibold uppercase tracking-widest text-slate-500">
             Wann der Bot was tut
           </p>
@@ -316,7 +316,7 @@ export function NukeAlertPanel({ guildId }: { guildId: string }) {
               return (
                 <div
                   key={entry.id}
-                  className="bg-[#202124] border border-white/[.07] rounded-2xl px-4 py-3 flex items-center gap-3 flex-wrap"
+                  className="cloudtix-workspace-card bg-[#202124] border border-white/[.07] rounded-2xl px-4 py-3 flex items-center gap-3 flex-wrap"
                 >
                   <Icon className={cn("h-4 w-4 shrink-0", style.tone)} />
                   <div className="min-w-0 flex-1">

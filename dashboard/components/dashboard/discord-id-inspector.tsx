@@ -137,7 +137,7 @@ export function DiscordIdInspector() {
     <>
       <style jsx global>{`.discord-id-inspectable{cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-decoration-color:rgba(96,165,250,.45);text-underline-offset:3px}.discord-id-inspectable:hover,.discord-id-inspectable:focus{color:#93c5fd!important;outline:none}`}</style>
       <div data-discord-inspector-ignore="true" className="fixed inset-0 z-[10100] grid place-items-center bg-black/75 p-4 backdrop-blur-sm" onMouseDown={(event) => { if (event.target === event.currentTarget) setEntityId(null); }}>
-        <div role="dialog" aria-modal="true" aria-label="Discord-Informationen" className="max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-white/[.08] bg-[#202126] p-5 shadow-2xl">
+        <div role="dialog" aria-modal="true" aria-label="Discord-Informationen" className="max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-white/[.08] cloudtix-workspace-card bg-[#202126] p-5 shadow-2xl">
           <div className="flex items-center justify-between gap-3">
             <div>
               <p className="text-[11px] font-semibold text-blue-300">Discord-Informationen</p>
@@ -191,7 +191,7 @@ export function DiscordIdInspector() {
                 </div>
               )}
 
-              <button onClick={() => { void navigator.clipboard.writeText(entityId); toast.success("Discord-ID kopiert."); }} className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-lg border border-white/[.07] bg-[#191a1f] px-3 py-2.5 text-xs font-medium text-slate-300 hover:border-white/[.12] hover:text-white"><Copy className="h-3.5 w-3.5" />ID kopieren</button>
+              <button onClick={() => { void navigator.clipboard.writeText(entityId); toast.success("Discord-ID kopiert."); }} className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-lg border border-white/[.07] cloudtix-workspace-field bg-[#191a1f] px-3 py-2.5 text-xs font-medium text-slate-300 hover:border-white/[.12] hover:text-white"><Copy className="h-3.5 w-3.5" />ID kopieren</button>
             </div>
           )}
         </div>

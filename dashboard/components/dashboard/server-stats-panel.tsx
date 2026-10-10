@@ -11,7 +11,7 @@ import { toast } from "sonner";
 import { Switch } from "@/components/ui/switch";
 import { api } from "@/lib/api";
 
-const CARD = "rounded-3xl border border-slate-800 bg-[#131318]";
+const CARD = "rounded-3xl border border-slate-800 cloudtix-workspace-card bg-[#131318]";
 
 type Kind =
   | "humans" | "bots" | "boosts" | "online" | "roles" | "channels"
@@ -214,7 +214,7 @@ export function ServerStatsPanel({ guildId }: { guildId: string }) {
       <div key={kind} className={`${CARD} overflow-hidden p-5`}>
         <div className="flex items-start justify-between gap-4">
           <div className="flex min-w-0 gap-3">
-            <div className="rounded-xl border border-slate-800 bg-[#0e0e12] p-2.5">
+            <div className="rounded-xl border border-slate-800 cloudtix-workspace-field bg-[#0e0e12] p-2.5">
               <Icon className={`h-5 w-5 ${color}`} />
             </div>
             <div>
@@ -239,7 +239,7 @@ export function ServerStatsPanel({ guildId }: { guildId: string }) {
           />
         </div>
 
-        <div className="mt-5 rounded-xl border border-slate-800 bg-[#0e0e12] px-3.5 py-3">
+        <div className="mt-5 rounded-xl border border-slate-800 cloudtix-workspace-field bg-[#0e0e12] px-3.5 py-3">
           <div className="flex items-center gap-2 text-sm text-slate-300">
             <Volume2 className="h-4 w-4 text-slate-600" />
             <span className="truncate">{preview(count)}</span>
@@ -285,8 +285,8 @@ export function ServerStatsPanel({ guildId }: { guildId: string }) {
           </div>
 
           {!premium && (
-            <div className="absolute inset-0 z-10 flex items-center justify-center bg-[#0a0a0c]/35 p-4">
-              <div className="max-w-sm rounded-2xl border border-amber-400/25 bg-[#131318]/95 p-5 text-center shadow-2xl backdrop-blur-md">
+            <div className="absolute inset-0 z-10 flex items-center justify-center cloudtix-workspace-field bg-[#0a0a0c]/35 p-4">
+              <div className="max-w-sm rounded-2xl border border-amber-400/25 cloudtix-workspace-card bg-[#131318]/95 p-5 text-center shadow-2xl backdrop-blur-md">
                 <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-xl bg-amber-400/10">
                   <Lock className="h-5 w-5 text-amber-300" />
                 </div>

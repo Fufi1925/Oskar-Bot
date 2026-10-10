@@ -29,7 +29,7 @@ import { EmojiPicker } from "@/components/dashboard/emoji-picker";
 import { DiscordEmojiText } from "@/components/dashboard/discord-emoji";
 
 const INPUT =
-  "w-full bg-[#0e0e12] border border-slate-800 rounded-xl px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-primary/50 transition-colors";
+  "w-full cloudtix-workspace-field bg-[#0e0e12] border border-slate-800 rounded-xl px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-primary/50 transition-colors";
 
 /** Sample values for the live preview of the level-up text. */
 const SAMPLE: Record<string, string> = {
@@ -70,7 +70,7 @@ function Field({ label, hint, children }: any) {
 function Stat({ icon: Icon, label, value }: any) {
   useWebsiteLocale();
   return (
-    <div className="bg-[#0e0e12] border border-slate-800 rounded-2xl p-4">
+    <div className="cloudtix-workspace-field bg-[#0e0e12] border border-slate-800 rounded-2xl p-4">
       <Icon className="h-4 w-4 text-primary mb-2" />
       <p className="text-lg font-black text-white">{value}</p>
       <p className="text-[11px] text-slate-500 mt-0.5">{label}</p>
@@ -177,7 +177,7 @@ export function LevelingPanel({ guildId }: { guildId: string }) {
   return (
     <section className="space-y-6">
       {/* ── Master switch + stats ────────────────────── */}
-      <div className="relative bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5">
+      <div className="relative cloudtix-workspace-card bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5">
         <div className="flex items-center justify-between gap-4 flex-wrap">
           <div className="flex items-center gap-3">
             <div className={cn(
@@ -248,7 +248,7 @@ export function LevelingPanel({ guildId }: { guildId: string }) {
               "flex items-center gap-2 px-4 h-11 rounded-xl text-xs font-black uppercase tracking-widest border transition-all",
               tab === t.id
                 ? "bg-primary/15 border-primary/40 text-primary"
-                : "bg-[#0e0e12] border-slate-800 text-slate-400 hover:text-slate-200"
+                : "cloudtix-workspace-field bg-[#0e0e12] border-slate-800 text-slate-400 hover:text-slate-200"
             )}
           >
             <t.icon className="h-3.5 w-3.5" />
@@ -260,7 +260,7 @@ export function LevelingPanel({ guildId }: { guildId: string }) {
       {/* ══ Settings ═════════════════════════════════ */}
       {tab === "settings" && (
         <div className="space-y-5">
-          <div className="relative bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5">
+          <div className="relative cloudtix-workspace-card bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5">
             <p className="text-xs font-black uppercase tracking-widest text-slate-500">
               XP verdienen
             </p>
@@ -317,7 +317,7 @@ export function LevelingPanel({ guildId }: { guildId: string }) {
             )}
           </div>
 
-          <div className="relative bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5">
+          <div className="relative cloudtix-workspace-card bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5">
             <p className="text-xs font-black uppercase tracking-widest text-slate-500">
               Level-Up-Nachricht
             </p>
@@ -337,7 +337,7 @@ export function LevelingPanel({ guildId }: { guildId: string }) {
                         "h-11 rounded-xl text-xs font-bold border transition-all",
                         (value("announce_mode") || "channel") === o.id
                           ? "bg-primary/15 border-primary/40 text-primary"
-                          : "bg-[#0e0e12] border-slate-800 text-slate-400 hover:text-slate-200"
+                          : "cloudtix-workspace-field bg-[#0e0e12] border-slate-800 text-slate-400 hover:text-slate-200"
                       )}
                     >
                       {o.label}
@@ -391,7 +391,7 @@ export function LevelingPanel({ guildId }: { guildId: string }) {
               </div>
             </Field>
 
-            <div className="rounded-xl bg-[#0b1626] border border-slate-800/70 p-4">
+            <div className="rounded-xl cloudtix-workspace-card bg-[#0b1626] border border-slate-800/70 p-4">
               <p className="text-[10px] font-black uppercase tracking-widest text-slate-600 mb-2 flex items-center gap-1">
                 <Eye className="h-3 w-3" /> Vorschau
               </p>
@@ -458,7 +458,7 @@ export function LevelingPanel({ guildId }: { guildId: string }) {
           </div>
 
           {/* Auto delete */}
-          <div className="relative bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5">
+          <div className="relative cloudtix-workspace-card bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5">
             <div>
               <p className="text-xs font-black uppercase tracking-widest text-slate-500">
                 Automatisch aufräumen
@@ -478,7 +478,7 @@ export function LevelingPanel({ guildId }: { guildId: string }) {
                       "px-4 h-11 rounded-xl text-xs font-bold border transition-all",
                       (value("delete_after") ?? 0) === p.value
                         ? "bg-primary/15 border-primary/40 text-primary"
-                        : "bg-[#0e0e12] border-slate-800 text-slate-400 hover:text-slate-200"
+                        : "cloudtix-workspace-field bg-[#0e0e12] border-slate-800 text-slate-400 hover:text-slate-200"
                     )}
                   >
                     {p.label}
@@ -489,7 +489,7 @@ export function LevelingPanel({ guildId }: { guildId: string }) {
                   min={0}
                   value={value("delete_after") ?? 0}
                   onChange={(e) => set("delete_after", Number(e.target.value) || 0)}
-                  className="h-11 w-24 bg-[#0e0e12] border border-slate-800 rounded-xl px-3 text-sm text-white text-center focus:outline-none focus:border-primary/50"
+                  className="h-11 w-24 cloudtix-workspace-field bg-[#0e0e12] border border-slate-800 rounded-xl px-3 text-sm text-white text-center focus:outline-none focus:border-primary/50"
                 />
               </div>
             </Field>
@@ -504,7 +504,7 @@ export function LevelingPanel({ guildId }: { guildId: string }) {
                       "px-4 h-11 rounded-xl text-xs font-bold border transition-all",
                       (value("command_delete_after") ?? 0) === p.value
                         ? "bg-primary/15 border-primary/40 text-primary"
-                        : "bg-[#0e0e12] border-slate-800 text-slate-400 hover:text-slate-200"
+                        : "cloudtix-workspace-field bg-[#0e0e12] border-slate-800 text-slate-400 hover:text-slate-200"
                     )}
                   >
                     {p.label}
@@ -515,7 +515,7 @@ export function LevelingPanel({ guildId }: { guildId: string }) {
                   min={0}
                   value={value("command_delete_after") ?? 0}
                   onChange={(e) => set("command_delete_after", Number(e.target.value) || 0)}
-                  className="h-11 w-24 bg-[#0e0e12] border border-slate-800 rounded-xl px-3 text-sm text-white text-center focus:outline-none focus:border-primary/50"
+                  className="h-11 w-24 cloudtix-workspace-field bg-[#0e0e12] border border-slate-800 rounded-xl px-3 text-sm text-white text-center focus:outline-none focus:border-primary/50"
                 />
               </div>
             </Field>
@@ -528,7 +528,7 @@ export function LevelingPanel({ guildId }: { guildId: string }) {
             />
           </div>
 
-          <div className="relative bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5">
+          <div className="relative cloudtix-workspace-card bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5">
             <p className="text-xs font-black uppercase tracking-widest text-slate-500">
               Rangkarte
             </p>
@@ -546,7 +546,7 @@ export function LevelingPanel({ guildId }: { guildId: string }) {
                       "text-left rounded-2xl border p-4 transition-all",
                       (value("card_style") || "image") === o.id
                         ? "bg-primary/10 border-primary/40"
-                        : "bg-[#0e0e12] border-slate-800 hover:border-slate-700"
+                        : "cloudtix-workspace-field bg-[#0e0e12] border-slate-800 hover:border-slate-700"
                     )}
                   >
                     <o.icon className={cn(
@@ -620,7 +620,7 @@ function RewardsTab({ guildId, data, busy, act, stack, onStack, reload }: any) {
       {/* Build the whole ladder in one go */}
       <LadderWizard guildId={guildId} onDone={reload} />
 
-      <div className="relative bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5">
+      <div className="relative cloudtix-workspace-card bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5">
         <div>
           <p className="text-xs font-black uppercase tracking-widest text-slate-500">
             Einzelne Belohnung
@@ -665,7 +665,7 @@ function RewardsTab({ guildId, data, busy, act, stack, onStack, reload }: any) {
         </div>
       </div>
 
-      <div className="relative bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5">
+      <div className="relative cloudtix-workspace-card bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5">
         <div className="flex items-center justify-between gap-4 flex-wrap">
           <p className="text-xs font-black uppercase tracking-widest text-slate-500">
             Belohnungen ({data.rewards?.length || 0})
@@ -703,7 +703,7 @@ function RewardsTab({ guildId, data, busy, act, stack, onStack, reload }: any) {
             {data.rewards.map((r: any) => (
               <div
                 key={r.level}
-                className="flex items-center gap-3 bg-[#0e0e12] border border-slate-800 rounded-2xl px-4 py-3 flex-wrap"
+                className="flex items-center gap-3 cloudtix-workspace-field bg-[#0e0e12] border border-slate-800 rounded-2xl px-4 py-3 flex-wrap"
               >
                 <span className="px-3 py-1.5 rounded-lg bg-primary/15 text-primary text-xs font-black shrink-0">
                   Level {r.level}
@@ -764,7 +764,7 @@ function TuningTab({ guildId, data, busy, act }: any) {
   return (
     <div className="space-y-5">
       {/* Multipliers */}
-      <div className="relative bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5">
+      <div className="relative cloudtix-workspace-card bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5">
         <div>
           <p className="text-xs font-black uppercase tracking-widest text-slate-500">
             XP-Multiplikatoren
@@ -786,7 +786,7 @@ function TuningTab({ guildId, data, busy, act }: any) {
                     "h-[46px] rounded-xl text-xs font-bold border transition-all",
                     kind === k
                       ? "bg-primary/15 border-primary/40 text-primary"
-                      : "bg-[#0e0e12] border-slate-800 text-slate-400"
+                      : "cloudtix-workspace-field bg-[#0e0e12] border-slate-800 text-slate-400"
                   )}
                 >
                   {k === "role" ? "Rolle" : "Kanal"}
@@ -833,7 +833,7 @@ function TuningTab({ guildId, data, busy, act }: any) {
             {data.multipliers.map((m: any) => (
               <div
                 key={`${m.target_type}-${m.target_id}`}
-                className="flex items-center gap-3 bg-[#0e0e12] border border-slate-800 rounded-2xl px-4 py-3"
+                className="flex items-center gap-3 cloudtix-workspace-field bg-[#0e0e12] border border-slate-800 rounded-2xl px-4 py-3"
               >
                 <span className="text-[10px] font-black uppercase text-slate-600 shrink-0">
                   {m.target_type === "role" ? "Rolle" : "Kanal"}
@@ -865,7 +865,7 @@ function TuningTab({ guildId, data, busy, act }: any) {
       </div>
 
       {/* Exclusions */}
-      <div className="relative bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5">
+      <div className="relative cloudtix-workspace-card bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5">
         <div>
           <p className="text-xs font-black uppercase tracking-widest text-slate-500">
             Kein XP für
@@ -886,7 +886,7 @@ function TuningTab({ guildId, data, busy, act }: any) {
                     "h-[46px] rounded-xl text-xs font-bold border transition-all",
                     exKind === k
                       ? "bg-primary/15 border-primary/40 text-primary"
-                      : "bg-[#0e0e12] border-slate-800 text-slate-400"
+                      : "cloudtix-workspace-field bg-[#0e0e12] border-slate-800 text-slate-400"
                   )}
                 >
                   {k === "role" ? "Rolle" : "Kanal"}
@@ -923,7 +923,7 @@ function TuningTab({ guildId, data, busy, act }: any) {
             {data.excluded.map((e: any) => (
               <span
                 key={`${e.target_type}-${e.target_id}`}
-                className="flex items-center gap-2 px-3 py-2 rounded-xl bg-[#0e0e12] border border-slate-800 text-sm"
+                className="flex items-center gap-2 px-3 py-2 rounded-xl cloudtix-workspace-field bg-[#0e0e12] border border-slate-800 text-sm"
               >
                 <span className={cn(e.missing ? "text-red-400 italic" : "text-slate-300")}>
                   {e.missing ? "gelöscht" : (e.target_type === "role" ? "@" : "#") + e.name}
@@ -982,7 +982,7 @@ function MembersTab({ guildId, busy, act }: any) {
   const pages = Math.max(1, Math.ceil((board?.total || 0) / (board?.per_page || 25)));
 
   return (
-    <div className="relative bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5">
+    <div className="relative cloudtix-workspace-card bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5">
       {editing && (
         <EditMember
           guildId={guildId}
@@ -1033,7 +1033,7 @@ function MembersTab({ guildId, busy, act }: any) {
           {entries.map((e: any) => (
             <div
               key={e.user_id}
-              className="flex items-center gap-3 bg-[#0e0e12] border border-slate-800 rounded-2xl px-4 py-3 flex-wrap"
+              className="flex items-center gap-3 cloudtix-workspace-field bg-[#0e0e12] border border-slate-800 rounded-2xl px-4 py-3 flex-wrap"
             >
               <span className={cn(
                 "w-10 text-center text-xs font-black shrink-0",
@@ -1144,7 +1144,7 @@ function EditMember({ guildId, member, onClose, onDone }: any) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-      <div className="relative bg-[#131318] border border-slate-800 rounded-3xl w-full max-w-md shadow-2xl">
+      <div className="relative cloudtix-workspace-card bg-[#131318] border border-slate-800 rounded-3xl w-full max-w-md shadow-2xl">
         <div className="p-5 border-b border-slate-800 flex items-center justify-between gap-3">
           <div className="min-w-0">
             <h3 className="font-black text-white truncate">{member.name}</h3>
@@ -1171,7 +1171,7 @@ function EditMember({ guildId, member, onClose, onDone }: any) {
                   "h-11 rounded-xl text-xs font-bold border transition-all",
                   mode === o.id
                     ? "bg-primary/15 border-primary/40 text-primary"
-                    : "bg-[#0e0e12] border-slate-800 text-slate-400"
+                    : "cloudtix-workspace-field bg-[#0e0e12] border-slate-800 text-slate-400"
                 )}
               >
                 {o.label}
@@ -1252,7 +1252,7 @@ function CurveTab({ guildId }: { guildId: string }) {
   const peak = levels.length ? levels[levels.length - 1].step_xp : 1;
 
   return (
-    <div className="relative bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5">
+    <div className="relative cloudtix-workspace-card bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5">
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div className="min-w-0">
           <p className="text-xs font-black uppercase tracking-widest text-slate-500">
@@ -1277,7 +1277,7 @@ function CurveTab({ guildId }: { guildId: string }) {
                 "px-3 h-10 rounded-xl text-xs font-bold border transition-all",
                 upTo === n
                   ? "bg-primary/15 border-primary/40 text-primary"
-                  : "bg-[#0e0e12] border-slate-800 text-slate-400 hover:text-slate-200"
+                  : "cloudtix-workspace-field bg-[#0e0e12] border-slate-800 text-slate-400 hover:text-slate-200"
               )}
             >
               bis {n}
@@ -1309,7 +1309,7 @@ function CurveTab({ guildId }: { guildId: string }) {
                   "grid md:grid-cols-[64px_1fr_110px_110px_90px] gap-x-3 gap-y-1 items-center rounded-xl px-3 py-2.5 border transition-colors",
                   row.role_id
                     ? "bg-primary/[0.06] border-primary/25"
-                    : "bg-[#0e0e12] border-slate-800/60"
+                    : "cloudtix-workspace-field bg-[#0e0e12] border-slate-800/60"
                 )}
               >
                 <span className="text-sm font-black text-white">
@@ -1432,7 +1432,7 @@ function LadderWizard({ guildId, onDone }: { guildId: string; onDone: () => void
     return (
       <button
         onClick={() => setOpen(true)}
-        className="relative w-full flex items-center gap-4 bg-[#131318] border border-dashed border-primary/30 rounded-3xl p-4 sm:p-6 text-left hover:border-primary/60 transition-all group"
+        className="relative w-full flex items-center gap-4 cloudtix-workspace-card bg-[#131318] border border-dashed border-primary/30 rounded-3xl p-4 sm:p-6 text-left hover:border-primary/60 transition-all group"
       >
         <div className="h-11 w-11 rounded-2xl bg-primary/15 grid place-items-center shrink-0">
           <Wand2 className="h-5 w-5 text-primary" />
@@ -1450,11 +1450,11 @@ function LadderWizard({ guildId, onDone }: { guildId: string; onDone: () => void
   }
 
   return (
-    <div className="relative bg-[#131318] border border-primary/30 rounded-3xl p-4 sm:p-6 space-y-5">
+    <div className="relative cloudtix-workspace-card bg-[#131318] border border-primary/30 rounded-3xl p-4 sm:p-6 space-y-5">
       {/* The follow-up question, once they press create */}
       {askSetup && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="bg-[#131318] border border-slate-800 rounded-3xl w-full max-w-md shadow-2xl">
+          <div className="cloudtix-workspace-card bg-[#131318] border border-slate-800 rounded-3xl w-full max-w-md shadow-2xl">
             <div className="p-6 space-y-4">
               <div className="h-11 w-11 rounded-2xl bg-primary/15 grid place-items-center">
                 <Sparkles className="h-5 w-5 text-primary" />
@@ -1523,7 +1523,7 @@ function LadderWizard({ guildId, onDone }: { guildId: string; onDone: () => void
                   "w-full flex items-center gap-3 rounded-xl border px-3 py-2.5 transition-all",
                   ramp === r.id
                     ? "bg-primary/10 border-primary/40"
-                    : "bg-[#0e0e12] border-slate-800 hover:border-slate-700"
+                    : "cloudtix-workspace-field bg-[#0e0e12] border-slate-800 hover:border-slate-700"
                 )}
               >
                 <span className="flex gap-1 shrink-0">
@@ -1559,7 +1559,7 @@ function LadderWizard({ guildId, onDone }: { guildId: string; onDone: () => void
                     "h-11 px-3 rounded-xl text-xs font-bold border transition-all truncate",
                     style === o.id
                       ? "bg-primary/15 border-primary/40 text-primary"
-                      : "bg-[#0e0e12] border-slate-800 text-slate-400 hover:text-slate-200"
+                      : "cloudtix-workspace-field bg-[#0e0e12] border-slate-800 text-slate-400 hover:text-slate-200"
                   )}
                 >
                   {o.label}
@@ -1578,7 +1578,7 @@ function LadderWizard({ guildId, onDone }: { guildId: string; onDone: () => void
                     "w-full text-left rounded-xl border px-3 py-2 transition-all",
                     spacing === o.id
                       ? "bg-primary/10 border-primary/40"
-                      : "bg-[#0e0e12] border-slate-800 hover:border-slate-700"
+                      : "cloudtix-workspace-field bg-[#0e0e12] border-slate-800 hover:border-slate-700"
                   )}
                 >
                   <span className="block text-sm font-bold text-white">{o.label}</span>
@@ -1629,7 +1629,7 @@ function LadderWizard({ guildId, onDone }: { guildId: string; onDone: () => void
       </div>
 
       {/* Preview */}
-      <div className="rounded-2xl bg-[#0b1626] border border-slate-800/70 p-4 space-y-2">
+      <div className="rounded-2xl cloudtix-workspace-card bg-[#0b1626] border border-slate-800/70 p-4 space-y-2">
         <p className="text-[10px] font-black uppercase tracking-widest text-slate-600 flex items-center gap-1">
           <Eye className="h-3 w-3" /> Das wird angelegt
         </p>

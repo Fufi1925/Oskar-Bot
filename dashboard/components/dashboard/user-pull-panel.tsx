@@ -797,7 +797,7 @@ function Select({
         <ChevronDown className={`h-4 w-4 text-slate-500 transition-transform ${open ? "rotate-180" : ""}`} />
       </button>
       {open && (
-        <div className="absolute left-0 right-0 top-[calc(100%+8px)] z-[130] max-h-64 overflow-y-auto rounded-xl border border-white/10 bg-[#111827] p-2 shadow-2xl shadow-black/60">
+        <div className="absolute left-0 right-0 top-[calc(100%+8px)] z-[130] max-h-64 overflow-y-auto rounded-xl border border-white/10 cloudtix-workspace-card bg-[#111827] p-2 shadow-2xl shadow-black/60">
           {options.length ? options.map((option) => (
             <button
               type="button"

@@ -11,8 +11,8 @@ import { toast } from "sonner";
 import { api } from "@/lib/api";
 import { LogUmgezogen } from "@/components/dashboard/log-umgezogen";
 
-const card = "rounded-2xl border border-white/[.07] bg-[#202124] p-5 sm:p-6";
-const field = "mt-2 w-full rounded-xl border border-white/10 bg-[#18191c] px-4 py-3 text-sm text-white outline-none focus:border-primary/50";
+const card = "rounded-2xl border border-white/[.07] cloudtix-workspace-card bg-[#202124] p-5 sm:p-6";
+const field = "mt-2 w-full rounded-xl border border-white/10 cloudtix-workspace-field bg-[#18191c] px-4 py-3 text-sm text-white outline-none focus:border-primary/50";
 const action = "inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 px-4 py-2.5 text-sm text-slate-300 transition hover:bg-white/5 disabled:opacity-50";
 const TITLE = "DO NOT SEND MESSAGES IN THIS CHANNEL";
 
@@ -108,7 +108,7 @@ export function HoneypotPanel({ guildId }: { guildId: string }) {
     <section className={card}><h3 className="flex items-center gap-2 font-semibold text-white"><Users className="h-4 w-4 text-violet-300" />Ausnahmen</h3>
       <p className="mt-2 text-sm text-slate-400">Mitglieder mit diesen Rollen werden nicht bestraft. Server-Inhaber und Bots sind immer geschützt.</p>
       <div className="mt-4 grid max-h-64 gap-2 overflow-y-auto sm:grid-cols-2">
-        {data.roles.map(role => <label key={role.id} className="flex cursor-pointer items-center gap-3 rounded-xl border border-white/[.07] bg-[#18191c] p-3 text-sm text-slate-300"><input type="checkbox" disabled={busy} checked={roles.includes(role.id)} onChange={event => setRoles(current => event.target.checked ? [...current, role.id] : current.filter(id => id !== role.id))} className="h-4 w-4 accent-primary" /><span className="truncate">{role.name}</span></label>)}
+        {data.roles.map(role => <label key={role.id} className="flex cursor-pointer items-center gap-3 rounded-xl border border-white/[.07] cloudtix-workspace-field bg-[#18191c] p-3 text-sm text-slate-300"><input type="checkbox" disabled={busy} checked={roles.includes(role.id)} onChange={event => setRoles(current => event.target.checked ? [...current, role.id] : current.filter(id => id !== role.id))} className="h-4 w-4 accent-primary" /><span className="truncate">{role.name}</span></label>)}
       </div>
       {data.roles.length === 0 && <p className="mt-4 text-sm text-slate-500">Keine zusätzlichen Rollen vorhanden.</p>}
     </section>
@@ -117,7 +117,7 @@ export function HoneypotPanel({ guildId }: { guildId: string }) {
     </div>
     <div hidden={view !== "panel"}>
     <section className={card}><div className="mb-4 flex items-center justify-between"><h3 className="font-semibold text-white">Discord-Panel</h3><span className="rounded-lg bg-white/5 px-2 py-1 text-xs text-slate-500">Fester Warntext</span></div>
-      <div className="rounded-xl border border-white/[.07] bg-[#18191c] p-5"><h4 className="text-lg font-bold text-white">{TITLE}</h4><p className="mt-3 text-sm leading-relaxed text-slate-300">This channel is used to catch spam bots. Any messages sent here will result in <strong>a softban</strong>.</p><span className="mt-4 inline-block rounded-lg border border-white/10 px-3 py-2 text-sm text-slate-300">Softbans: {data.kicks || 0}</span></div>
+      <div className="rounded-xl border border-white/[.07] cloudtix-workspace-field bg-[#18191c] p-5"><h4 className="text-lg font-bold text-white">{TITLE}</h4><p className="mt-3 text-sm leading-relaxed text-slate-300">This channel is used to catch spam bots. Any messages sent here will result in <strong>a softban</strong>.</p><span className="mt-4 inline-block rounded-lg border border-white/10 px-3 py-2 text-sm text-slate-300">Softbans: {data.kicks || 0}</span></div>
       <p className="mt-3 text-xs text-slate-500">Der Knopf öffnet privat Informationen, aktuelle Statistiken und Links zu CloudTIX. Die Warnung ist nicht bearbeitbar.</p>
     </section>
     </div>

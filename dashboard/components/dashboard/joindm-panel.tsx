@@ -28,7 +28,7 @@ import { EmojiText } from "@/components/dashboard/emoji-field";
 import { DiscordEmojiText } from "@/components/dashboard/discord-emoji";
 
 const INPUT =
-  "w-full bg-[#0e0e12] border border-slate-800 rounded-xl px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-primary/50 transition-colors";
+  "w-full cloudtix-workspace-field bg-[#0e0e12] border border-slate-800 rounded-xl px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-primary/50 transition-colors";
 
 const SAMPLE: Record<string, string> = {
   "{user}": "@Alex",
@@ -55,7 +55,7 @@ function Field({ label, hint, children }: any) {
 function Stat({ icon: Icon, label, value, tone }: any) {
   useWebsiteLocale();
   return (
-    <div className="bg-[#0e0e12] border border-slate-800 rounded-2xl px-4 py-3">
+    <div className="cloudtix-workspace-field bg-[#0e0e12] border border-slate-800 rounded-2xl px-4 py-3">
       <Icon className={cn("h-4 w-4 mb-1.5", tone || "text-primary")} />
       <p className="text-lg font-black text-white">{value}</p>
       <p className="text-[11px] text-slate-500">{label}</p>
@@ -152,7 +152,7 @@ export function JoinDMPanel({ guildId }: { guildId: string }) {
     <section className="grid xl:grid-cols-5 gap-6">
       <div className="xl:col-span-3 space-y-5">
         {/* ── Status ─────────────────────────────────── */}
-        <div className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5">
+        <div className="cloudtix-workspace-card bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5">
           <div className="flex items-center justify-between gap-4 flex-wrap">
             <div className="flex items-center gap-3">
               <div className={cn(
@@ -224,7 +224,7 @@ export function JoinDMPanel({ guildId }: { guildId: string }) {
         </div>
 
         {/* ── Content ────────────────────────────────── */}
-        <div className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5">
+        <div className="cloudtix-workspace-card bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5">
           <p className="text-xs font-black uppercase tracking-widest text-slate-500">
             Die Nachricht
           </p>
@@ -341,7 +341,7 @@ export function JoinDMPanel({ guildId }: { guildId: string }) {
         </div>
 
         {/* ── Guards ─────────────────────────────────── */}
-        <div className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5">
+        <div className="cloudtix-workspace-card bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5">
           <div>
             <p className="text-xs font-black uppercase tracking-widest text-slate-500">
               Wann verschickt wird
@@ -384,7 +384,7 @@ export function JoinDMPanel({ guildId }: { guildId: string }) {
       {/* ── Preview ──────────────────────────────────── */}
       <div className="xl:col-span-2 space-y-5">
         <div className="xl:sticky xl:top-6 space-y-5">
-          <div className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-4">
+          <div className="cloudtix-workspace-card bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-4">
             <p className="text-xs font-black uppercase tracking-widest text-slate-500 flex items-center gap-2">
               <Eye className="h-3.5 w-3.5" /> Vorschau
             </p>

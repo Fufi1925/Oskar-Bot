@@ -17,7 +17,7 @@ export type OwnerOAuthSnapshot = {
 export function OwnerOAuthDetails({ snapshot, filter }: { snapshot: OwnerOAuthSnapshot; filter: string }) {
   const locale = useWebsiteLocale();
   const t = (de: string, en: string) => locale === "en-GB" ? en : de;
-  const card = "rounded-2xl border border-white/[0.07] bg-[#11151e] p-5 sm:p-6";
+  const card = "rounded-2xl border border-white/[0.07] cloudtix-workspace-card bg-[#11151e] p-5 sm:p-6";
   const field = (label: string, value: React.ReactNode) => <div className="min-w-0"><dt className="text-xs text-slate-500">{label}</dt><dd className="mt-1 break-words text-sm text-slate-200">{value ?? "—"}</dd></div>;
   const bool = (value?: boolean) => value === undefined ? "—" : value ? t("Ja", "Yes") : t("Nein", "No");
   const date = (value?: string) => value && Number.isFinite(Date.parse(value)) ? new Date(value).toLocaleString(locale, { dateStyle: "medium", timeStyle: "short" }) : "—";

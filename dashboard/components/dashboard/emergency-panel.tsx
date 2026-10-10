@@ -71,7 +71,7 @@ export function EmergencyPanel({ guildId }: { guildId: string }) {
           "border rounded-2xl p-4 sm:p-6",
           state.active
             ? "bg-red-500/10 border-red-500/30"
-            : "bg-[#202124] border-white/[.07]"
+            : "cloudtix-workspace-card bg-[#202124] border-white/[.07]"
         )}
       >
         <div className="flex items-center justify-between gap-4 flex-wrap">
@@ -157,9 +157,9 @@ export function EmergencyPanel({ guildId }: { guildId: string }) {
         )}
       </ModerationSection>
       <div className="space-y-5">
-      <ModerationSection icon={ShieldCheck} title="Berechtigte Konten"><p className="text-2xl font-semibold text-white">{state.authorised_users.length}</p><div className="flex flex-wrap gap-2">{state.authorised_users.map(user => <span key={user.id} data-no-translate className="rounded-lg border border-white/10 bg-[#18191c] px-3 py-2 text-sm text-slate-300">{user.name || user.id}</span>)}</div></ModerationSection>
+      <ModerationSection icon={ShieldCheck} title="Berechtigte Konten"><p className="text-2xl font-semibold text-white">{state.authorised_users.length}</p><div className="flex flex-wrap gap-2">{state.authorised_users.map(user => <span key={user.id} data-no-translate className="rounded-lg border border-white/10 cloudtix-workspace-field bg-[#18191c] px-3 py-2 text-sm text-slate-300">{user.name || user.id}</span>)}</div></ModerationSection>
       {state.locked_roles.length > 0 && (
-        <div className="bg-[#202124] border border-white/[.07] rounded-2xl p-4 sm:p-6">
+        <div className="cloudtix-workspace-card bg-[#202124] border border-white/[.07] rounded-2xl p-4 sm:p-6">
           <p className="text-xs font-semibold uppercase tracking-widest text-slate-500 mb-3">
             Affected roles
           </p>

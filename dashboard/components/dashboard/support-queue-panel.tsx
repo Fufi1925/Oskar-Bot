@@ -37,7 +37,7 @@ import { toast } from "sonner";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
-const CARD = "bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6";
+const CARD = "cloudtix-workspace-card bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6";
 
 interface VoiceChannel {
   id: string;
@@ -217,7 +217,7 @@ export function SupportQueuePanel({ guildId }: { guildId: string }) {
         </div>
 
         {an && (
-          <div className="mt-4 flex flex-wrap items-center gap-3 rounded-2xl border border-slate-800 bg-[#0f0f13] p-3">
+          <div className="mt-4 flex flex-wrap items-center gap-3 rounded-2xl border border-slate-800 cloudtix-workspace-card bg-[#0f0f13] p-3">
             <span className="flex items-center gap-1.5 text-sm text-emerald-300">
               <CheckCircle2 className="h-4 w-4" />
               Läuft
@@ -253,7 +253,7 @@ export function SupportQueuePanel({ guildId }: { guildId: string }) {
         <WebsiteSelect
           value={kanal}
           onChange={(e) => setKanal(e.target.value)}
-          className="w-full rounded-2xl border border-slate-800 bg-[#0f0f13] px-4 py-3 text-sm text-white outline-none focus:border-primary/50"
+          className="w-full rounded-2xl border border-slate-800 cloudtix-workspace-card bg-[#0f0f13] px-4 py-3 text-sm text-white outline-none focus:border-primary/50"
         >
           <option value="">Keiner ausgewählt</option>
           {sprachKanaele.map((k) => (
@@ -288,7 +288,7 @@ export function SupportQueuePanel({ guildId }: { guildId: string }) {
         <WebsiteSelect
           value={meldeKanal}
           onChange={(e) => setMeldeKanal(e.target.value)}
-          className="w-full rounded-2xl border border-slate-800 bg-[#0f0f13] px-4 py-3 text-sm text-white outline-none focus:border-primary/50"
+          className="w-full rounded-2xl border border-slate-800 cloudtix-workspace-card bg-[#0f0f13] px-4 py-3 text-sm text-white outline-none focus:border-primary/50"
         >
           <option value="">Keine Meldung</option>
           {textKanaele.map((k) => (
@@ -313,7 +313,7 @@ export function SupportQueuePanel({ guildId }: { guildId: string }) {
         <WebsiteSelect
           value={rolle}
           onChange={(e) => setRolle(e.target.value)}
-          className="w-full rounded-2xl border border-slate-800 bg-[#0f0f13] px-4 py-3 text-sm text-white outline-none focus:border-primary/50"
+          className="w-full rounded-2xl border border-slate-800 cloudtix-workspace-card bg-[#0f0f13] px-4 py-3 text-sm text-white outline-none focus:border-primary/50"
         >
           <option value="">Keine Erwähnung</option>
           {rollen.map((r) => (
@@ -355,7 +355,7 @@ export function SupportQueuePanel({ guildId }: { guildId: string }) {
             {wartende.map((w) => (
               <div
                 key={w.user_id}
-                className="flex items-center gap-3 rounded-2xl border border-slate-800 bg-[#0f0f13] p-3"
+                className="flex items-center gap-3 rounded-2xl border border-slate-800 cloudtix-workspace-card bg-[#0f0f13] p-3"
               >
                 {w.avatar ? (
                   // eslint-disable-next-line @next/next/no-img-element

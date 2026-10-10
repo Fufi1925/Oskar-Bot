@@ -25,7 +25,7 @@ import { RolePicker } from "@/components/dashboard/pickers";
 import { UserPicker } from "@/components/dashboard/user-picker";
 
 const INPUT =
-  "w-full bg-[#0e0e12] border border-slate-800 rounded-xl px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-primary/50 transition-colors";
+  "w-full cloudtix-workspace-field bg-[#0e0e12] border border-slate-800 rounded-xl px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-primary/50 transition-colors";
 
 const DURATIONS = [
   { label: "Dauerhaft", days: 0 },
@@ -111,7 +111,7 @@ export function NoPrefixPanel({ guildId }: { guildId: string }) {
   return (
     <section className="space-y-6">
       {/* ── What this does ───────────────────────────── */}
-      <div className="relative bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-4">
+      <div className="relative cloudtix-workspace-card bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-4">
         <div className="flex gap-3">
           <div className="h-10 w-10 rounded-2xl bg-primary/15 grid place-items-center shrink-0">
             <Terminal className="h-5 w-5 text-primary" />
@@ -148,7 +148,7 @@ export function NoPrefixPanel({ guildId }: { guildId: string }) {
       </div>
 
       {/* ── Add a member ─────────────────────────────── */}
-      <div className="relative bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5">
+      <div className="relative cloudtix-workspace-card bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5">
         <div className="flex items-center justify-between gap-4">
           <p className="text-xs font-black uppercase tracking-widest text-slate-500">
             Mitglied hinzufügen
@@ -181,7 +181,7 @@ export function NoPrefixPanel({ guildId }: { guildId: string }) {
                     "px-3 h-[46px] rounded-xl text-xs font-bold border transition-all",
                     days === d.days
                       ? "bg-primary/15 border-primary/40 text-primary"
-                      : "bg-[#0e0e12] border-slate-800 text-slate-400 hover:text-slate-200"
+                      : "cloudtix-workspace-field bg-[#0e0e12] border-slate-800 text-slate-400 hover:text-slate-200"
                   )}
                 >
                   {d.label}
@@ -211,7 +211,7 @@ export function NoPrefixPanel({ guildId }: { guildId: string }) {
       </div>
 
       {/* ── Members ──────────────────────────────────── */}
-      <div className="relative bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5">
+      <div className="relative cloudtix-workspace-card bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5">
         <div className="flex items-center gap-3 flex-wrap">
           <p className="text-xs font-black uppercase tracking-widest text-slate-500 flex-1">
             Mitglieder ({data?.users?.length || 0})
@@ -241,8 +241,8 @@ export function NoPrefixPanel({ guildId }: { guildId: string }) {
                 className={cn(
                   "flex items-center gap-3 rounded-2xl border px-4 py-3 flex-wrap",
                   user.expired
-                    ? "bg-[#0e0e12] border-amber-500/25 opacity-70"
-                    : "bg-[#0e0e12] border-slate-800"
+                    ? "cloudtix-workspace-field bg-[#0e0e12] border-amber-500/25 opacity-70"
+                    : "cloudtix-workspace-field bg-[#0e0e12] border-slate-800"
                 )}
               >
                 {user.avatar ? (
@@ -307,7 +307,7 @@ export function NoPrefixPanel({ guildId }: { guildId: string }) {
       </div>
 
       {/* ── Roles ────────────────────────────────────── */}
-      <div className="relative bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5">
+      <div className="relative cloudtix-workspace-card bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5">
         <div>
           <p className="text-xs font-black uppercase tracking-widest text-slate-500">
             Ganze Rollen ({data?.roles?.length || 0})
@@ -352,7 +352,7 @@ export function NoPrefixPanel({ guildId }: { guildId: string }) {
             {data.roles.map((role: any) => (
               <div
                 key={role.role_id}
-                className="flex items-center gap-3 bg-[#0e0e12] border border-slate-800 rounded-2xl px-4 py-3"
+                className="flex items-center gap-3 cloudtix-workspace-field bg-[#0e0e12] border border-slate-800 rounded-2xl px-4 py-3"
               >
                 <span
                   className={cn(

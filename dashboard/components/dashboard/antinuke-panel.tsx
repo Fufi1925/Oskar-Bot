@@ -22,7 +22,7 @@ function Card({ icon: Icon, title, subtitle, children, tone }: any) {
         "border rounded-2xl p-4 sm:p-6 space-y-5",
         tone === "danger"
           ? "bg-red-500/[0.04] border-red-500/25"
-          : "bg-[#202124] border-white/[.07]"
+          : "cloudtix-workspace-card bg-[#202124] border-white/[.07]"
       )}
     >
       <div className="flex gap-3 min-w-0">
@@ -86,7 +86,7 @@ function WhitelistEditor({
   const all = count === actions.length;
 
   return (
-    <div className="rounded-2xl bg-[#18191c] border border-white/[.07] p-4 space-y-4">
+    <div className="rounded-2xl cloudtix-workspace-field bg-[#18191c] border border-white/[.07] p-4 space-y-4">
       <div className="flex items-center justify-between gap-3">
         <p className="text-xs font-semibold uppercase tracking-widest text-slate-400">
           {title}
@@ -119,7 +119,7 @@ function WhitelistEditor({
                 "flex items-start gap-2.5 text-left rounded-xl border px-3 py-2.5 transition-all",
                 on
                   ? "bg-red-500/10 border-red-500/40"
-                  : "bg-[#18191c] border-white/[.07] hover:border-slate-700"
+                  : "cloudtix-workspace-field bg-[#18191c] border-white/[.07] hover:border-slate-700"
               )}
             >
               <span
@@ -204,7 +204,7 @@ export function AntiNukePanel({ guildId, reports }: { guildId: string; reports?:
   return (
     <section className="space-y-5">
       <div className="grid gap-3 sm:grid-cols-3">
-        {[{ label: "Aktive Schutzbereiche", value: activeActions.length }, { label: "Ausnahmen", value: whitelist.length }, { label: "Nicht geladene Bereiche", value: actions.filter(a => !a.loaded).length }].map(item => <div key={item.label} className="rounded-2xl border border-white/[.07] bg-[#202124] p-5"><p className="text-xs text-slate-400">{item.label}</p><p className="mt-2 text-2xl font-semibold text-white">{item.value}</p></div>)}
+        {[{ label: "Aktive Schutzbereiche", value: activeActions.length }, { label: "Ausnahmen", value: whitelist.length }, { label: "Nicht geladene Bereiche", value: actions.filter(a => !a.loaded).length }].map(item => <div key={item.label} className="rounded-2xl border border-white/[.07] cloudtix-workspace-card bg-[#202124] p-5"><p className="text-xs text-slate-400">{item.label}</p><p className="mt-2 text-2xl font-semibold text-white">{item.value}</p></div>)}
       </div>
       <Warnings items={p.data?.warnings} />
       <ModerationTabs value={view} onChange={setView} items={[["rules", "Schutzbereiche"], ["exceptions", "Ausnahmen"], ["system", "Systeminfos"], ["reports", "Angriffsmeldungen"]]} label="Anti-Nuke-Bereiche" />
@@ -217,7 +217,7 @@ export function AntiNukePanel({ guildId, reports }: { guildId: string; reports?:
           das aus wie ein kaputter Anti-Nuke. */}
       <div hidden={view !== "system"} className="space-y-5">
       {trustedBots.length > 0 && (
-        <div className="rounded-2xl border border-white/[.07] bg-[#202124] p-4">
+        <div className="rounded-2xl border border-white/[.07] cloudtix-workspace-card bg-[#202124] p-4">
           <div className="flex items-start gap-3">
             <Bot className="mt-0.5 h-4 w-4 shrink-0 text-slate-500" />
             <div className="min-w-0 flex-1">
@@ -242,7 +242,7 @@ export function AntiNukePanel({ guildId, reports }: { guildId: string; reports?:
                   <span
                     key={b.id}
                     title={`${b.name || "Unbekannt"} · ${b.id}`}
-                    className="flex items-center gap-2 rounded-lg border border-white/[.07] bg-[#18191c] py-1 pl-1 pr-2.5"
+                    className="flex items-center gap-2 rounded-lg border border-white/[.07] cloudtix-workspace-field bg-[#18191c] py-1 pl-1 pr-2.5"
                   >
                     {b.avatar ? (
                       // eslint-disable-next-line @next/next/no-img-element
@@ -305,7 +305,7 @@ export function AntiNukePanel({ guildId, reports }: { guildId: string; reports?:
             "rounded-2xl border p-4 flex items-center justify-between gap-4",
             status
               ? "bg-emerald-500/[0.06] border-emerald-500/25"
-              : "bg-[#18191c] border-white/[.07]"
+              : "cloudtix-workspace-field bg-[#18191c] border-white/[.07]"
           )}
         >
           <div className="min-w-0">
@@ -339,7 +339,7 @@ export function AntiNukePanel({ guildId, reports }: { guildId: string; reports?:
           />
         </div>
 
-        <div className="relative"><Search className="absolute left-3 top-3.5 h-4 w-4 text-slate-500" /><input value={query} onChange={e => setQuery(e.target.value)} aria-label="Schutzbereich suchen" placeholder="Schutzbereich suchen …" className="w-full rounded-xl border border-white/10 bg-[#18191c] py-3 pl-10 pr-4 text-sm text-white outline-none focus:border-blue-400/40" /></div>
+        <div className="relative"><Search className="absolute left-3 top-3.5 h-4 w-4 text-slate-500" /><input value={query} onChange={e => setQuery(e.target.value)} aria-label="Schutzbereich suchen" placeholder="Schutzbereich suchen …" className="w-full rounded-xl border border-white/10 cloudtix-workspace-field bg-[#18191c] py-3 pl-10 pr-4 text-sm text-white outline-none focus:border-blue-400/40" /></div>
         <button type="button" onClick={p.reload} disabled={p.busy} className="flex items-center gap-2 text-sm text-blue-300"><RefreshCw className="h-4 w-4" />Status aktualisieren</button>
         <div className="grid sm:grid-cols-2 gap-2">
             {/* Jeder Bereich ist jetzt ein eigener Schalter.
@@ -362,10 +362,10 @@ export function AntiNukePanel({ guildId, reports }: { guildId: string; reports?:
                     !action.loaded
                       ? "bg-red-500/[0.05] border-red-500/25"
                       : !status
-                      ? "bg-[#18191c]/50 border-white/[.05]"
+                      ? "cloudtix-workspace-field bg-[#18191c]/50 border-white/[.05]"
                       : an
-                      ? "bg-[#18191c] border-white/[.07]"
-                      : "bg-[#18191c]/50 border-white/[.05]"
+                      ? "cloudtix-workspace-field bg-[#18191c] border-white/[.07]"
+                      : "cloudtix-workspace-field bg-[#18191c]/50 border-white/[.05]"
                   )}
                 >
                   <div className="min-w-0">
@@ -483,7 +483,7 @@ export function AntiNukePanel({ guildId, reports }: { guildId: string; reports?:
                     "rounded-2xl border",
                     everything
                       ? "bg-red-500/[0.05] border-red-500/30"
-                      : "bg-[#18191c] border-white/[.07]"
+                      : "cloudtix-workspace-field bg-[#18191c] border-white/[.07]"
                   )}
                 >
                   <div className="flex items-center gap-3 px-4 py-3">

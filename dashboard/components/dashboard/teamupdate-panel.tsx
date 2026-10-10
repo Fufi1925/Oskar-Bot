@@ -43,10 +43,10 @@ import { DiscordEmojiText } from "@/components/dashboard/discord-emoji";
 import { ChannelPicker, MultiRolePicker, RolePicker } from "@/components/dashboard/pickers";
 
 const CARD =
-  "bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6";
-const SUB = "rounded-2xl bg-[#0e0e12] border border-slate-800 p-4";
+  "cloudtix-workspace-card bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6";
+const SUB = "rounded-2xl cloudtix-workspace-field bg-[#0e0e12] border border-slate-800 p-4";
 const INPUT =
-  "w-full bg-[#0e0e12] border border-slate-800 rounded-xl px-4 py-3 text-sm " +
+  "w-full cloudtix-workspace-field bg-[#0e0e12] border border-slate-800 rounded-xl px-4 py-3 text-sm " +
   "text-white placeholder:text-slate-600 focus:outline-none " +
   "focus:border-primary/50 transition-colors";
 const LBL =
@@ -346,7 +346,7 @@ export function TeamUpdatePanel({ guildId }: { guildId: string }) {
                   "rounded-2xl border p-3 text-left transition-colors",
                   openAction === action.key
                     ? "bg-primary/10 border-primary/40"
-                    : "bg-[#0e0e12] border-slate-800 hover:border-slate-700",
+                    : "cloudtix-workspace-field bg-[#0e0e12] border-slate-800 hover:border-slate-700",
                 )}
               >
                 <Icon className={cn("h-4 w-4 mb-1.5", action.tone)} />
@@ -693,7 +693,7 @@ export function TeamUpdatePanel({ guildId }: { guildId: string }) {
                     onClick={() =>
                       setDraft({ ...draft, body: `${draft.body || ""}${p}` })
                     }
-                    className="px-2 py-1 rounded-lg bg-[#0e0e12] border border-slate-800 text-[11px] font-mono text-slate-400 hover:border-primary/40 hover:text-primary transition-colors"
+                    className="px-2 py-1 rounded-lg cloudtix-workspace-field bg-[#0e0e12] border border-slate-800 text-[11px] font-mono text-slate-400 hover:border-primary/40 hover:text-primary transition-colors"
                   >
                     {p}
                   </button>
@@ -725,7 +725,7 @@ export function TeamUpdatePanel({ guildId }: { guildId: string }) {
               So sähe es aus
             </div>
             <div
-              className="rounded-xl bg-[#131318] border-l-4 p-3.5"
+              className="rounded-xl cloudtix-workspace-card bg-[#131318] border-l-4 p-3.5"
               style={{
                 borderLeftColor: `#${Number(preview.colour || 0)
                   .toString(16)
@@ -778,7 +778,7 @@ export function TeamUpdatePanel({ guildId }: { guildId: string }) {
             type="button"
             onClick={loadMembers}
             disabled={busy === "members"}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#0e0e12] border border-slate-800 text-sm text-slate-300 hover:border-slate-700 transition-colors disabled:opacity-50"
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl cloudtix-workspace-field bg-[#0e0e12] border border-slate-800 text-sm text-slate-300 hover:border-slate-700 transition-colors disabled:opacity-50"
           >
             {busy === "members" ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -791,7 +791,7 @@ export function TeamUpdatePanel({ guildId }: { guildId: string }) {
             type="button"
             onClick={loadHistory}
             disabled={busy === "history"}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#0e0e12] border border-slate-800 text-sm text-slate-300 hover:border-slate-700 transition-colors disabled:opacity-50"
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl cloudtix-workspace-field bg-[#0e0e12] border border-slate-800 text-sm text-slate-300 hover:border-slate-700 transition-colors disabled:opacity-50"
           >
             {busy === "history" ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin" />

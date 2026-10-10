@@ -1,6 +1,6 @@
 import { loginUrl } from "@/lib/auth-navigation";
 import React from "react";
-import { ShieldCheck, Users } from "lucide-react";
+import { ArrowRight, Bot, Plus, Server, ShieldCheck, Users } from "lucide-react";
 import { api } from "@/lib/api";
 import { GuildSummary } from "@/types/api";
 import { getServerSession } from "next-auth/next";
@@ -130,17 +130,12 @@ export default async function GuildsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-          <h1 className="text-2xl font-bold tracking-tight text-white">Server</h1>
-          <span className="text-xs text-slate-500">{connected.length} verbunden · {missing.length} ohne Bot</span>
-        </div>
-        <p className="mt-1.5 text-[14px] text-slate-400">
-          {connected.length > 0
-            ? "Wähle einen Server und verwalte seine Einstellungen."
-            : "Füge den Bot auf einem Server hinzu, um loszulegen."}
-        </p>
-      </div>
+      <header className="cloudtix-workspace-page-heading"><div><p className="cloudtix-workspace-eyebrow">DEINE COMMUNITIES</p><h1>Deine Server.</h1><p>Wähle deine Community. Alles, was du für sie einrichtest, beginnt hier.</p></div><a href={BOT_INVITE_URL} target="_blank" rel="noopener noreferrer" className="cloudtix-workspace-action"><Plus size={15} />CloudTIX hinzufügen</a></header>
+      <div className="cloudtix-workspace-stat-grid cloudtix-workspace-server-totals">{[
+        { label: "Für dich verfügbar", value: entries.length, icon: Server, note: "Discord-Rechte und Dashboard-Freigaben" },
+        { label: "Mit CloudTIX", value: connected.length, icon: Bot, note: "Bereit für deine Serververwaltung" },
+        { label: "Noch ohne CloudTIX", value: missing.length, icon: Plus, note: "Füge den Bot hinzu und starte direkt" },
+      ].map(metric => <div key={metric.label} className="cloudtix-workspace-stat"><metric.icon size={18} /><span>{metric.label}</span><strong>{metric.value}</strong><small>{metric.note}</small></div>)}</div>
 
       {error && !userGuilds.length && (
         <div className="rounded-2xl border border-slate-800 bg-[#131318] px-6 py-10 text-center">
@@ -168,7 +163,7 @@ export default async function GuildsPage() {
         />
       )}
 
-      {!error && adminUserGuilds.length === 0 && userGuilds.length > 0 && (
+      {!error && entries.length === 0 && userGuilds.length > 0 && (
         <div className="rounded-2xl border border-slate-800 bg-[#131318] px-6 py-12 text-center">
           <ShieldCheck className="mx-auto mb-3 h-7 w-7 text-slate-700" />
           <h3 className="text-[15px] font-bold text-white">
@@ -182,7 +177,7 @@ export default async function GuildsPage() {
         </div>
       )}
 
-      {!error && userGuilds.length === 0 && (
+      {!error && entries.length === 0 && userGuilds.length === 0 && (
         <div className="rounded-2xl border border-slate-800 bg-[#131318] px-6 py-12 text-center">
           <Users className="mx-auto mb-3 h-7 w-7 text-slate-700" />
           <h3 className="text-[15px] font-bold text-white">

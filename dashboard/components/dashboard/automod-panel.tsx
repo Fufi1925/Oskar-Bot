@@ -23,7 +23,7 @@ import {
 } from "@/components/dashboard/save-bar";
 
 const INPUT =
-  "w-full bg-[#18191c] border border-white/[.07] rounded-xl px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-primary/50 transition-colors";
+  "w-full cloudtix-workspace-field bg-[#18191c] border border-white/[.07] rounded-xl px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-primary/50 transition-colors";
 
 const ICONS: Record<string, any> = {
   spam: Zap,
@@ -57,7 +57,7 @@ function Field({ label, hint, children }: any) {
 
 function Card({ icon: Icon, title, subtitle, children, onReload, reloadDisabled }: any) {
   return (
-    <div className="bg-[#202124] border border-white/[.07] rounded-2xl p-4 sm:p-6 space-y-5">
+    <div className="cloudtix-workspace-card bg-[#202124] border border-white/[.07] rounded-2xl p-4 sm:p-6 space-y-5">
       <div className="flex items-start justify-between gap-4">
         <div className="flex gap-3 min-w-0">
           <div className="h-10 w-10 rounded-2xl bg-primary/15 grid place-items-center shrink-0">
@@ -131,8 +131,8 @@ function RuleCard({ rule, draft, onChange, master, busy }: any) {
       className={cn(
         "rounded-2xl border transition-colors",
         enabled
-          ? "bg-[#18191c] border-primary/30"
-          : "bg-[#18191c]/60 border-white/[.07]"
+          ? "cloudtix-workspace-field bg-[#18191c] border-primary/30"
+          : "cloudtix-workspace-field bg-[#18191c]/60 border-white/[.07]"
       )}
     >
       <div className="flex items-start gap-3 p-4">
@@ -204,7 +204,7 @@ function RuleCard({ rule, draft, onChange, master, busy }: any) {
                         "rounded-xl border px-2 py-2.5 text-xs font-bold transition-all",
                         punishment === id
                           ? "bg-primary/10 border-primary/40 text-white"
-                          : "bg-[#18191c] border-white/[.07] text-slate-400 hover:border-slate-700"
+                          : "cloudtix-workspace-field bg-[#18191c] border-white/[.07] text-slate-400 hover:border-slate-700"
                       )}
                     >
                       {spec.label}
@@ -340,13 +340,13 @@ export function AutomodPanel({ guildId, liveStatus }: { guildId: string; liveSta
         reloadDisabled={p.busy || !!p.dirty}
       >
         <div className="grid grid-cols-2 gap-3">
-          <div className="bg-[#18191c] border border-white/[.07] rounded-2xl px-4 py-3">
+          <div className="cloudtix-workspace-field bg-[#18191c] border border-white/[.07] rounded-2xl px-4 py-3">
             <p className="text-lg font-semibold text-white">
               {master ? "Aktiv" : "Aus"}
             </p>
             <p className="text-xs text-slate-500">Hauptschalter</p>
           </div>
-          <div className="bg-[#18191c] border border-white/[.07] rounded-2xl px-4 py-3">
+          <div className="cloudtix-workspace-field bg-[#18191c] border border-white/[.07] rounded-2xl px-4 py-3">
             <p className="text-lg font-semibold text-white">{activeNow}</p>
             <p className="text-xs text-slate-500">Eingeschaltete Regeln</p>
           </div>

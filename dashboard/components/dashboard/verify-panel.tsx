@@ -49,7 +49,7 @@ import { DiscordEmojiText } from "@/components/dashboard/discord-emoji";
 import { LogUmgezogen } from "@/components/dashboard/log-umgezogen";
 
 const INPUT =
-  "w-full rounded-xl border border-white/[.07] bg-[#18191c] px-4 py-3 text-sm text-white outline-none transition placeholder:text-slate-600 focus:border-blue-500/60 focus:ring-4 focus:ring-blue-500/10";
+  "w-full rounded-xl border border-white/[.07] cloudtix-workspace-field bg-[#18191c] px-4 py-3 text-sm text-white outline-none transition placeholder:text-slate-600 focus:border-blue-500/60 focus:ring-4 focus:ring-blue-500/10";
 
 const TABS = [
   { id: "setup", label: "Einrichtung", icon: ListChecks },
@@ -122,7 +122,7 @@ function Section({
     amber: "bg-amber-500/10 text-amber-300 ring-amber-500/20",
   };
   return (
-    <section className="space-y-5 rounded-2xl border border-white/[.07] bg-[#202124] p-4 sm:p-6">
+    <section className="space-y-5 rounded-2xl border border-white/[.07] cloudtix-workspace-card bg-[#202124] p-4 sm:p-6">
       <header className="flex items-start gap-3">
         <div
           className={cn(
@@ -275,7 +275,7 @@ export function VerifyPanel({ guildId }: { guildId: string }) {
   };
 
   if (p.loading) return <Loading />;
-  if (!p.data) return <section className="rounded-2xl border border-white/[.07] bg-[#202124] p-6">
+  if (!p.data) return <section className="rounded-2xl border border-white/[.07] cloudtix-workspace-card bg-[#202124] p-6">
     <h2 className="font-semibold text-white">Verifizierung konnte nicht geladen werden</h2>
     <p className="mt-2 text-sm text-slate-400">Deine Einstellungen werden angezeigt, sobald die Verbindung wiederhergestellt ist.</p>
     <button type="button" onClick={() => p.reload()} className="mt-4 rounded-xl border border-white/10 px-4 py-2 text-sm text-white">Erneut laden</button>
@@ -357,7 +357,7 @@ export function VerifyPanel({ guildId }: { guildId: string }) {
             { label: "Einrichtung", value: configured ? "Bereit" : "Kanal und Rollen fehlen", icon: Settings2, color: configured ? "text-emerald-300" : "text-amber-300" },
             { label: "Verifizierte Mitglieder", value: Number(p.data.verified_count ?? 0).toLocaleString(websiteLocale()), icon: ShieldCheck, color: "text-blue-300" },
             { label: "Discord-Panel", value: p.data.panel_posted ? "Veröffentlicht" : "Noch nicht gesendet", icon: MessageSquareText, color: p.data.panel_posted ? "text-emerald-300" : "text-slate-300" },
-          ].map(({ label, value, icon: Icon, color }) => <div key={label} className="flex items-center gap-3 rounded-xl border border-white/[.05] bg-[#18191c] p-4">
+          ].map(({ label, value, icon: Icon, color }) => <div key={label} className="flex items-center gap-3 rounded-xl border border-white/[.05] cloudtix-workspace-field bg-[#18191c] p-4">
             <Icon className={cn("h-5 w-5 shrink-0", color)} /><div className="min-w-0"><p className="text-xs text-slate-500">{label}</p><p className={cn("mt-1 text-sm font-medium", color)}>{value}</p></div>
           </div>)}
         </div>
@@ -366,7 +366,7 @@ export function VerifyPanel({ guildId }: { guildId: string }) {
       <Warnings items={p.data?.warnings} onGoSetup={() => switchTab("setup")} />
 
       {/* Mobile-friendly section navigation. */}
-      <nav aria-label="Verifizierungsbereiche" className="rounded-2xl border border-white/[.07] bg-[#202124] p-2">
+      <nav aria-label="Verifizierungsbereiche" className="rounded-2xl border border-white/[.07] cloudtix-workspace-card bg-[#202124] p-2">
         <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3 lg:grid-cols-5">
           {TABS.map(({ id, label, icon: Icon }) => (
             <button
@@ -617,7 +617,7 @@ export function VerifyPanel({ guildId }: { guildId: string }) {
                         {blockedGuilds.map((id, index) => (
                           <div
                             key={id}
-                            className="group flex items-center gap-3 rounded-xl border border-white/[.07] bg-[#18191c] p-3 transition hover:border-rose-500/25"
+                            className="group flex items-center gap-3 rounded-xl border border-white/[.07] cloudtix-workspace-field bg-[#18191c] p-3 transition hover:border-rose-500/25"
                           >
                             <div className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-rose-500/10 text-xs font-semibold text-rose-300">
                               {index + 1}
@@ -718,7 +718,7 @@ export function VerifyPanel({ guildId }: { guildId: string }) {
                 title="Nachricht im Discord-Kanal"
                 subtitle="Diese Nachricht sehen neue Mitglieder im Discord-Kanal."
               >
-                <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/[.07] bg-[#18191c] p-4">
+                <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/[.07] cloudtix-workspace-field bg-[#18191c] p-4">
                   <p className="max-w-sm text-sm leading-relaxed text-slate-400">Die Standardvorlage ist Englisch, nutzt Custom-Emojis und wird als Components V2 gesendet. Eigene Texte sind weiterhin möglich.</p>
                   <button type="button" disabled={p.busy || !p.data?.text_defaults} className="rounded-xl border border-white/10 px-4 py-2.5 text-sm text-slate-200 hover:bg-white/5 disabled:opacity-50" onClick={() => {
                     for (const key of ["panel_title", "panel_text", "panel_footer", "button_label"]) p.set(key, p.data.text_defaults[key]);
@@ -731,7 +731,7 @@ export function VerifyPanel({ guildId }: { guildId: string }) {
                       <span
                         key={token}
                         title={String(description)}
-                        className="rounded-lg border border-white/[.07] bg-[#18191c] px-2 py-1 font-mono text-xs text-slate-400"
+                        className="rounded-lg border border-white/[.07] cloudtix-workspace-field bg-[#18191c] px-2 py-1 font-mono text-xs text-slate-400"
                       >
                         {token}
                       </span>
@@ -936,7 +936,7 @@ export function VerifyPanel({ guildId }: { guildId: string }) {
                       <div
                         key={key}
                         className={cn(
-                          "overflow-hidden rounded-xl border bg-[#18191c] transition",
+                          "overflow-hidden rounded-xl border cloudtix-workspace-field bg-[#18191c] transition",
                           open ? "border-blue-500/30" : "border-white/[.07]",
                         )}
                       >
@@ -1045,7 +1045,7 @@ export function VerifyPanel({ guildId }: { guildId: string }) {
 
         {/* Persistent live preview and actions on desktop. */}
         <aside className="space-y-4 lg:sticky lg:top-5">
-          <div className="overflow-hidden rounded-2xl border border-white/[.07] bg-[#202124]">
+          <div className="overflow-hidden rounded-2xl border border-white/[.07] cloudtix-workspace-card bg-[#202124]">
             <div className="flex items-center justify-between border-b border-white/[.07] px-4 py-3">
               <div className="flex items-center gap-2">
                 <Eye className="h-4 w-4 text-blue-300" />
@@ -1055,8 +1055,8 @@ export function VerifyPanel({ guildId }: { guildId: string }) {
                 Discord
               </span>
             </div>
-            <div data-no-translate className="bg-[#18191c] p-4">
-              <div className="rounded-xl border border-white/10 bg-[#202124] p-4">
+            <div data-no-translate className="cloudtix-workspace-field bg-[#18191c] p-4">
+              <div className="rounded-xl border border-white/10 cloudtix-workspace-card bg-[#202124] p-4">
                 <div className="mb-3 flex items-center gap-2.5">
                   <div className="grid h-9 w-9 place-items-center rounded-full bg-gradient-to-br from-blue-500 to-indigo-600">
                     <ShieldCheck className="h-5 w-5 text-white" />
@@ -1116,7 +1116,7 @@ export function VerifyPanel({ guildId }: { guildId: string }) {
             </div>
           </div>
 
-          <div className="rounded-2xl border border-white/[.07] bg-[#202124] p-4">
+          <div className="rounded-2xl border border-white/[.07] cloudtix-workspace-card bg-[#202124] p-4">
             <p className="text-xs font-bold text-white">
               Panel veröffentlichen
             </p>

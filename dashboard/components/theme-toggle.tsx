@@ -39,7 +39,7 @@ export function ThemeToggle({ embedded = false }: { embedded?: boolean }) {
   };
 
   // The homepage and login panel already include their own theme controls.
-  if (!embedded && (pathname === "/" || pathname === "/auth/login" || pathname.startsWith("/dashboard/admin") || pathname.startsWith("/Tickets/Transkript/"))) return null;
+  if (!embedded && (pathname === "/" || pathname === "/auth/login" || pathname.startsWith("/dashboard") || pathname.startsWith("/Tickets/Transkript/"))) return null;
 
   return (
     <div

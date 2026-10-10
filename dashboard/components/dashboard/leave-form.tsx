@@ -10,7 +10,7 @@ export function LeaveForm({ guildId }: { guildId: string }) {
   const load = useCallback(() => api.getGreetExtras(guildId), [guildId]);
   const p = usePanel(load);
   if (p.loading) return <Loading />;
-  if (!p.data) return <section className="rounded-2xl border border-white/10 bg-[#202124] p-6 space-y-3"><DoorOpen className="h-5 w-5 text-slate-400" /><p className="text-sm text-slate-300">Abschiedseinstellungen konnten nicht geladen werden.</p><button onClick={p.reload} className="text-sm text-blue-300">Erneut laden</button></section>;
+  if (!p.data) return <section className="rounded-2xl border border-white/10 cloudtix-workspace-card bg-[#202124] p-6 space-y-3"><DoorOpen className="h-5 w-5 text-slate-400" /><p className="text-sm text-slate-300">Abschiedseinstellungen konnten nicht geladen werden.</p><button onClick={p.reload} className="text-sm text-blue-300">Erneut laden</button></section>;
   const payload = (config: any) => ({
     leave_channel_id: config.channel_id || "", leave_message: config.welcome_message || "",
     leave_type: config.welcome_type || "simple", leave_embed_data: config.embed_data || {},

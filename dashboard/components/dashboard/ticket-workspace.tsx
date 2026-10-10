@@ -24,9 +24,9 @@ import { TicketNotifyPanel } from "@/components/dashboard/ticket-notify-panel";
 import { localizedConfirm } from "@/lib/i18n/browser-language";
 
 const BusyContext = React.createContext(false);
-const BOX = "rounded-2xl border border-white/[.07] bg-[#202124] p-4 sm:p-6";
+const BOX = "rounded-2xl border border-white/[.07] cloudtix-workspace-card bg-[#202124] p-4 sm:p-6";
 const INPUT =
-  "w-full min-w-0 rounded-xl border border-white/[.08] bg-[#18191c] px-3 py-2.5 text-sm text-slate-100 outline-none focus:border-indigo-400/60";
+  "w-full min-w-0 rounded-xl border border-white/[.08] cloudtix-workspace-field bg-[#18191c] px-3 py-2.5 text-sm text-slate-100 outline-none focus:border-indigo-400/60";
 const BUTTON =
   "inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[.04] px-3 py-2 text-sm text-slate-200 hover:bg-white/[.08] disabled:opacity-40";
 const defaults: Record<string, any> = {
@@ -128,7 +128,7 @@ function Navigation({ items, value, onChange }: any) {
   return (
     <nav
       aria-label="Ticket-Einstellungen"
-      className="flex gap-1 overflow-x-auto rounded-2xl border border-white/[.07] bg-[#202124] p-2"
+      className="flex gap-1 overflow-x-auto rounded-2xl border border-white/[.07] cloudtix-workspace-card bg-[#202124] p-2"
     >
       {items.map(([id, label]: string[]) => (
         <button
@@ -175,7 +175,7 @@ function FormEditor({
       {fields.map((field: any, i: number) => (
         <div
           key={i}
-          className="space-y-4 rounded-xl border border-white/[.07] bg-[#18191c] p-4"
+          className="space-y-4 rounded-xl border border-white/[.07] cloudtix-workspace-field bg-[#18191c] p-4"
         >
           <div className="flex items-center justify-between">
             <span className="text-sm text-slate-300">
@@ -1361,7 +1361,7 @@ export function TicketPanels({ guildId }: { guildId: string }) {
                   <Section title="Vorschau">
                     <div
                       data-no-translate
-                      className="space-y-3 rounded-xl border-l-4 border-indigo-400 bg-[#18191c] p-4"
+                      className="space-y-3 rounded-xl border-l-4 border-indigo-400 cloudtix-workspace-field bg-[#18191c] p-4"
                     >
                       <h4 className="font-semibold text-white">
                         {preview?.titel ||

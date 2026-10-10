@@ -30,7 +30,7 @@ import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { LineChart, MultiLineChart } from "@/components/ui/line-chart";
 
-const CARD = "rounded-2xl border border-slate-800 bg-[#131318]";
+const CARD = "rounded-2xl border border-slate-800 cloudtix-workspace-card bg-[#131318]";
 
 /** Die wählbaren Zeiträume. */
 const ZEITRAEUME: Array<[number, string]> = [
@@ -108,7 +108,7 @@ export function HistoryCharts({ guildId }: { guildId: string }) {
   const labels = (data?.days || []).map(tag);
 
   const zeitraumWahl = (
-    <div className="flex gap-1 rounded-lg border border-slate-800 bg-[#0f0f13] p-1">
+    <div className="flex gap-1 rounded-lg border border-slate-800 cloudtix-workspace-card bg-[#0f0f13] p-1">
       {ZEITRAEUME.map(([wert, label]) => (
         <button
           key={wert}
@@ -153,7 +153,7 @@ export function HistoryCharts({ guildId }: { guildId: string }) {
           Der Verlauf ließ sich nicht laden. Der Bot antwortet gerade nicht.
         </p>
       ) : !data.has_data ? (
-        <div className="mt-5 rounded-xl border border-slate-800 bg-[#0f0f13] p-5">
+        <div className="mt-5 rounded-xl border border-slate-800 cloudtix-workspace-card bg-[#0f0f13] p-5">
           <p className="text-[14px] text-slate-300">
             Noch keine Messungen für diesen Server.
           </p>

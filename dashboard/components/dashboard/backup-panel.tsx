@@ -57,9 +57,9 @@ import { toast } from "sonner";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
-const CARD = "bg-[#131318] border border-slate-800 rounded-3xl";
+const CARD = "cloudtix-workspace-card bg-[#131318] border border-slate-800 rounded-3xl";
 const INPUT =
-  "w-full bg-[#0e0e12] border border-slate-800 rounded-xl px-3.5 py-2.5 " +
+  "w-full cloudtix-workspace-field bg-[#0e0e12] border border-slate-800 rounded-xl px-3.5 py-2.5 " +
   "text-sm text-white focus:border-primary/50 focus:outline-none transition-colors";
 
 interface Sicherung {
@@ -168,7 +168,7 @@ function Vorschau({
 
   if (fehler) {
     return (
-      <div className="border-t border-slate-800 bg-[#0f0f13] px-5 py-4">
+      <div className="border-t border-slate-800 cloudtix-workspace-card bg-[#0f0f13] px-5 py-4">
         <p className="text-xs text-red-300">{fehler}</p>
       </div>
     );
@@ -176,7 +176,7 @@ function Vorschau({
 
   if (!daten) {
     return (
-      <div className="flex items-center gap-2 border-t border-slate-800 bg-[#0f0f13] px-5 py-4 text-xs text-slate-500">
+      <div className="flex items-center gap-2 border-t border-slate-800 cloudtix-workspace-card bg-[#0f0f13] px-5 py-4 text-xs text-slate-500">
         <Loader2 className="h-3.5 w-3.5 animate-spin" />
         Wird geladen …
       </div>
@@ -184,7 +184,7 @@ function Vorschau({
   }
 
   return (
-    <div className="space-y-4 border-t border-slate-800 bg-[#0f0f13] px-5 py-4">
+    <div className="space-y-4 border-t border-slate-800 cloudtix-workspace-card bg-[#0f0f13] px-5 py-4">
       {daten.guild_name && (
         <p className="text-xs text-slate-500">
           Server hieß damals:{" "}
@@ -261,7 +261,7 @@ function Vorschau({
               daten.rollen.map((r: any) => (
                 <span
                   key={r.name}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-800 bg-[#131318] px-2 py-1 text-xs"
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-800 cloudtix-workspace-card bg-[#131318] px-2 py-1 text-xs"
                   title={`${r.rechte} Rechte`}
                 >
                   <span
@@ -290,7 +290,7 @@ function Vorschau({
             {daten.einstellungen.map((e: any) => (
               <span
                 key={e.key}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-800 bg-[#131318] px-2 py-1 text-xs text-slate-300"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-800 cloudtix-workspace-card bg-[#131318] px-2 py-1 text-xs text-slate-300"
               >
                 <Settings className="h-3 w-3 text-slate-600" />
                 {e.label}
@@ -315,7 +315,7 @@ function Vorschau({
             {daten.nachrichten_kanaele.slice(0, 12).map((n: any) => (
               <span
                 key={n.kanal}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-800 bg-[#131318] px-2 py-1 text-xs text-slate-300"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-800 cloudtix-workspace-card bg-[#131318] px-2 py-1 text-xs text-slate-300"
               >
                 <Hash className="h-3 w-3 text-slate-600" />
                 {n.kanal}
@@ -372,7 +372,7 @@ function WiederherstellenFenster({
       aria-labelledby="wiederherstellen-titel"
       className="fixed inset-0 z-[100] flex items-center justify-center overflow-y-auto bg-black/70 p-4 backdrop-blur-sm"
     >
-      <div className="my-auto w-full max-w-lg overflow-hidden rounded-3xl border border-slate-700 bg-[#131318] shadow-2xl">
+      <div className="my-auto w-full max-w-lg overflow-hidden rounded-3xl border border-slate-700 cloudtix-workspace-card bg-[#131318] shadow-2xl">
         <div className="border-b border-slate-800 px-6 py-5">
           <h2
             id="wiederherstellen-titel"
@@ -394,7 +394,7 @@ function WiederherstellenFenster({
               "flex w-full gap-3 rounded-2xl border p-4 text-left transition",
               allesLoeschen
                 ? "border-red-500/40 bg-red-500/[0.06]"
-                : "border-slate-800 bg-[#0f0f13] hover:bg-white/[0.02]"
+                : "border-slate-800 cloudtix-workspace-card bg-[#0f0f13] hover:bg-white/[0.02]"
             )}
           >
             <div
@@ -436,7 +436,7 @@ function WiederherstellenFenster({
               "flex w-full gap-3 rounded-2xl border p-4 text-left transition",
               mitEinstellungen
                 ? "border-primary/40 bg-primary/[0.06]"
-                : "border-slate-800 bg-[#0f0f13] hover:bg-white/[0.02]"
+                : "border-slate-800 cloudtix-workspace-card bg-[#0f0f13] hover:bg-white/[0.02]"
             )}
           >
             <div
@@ -469,7 +469,7 @@ function WiederherstellenFenster({
                 "flex w-full gap-3 rounded-2xl border p-4 text-left transition",
                 mitNachrichten
                   ? "border-amber-400/40 bg-amber-400/[0.06]"
-                  : "border-slate-800 bg-[#0f0f13] hover:bg-white/[0.02]",
+                  : "border-slate-800 cloudtix-workspace-card bg-[#0f0f13] hover:bg-white/[0.02]",
                 !premium && "cursor-not-allowed opacity-50"
               )}
             >
@@ -526,7 +526,7 @@ function WiederherstellenFenster({
           </button>
           <button
             onClick={onAbbruch}
-            className="inline-flex flex-1 items-center justify-center rounded-xl border border-slate-800 bg-[#0f0f13] px-4 py-2.5 text-sm font-semibold text-slate-300 transition hover:bg-white/[0.04]"
+            className="inline-flex flex-1 items-center justify-center rounded-xl border border-slate-800 cloudtix-workspace-card bg-[#0f0f13] px-4 py-2.5 text-sm font-semibold text-slate-300 transition hover:bg-white/[0.04]"
           >
             Abbrechen
           </button>
@@ -669,7 +669,7 @@ export function BackupPanel({ guildId }: { guildId: string }) {
           "flex flex-wrap items-center gap-x-3 gap-y-2 rounded-2xl border px-4 py-3",
           premium
             ? "border-amber-400/30 bg-amber-400/[0.05]"
-            : "border-slate-800 bg-[#0f0f13]"
+            : "border-slate-800 cloudtix-workspace-card bg-[#0f0f13]"
         )}
       >
         {premium ? (
@@ -728,7 +728,7 @@ export function BackupPanel({ guildId }: { guildId: string }) {
                   "rounded-lg px-2 py-1 text-xs font-bold",
                   voll
                     ? "bg-amber-400/10 text-amber-300"
-                    : "bg-[#0f0f13] text-slate-400"
+                    : "cloudtix-workspace-card bg-[#0f0f13] text-slate-400"
                 )}
               >
                 {sicherungen.length} von {grenze} belegt
@@ -785,7 +785,7 @@ export function BackupPanel({ guildId }: { guildId: string }) {
 
       {/* ── Die Liste ───────────────────────────────────────────── */}
       <div className={cn(CARD, "overflow-hidden")}>
-        <div className="flex items-center justify-between border-b border-slate-800 bg-[#0f0f13] px-5 py-3">
+        <div className="flex items-center justify-between border-b border-slate-800 cloudtix-workspace-card bg-[#0f0f13] px-5 py-3">
           <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">
             Vorhandene Sicherungen
           </span>
@@ -800,7 +800,7 @@ export function BackupPanel({ guildId }: { guildId: string }) {
 
         {sicherungen.length === 0 ? (
           <div className="px-5 py-12 text-center">
-            <div className="mx-auto mb-3 w-fit rounded-2xl bg-[#0f0f13] p-3">
+            <div className="mx-auto mb-3 w-fit rounded-2xl cloudtix-workspace-card bg-[#0f0f13] p-3">
               <Database className="h-5 w-5 text-slate-700" />
             </div>
             <p className="text-sm font-bold text-slate-400">
@@ -862,7 +862,7 @@ export function BackupPanel({ guildId }: { guildId: string }) {
                   <div className="flex shrink-0 flex-wrap gap-2">
                     <button
                       onClick={() => setOffen(auf ? null : s.kennung)}
-                      className="inline-flex items-center gap-1.5 rounded-xl border border-slate-800 bg-[#0f0f13] px-3 py-2 text-xs font-bold text-slate-300 transition hover:bg-white/[0.04]"
+                      className="inline-flex items-center gap-1.5 rounded-xl border border-slate-800 cloudtix-workspace-card bg-[#0f0f13] px-3 py-2 text-xs font-bold text-slate-300 transition hover:bg-white/[0.04]"
                     >
                       <Eye className="h-3.5 w-3.5" />
                       Vorschau
@@ -876,7 +876,7 @@ export function BackupPanel({ guildId }: { guildId: string }) {
                     <button
                       onClick={() => setGewaehlt(s)}
                       disabled={beschaeftigt || laeuft}
-                      className="inline-flex items-center gap-1.5 rounded-xl border border-slate-800 bg-[#0f0f13] px-3 py-2 text-xs font-bold text-slate-200 transition hover:bg-white/[0.04] disabled:opacity-40"
+                      className="inline-flex items-center gap-1.5 rounded-xl border border-slate-800 cloudtix-workspace-card bg-[#0f0f13] px-3 py-2 text-xs font-bold text-slate-200 transition hover:bg-white/[0.04] disabled:opacity-40"
                     >
                       <RotateCcw className="h-3.5 w-3.5" />
                       Wiederherstellen
@@ -929,7 +929,7 @@ export function BackupPanel({ guildId }: { guildId: string }) {
           </label>
 
           {auto.aktiv && (
-            <div className="mt-4 space-y-4 rounded-2xl border border-slate-800 bg-[#0f0f13] p-4">
+            <div className="mt-4 space-y-4 rounded-2xl border border-slate-800 cloudtix-workspace-card bg-[#0f0f13] p-4">
               <div>
                 <label className="block text-[10px] font-black uppercase tracking-widest text-slate-500">
                   Abstand
@@ -1031,7 +1031,7 @@ export function BackupPanel({ guildId }: { guildId: string }) {
               sich zusammenzureimen. */}
           <div className="px-5 py-4">
             <div className="overflow-hidden rounded-2xl border border-slate-800">
-              <div className="grid grid-cols-[1.4fr_1fr_1fr] border-b border-slate-800 bg-[#0f0f13]">
+              <div className="grid grid-cols-[1.4fr_1fr_1fr] border-b border-slate-800 cloudtix-workspace-card bg-[#0f0f13]">
                 <div className="px-3 py-2 text-[10px] font-black uppercase tracking-widest text-slate-600">
                   Funktion
                 </div>
@@ -1047,7 +1047,7 @@ export function BackupPanel({ guildId }: { guildId: string }) {
                 <div
                   key={z.was}
                   className={cn(
-                    "grid grid-cols-[1.4fr_1fr_1fr] items-center bg-[#131318]",
+                    "grid grid-cols-[1.4fr_1fr_1fr] items-center cloudtix-workspace-card bg-[#131318]",
                     i > 0 && "border-t border-slate-800"
                   )}
                 >
@@ -1074,7 +1074,7 @@ export function BackupPanel({ guildId }: { guildId: string }) {
               </Link>
               <Link
                 href="/premium"
-                className="inline-flex flex-1 items-center justify-center rounded-2xl border border-slate-800 bg-[#0f0f13] px-4 py-2.5 text-sm font-semibold text-slate-300 transition hover:bg-white/[0.04]"
+                className="inline-flex flex-1 items-center justify-center rounded-2xl border border-slate-800 cloudtix-workspace-card bg-[#0f0f13] px-4 py-2.5 text-sm font-semibold text-slate-300 transition hover:bg-white/[0.04]"
               >
                 Was Premium sonst kann
               </Link>
@@ -1084,7 +1084,7 @@ export function BackupPanel({ guildId }: { guildId: string }) {
       )}
 
       {/* ── Was nicht geht ──────────────────────────────────────── */}
-      <div className="flex gap-3 rounded-3xl border border-slate-800 bg-[#0f0f13] p-4">
+      <div className="flex gap-3 rounded-3xl border border-slate-800 cloudtix-workspace-card bg-[#0f0f13] p-4">
         <Shield className="mt-0.5 h-4 w-4 shrink-0 text-slate-600" />
         <p className="text-xs leading-relaxed text-slate-500">
           Mitglieder und ihre Rollenzuordnung sind nicht dabei: Discord

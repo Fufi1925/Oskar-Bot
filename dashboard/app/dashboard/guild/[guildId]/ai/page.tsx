@@ -113,7 +113,7 @@ export default function DashboardAiPage({ params }: { params: { guildId: string 
   }
 
   return (
-    <div className="mx-auto max-w-5xl overflow-hidden rounded-3xl border border-white/[.08] bg-[#101116]">
+    <div className="mx-auto max-w-5xl overflow-hidden rounded-3xl border border-white/[.08] cloudtix-workspace-card bg-[#101116]">
       <header className="flex items-center gap-3 border-b border-white/[.07] px-5 py-4">
         <span className="grid h-10 w-10 place-items-center rounded-xl bg-violet-500/15 text-violet-300"><Sparkles className="h-5 w-5" /></span>
         <div><h1 className="font-black text-white">CloudTIX Dashboard KI</h1><p className="text-xs text-slate-500">Nur Dashboard-Einstellungen dieses Servers · GroqCloud · Änderungen mit Bestätigung</p></div>

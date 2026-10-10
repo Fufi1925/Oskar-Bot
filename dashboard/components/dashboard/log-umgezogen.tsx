@@ -32,7 +32,7 @@ export function LogUmgezogen({
   return (
     <Link
       href={`/dashboard/guild/${guildId}/botlogs?highlight=${logKey}`}
-      className="group flex items-center gap-3 rounded-2xl border border-slate-800 bg-[#0f0f13] p-4 transition hover:border-primary/40 hover:bg-white/[0.03]"
+      className="group flex items-center gap-3 rounded-2xl border border-slate-800 cloudtix-workspace-card bg-[#0f0f13] p-4 transition hover:border-primary/40 hover:bg-white/[0.03]"
     >
       <div className="rounded-xl bg-primary/10 p-2">
         <ScrollText className="h-4 w-4 text-primary" />

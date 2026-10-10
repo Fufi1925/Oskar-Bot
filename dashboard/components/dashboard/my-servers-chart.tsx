@@ -70,7 +70,7 @@ export function MyServersChart({ guilds }: { guilds: ChartGuild[] }) {
                 className={
                   aktiv === guild.id
                     ? "max-w-[200px] truncate rounded-lg border border-indigo-500/30 bg-indigo-500/10 px-3 py-1.5 text-[13px] font-semibold text-white"
-                    : "max-w-[200px] truncate rounded-lg border border-slate-800 bg-[#131318] px-3 py-1.5 text-[13px] text-slate-400 transition-colors hover:border-slate-700 hover:text-white"
+                    : "max-w-[200px] truncate rounded-lg border border-slate-800 cloudtix-workspace-card bg-[#131318] px-3 py-1.5 text-[13px] text-slate-400 transition-colors hover:border-slate-700 hover:text-white"
                 }
               >
                 {guild.name}

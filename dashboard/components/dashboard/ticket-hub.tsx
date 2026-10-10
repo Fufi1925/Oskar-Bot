@@ -19,7 +19,7 @@ export function TicketHub({ guildId }: { guildId: string }) {
     return () => { alive = false; window.removeEventListener("hashchange", hash); };
   }, [guildId]);
   return <div className="space-y-5">
-    {available && <nav aria-label={t("Ticketbereich", "Ticket workspace")} className="flex gap-2 rounded-2xl border border-white/[.07] bg-[#202124] p-2">
+    {available && <nav aria-label={t("Ticketbereich", "Ticket workspace")} className="flex gap-2 rounded-2xl border border-white/[.07] cloudtix-workspace-card bg-[#202124] p-2">
       {[{ id: "panels", label: t("Ticket-Panels", "Ticket panels"), icon: Ticket }, { id: "ai", label: t("Ticket-KI", "Ticket AI"), icon: BrainCircuit }].map(item => <button key={item.id} aria-current={tab === item.id ? "page" : undefined} onClick={() => { setTab(item.id); window.history.replaceState(null, "", item.id === "ai" ? "#ticket-ai" : window.location.pathname); }} className={`flex items-center gap-2 rounded-xl px-4 py-3 text-sm font-medium ${tab === item.id ? "bg-indigo-400/15 text-indigo-200" : "text-slate-400 hover:bg-white/5"}`}><item.icon className="h-4 w-4" />{item.label}</button>)}
     </nav>}
     {/* Keep editor state when switching between panels and their assistant. */}

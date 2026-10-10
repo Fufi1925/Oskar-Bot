@@ -39,13 +39,13 @@ import { toast } from "sonner";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
-const CARD = "bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6";
+const CARD = "cloudtix-workspace-card bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6";
 
 /** Die gelbe Sperre aus der Skizze. */
 function PremiumSperre() {
   return (
-    <div className="absolute inset-0 z-20 flex items-center justify-center rounded-3xl bg-[#0a0a0c]/75 backdrop-blur-[2px]">
-      <div className="mx-4 max-w-sm rounded-2xl border-2 border-amber-400 bg-[#131318] p-5 text-center shadow-2xl">
+    <div className="absolute inset-0 z-20 flex items-center justify-center rounded-3xl cloudtix-workspace-field bg-[#0a0a0c]/75 backdrop-blur-[2px]">
+      <div className="mx-4 max-w-sm rounded-2xl border-2 border-amber-400 cloudtix-workspace-card bg-[#131318] p-5 text-center shadow-2xl">
         <div className="mx-auto mb-3 w-fit rounded-2xl bg-amber-400/15 p-3">
           <Crown className="h-6 w-6 text-amber-400" />
         </div>
@@ -110,7 +110,7 @@ function BildFeld({
       <div className="mt-2 flex items-center gap-3">
         <div
           className={cn(
-            "shrink-0 overflow-hidden border border-slate-800 bg-[#0f0f13]",
+            "shrink-0 overflow-hidden border border-slate-800 cloudtix-workspace-card bg-[#0f0f13]",
             rund ? "h-14 w-14 rounded-full" : "h-14 w-24 rounded-xl"
           )}
         >
@@ -135,7 +135,7 @@ function BildFeld({
           <button
             onClick={() => ref.current?.click()}
             disabled={gesperrt}
-            className="inline-flex items-center gap-1.5 rounded-xl border border-slate-800 bg-[#0f0f13] px-3 py-2 text-xs text-slate-300 transition hover:bg-white/[0.04] disabled:opacity-40"
+            className="inline-flex items-center gap-1.5 rounded-xl border border-slate-800 cloudtix-workspace-card bg-[#0f0f13] px-3 py-2 text-xs text-slate-300 transition hover:bg-white/[0.04] disabled:opacity-40"
           >
             <Upload className="h-3 w-3" />
             Bild wählen
@@ -144,7 +144,7 @@ function BildFeld({
             <button
               onClick={() => onWechsel(null)}
               disabled={gesperrt}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-slate-800 bg-[#0f0f13] px-3 py-2 text-xs text-slate-400 transition hover:bg-white/[0.04] disabled:opacity-40"
+              className="inline-flex items-center gap-1.5 rounded-xl border border-slate-800 cloudtix-workspace-card bg-[#0f0f13] px-3 py-2 text-xs text-slate-400 transition hover:bg-white/[0.04] disabled:opacity-40"
             >
               <RotateCcw className="h-3 w-3" />
               Zurücksetzen
@@ -296,7 +296,7 @@ export function DesignPanel({ guildId }: { guildId: string }) {
       {/* Premium ja, aber nicht Inhaber. Bewusst knapp: dass es eine
           Freischaltliste gibt, steht hier nicht. */}
       {premium && !darf && (
-        <div className="flex gap-3 rounded-3xl border border-slate-800 bg-[#0f0f13] p-4">
+        <div className="flex gap-3 rounded-3xl border border-slate-800 cloudtix-workspace-card bg-[#0f0f13] p-4">
           <Lock className="mt-0.5 h-4 w-4 shrink-0 text-slate-500" />
           <p className="text-sm text-slate-400">
             Das Design darf hier nur der Server-Inhaber ändern.
@@ -328,7 +328,7 @@ export function DesignPanel({ guildId }: { guildId: string }) {
                 disabled={gesperrt}
                 maxLength={daten?.limits?.nickname ?? 32}
                 placeholder={jetzt.name || "CloudTIX"}
-                className="mt-2 w-full rounded-2xl border border-slate-800 bg-[#0f0f13] px-4 py-3 text-sm text-white outline-none focus:border-primary/50 disabled:opacity-50"
+                className="mt-2 w-full rounded-2xl border border-slate-800 cloudtix-workspace-card bg-[#0f0f13] px-4 py-3 text-sm text-white outline-none focus:border-primary/50 disabled:opacity-50"
               />
               <p className="mt-1.5 text-xs text-slate-600">
                 Leer lassen = der normale Bot-Name. Höchstens{" "}
@@ -385,7 +385,7 @@ export function DesignPanel({ guildId }: { guildId: string }) {
                 <button
                   onClick={aufStandard}
                   disabled={gesperrt || setztZurueck}
-                  className="inline-flex items-center gap-2 rounded-2xl border border-slate-800 bg-[#0f0f13] px-4 py-3 text-sm text-slate-300 transition hover:bg-white/[0.04] disabled:opacity-40"
+                  className="inline-flex items-center gap-2 rounded-2xl border border-slate-800 cloudtix-workspace-card bg-[#0f0f13] px-4 py-3 text-sm text-slate-300 transition hover:bg-white/[0.04] disabled:opacity-40"
                 >
                   {setztZurueck ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -428,7 +428,7 @@ export function DesignPanel({ guildId }: { guildId: string }) {
         <div className={CARD}>
           <div className="mb-3 flex items-center justify-between">
             <h3 className="font-bold text-white">Live-Vorschau</h3>
-            <span className="rounded-lg bg-[#0f0f13] px-2 py-0.5 text-xs text-slate-500">
+            <span className="rounded-lg cloudtix-workspace-card bg-[#0f0f13] px-2 py-0.5 text-xs text-slate-500">
               so sieht er hier aus
             </span>
           </div>
@@ -462,7 +462,7 @@ export function DesignPanel({ guildId }: { guildId: string }) {
                 )}
               </div>
 
-              <div className="rounded-xl bg-[#111214] p-3">
+              <div className="rounded-xl cloudtix-workspace-card bg-[#111214] p-3">
                 <div className="flex items-center gap-1.5">
                   <span className="text-lg font-bold text-white">
                     {zeigtName}

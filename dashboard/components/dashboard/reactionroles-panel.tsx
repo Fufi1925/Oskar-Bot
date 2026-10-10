@@ -28,7 +28,7 @@ import { EmojiPicker } from "@/components/dashboard/emoji-picker";
 import { DiscordEmoji } from "@/components/dashboard/discord-emoji";
 
 const INPUT =
-  "w-full bg-[#0e0e12] border border-slate-800 rounded-xl px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-primary/50 transition-colors";
+  "w-full cloudtix-workspace-field bg-[#0e0e12] border border-slate-800 rounded-xl px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-primary/50 transition-colors";
 
 const COMMON_EMOJI = ["✅", "🎮", "🎨", "🎵", "📢", "🔔", "⭐", "❤️", "🟢", "🔵"];
 
@@ -109,7 +109,7 @@ export function ReactionRolesPanel({ guildId }: { guildId: string }) {
   return (
     <section className="space-y-6">
       {/* ── What this does ───────────────────────────── */}
-      <div className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-4">
+      <div className="cloudtix-workspace-card bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-4">
         <div className="flex gap-3">
           <div className="h-10 w-10 rounded-2xl bg-primary/15 grid place-items-center shrink-0">
             <Smile className="h-5 w-5 text-primary" />
@@ -140,7 +140,7 @@ export function ReactionRolesPanel({ guildId }: { guildId: string }) {
       </div>
 
       {/* ── Add ──────────────────────────────────────── */}
-      <div className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5">
+      <div className="cloudtix-workspace-card bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5">
         <div>
           <p className="text-xs font-black uppercase tracking-widest text-slate-500">
             Neue Reaktions-Rolle
@@ -194,7 +194,7 @@ export function ReactionRolesPanel({ guildId }: { guildId: string }) {
                       "h-9 w-9 rounded-lg border text-base transition-all",
                       emoji === e
                         ? "bg-primary/15 border-primary/40"
-                        : "bg-[#0e0e12] border-slate-800 hover:border-slate-700"
+                        : "cloudtix-workspace-field bg-[#0e0e12] border-slate-800 hover:border-slate-700"
                     )}
                   >
                     {e}
@@ -248,7 +248,7 @@ export function ReactionRolesPanel({ guildId }: { guildId: string }) {
 
       {/* ── Verify ───────────────────────────────────── */}
       {data?.total > 0 && (
-        <div className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-4">
+        <div className="cloudtix-workspace-card bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-4">
           <div className="flex items-start justify-between gap-4 flex-wrap">
             <div className="min-w-0">
               <p className="text-xs font-black uppercase tracking-widest text-slate-500">
@@ -308,7 +308,7 @@ export function ReactionRolesPanel({ guildId }: { guildId: string }) {
           {data.messages.map((message: any) => (
             <div
               key={message.message_id}
-              className="bg-[#131318] border border-slate-800 rounded-3xl p-5 space-y-3"
+              className="cloudtix-workspace-card bg-[#131318] border border-slate-800 rounded-3xl p-5 space-y-3"
             >
               <div className="flex items-center gap-2.5 flex-wrap">
                 <MessageSquare className="h-4 w-4 text-slate-600 shrink-0" />
@@ -332,7 +332,7 @@ export function ReactionRolesPanel({ guildId }: { guildId: string }) {
                       "flex items-center gap-3 rounded-2xl border px-4 py-2.5",
                       entry.missing_role
                         ? "bg-red-500/[0.05] border-red-500/25"
-                        : "bg-[#0e0e12] border-slate-800"
+                        : "cloudtix-workspace-field bg-[#0e0e12] border-slate-800"
                     )}
                   >
                     <DiscordEmoji value={entry.emoji} className="h-6 w-6 shrink-0" />

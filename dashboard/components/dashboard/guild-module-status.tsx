@@ -87,14 +87,14 @@ export function GuildModuleStatus({ guildId, children }: { guildId: string; chil
 
   if (loading || loadedPath !== pathname && !loadError) {
     return (
-      <div className="flex min-h-[92px] items-center justify-center rounded-2xl border border-white/[.07] bg-[#111216]">
+      <div className="flex min-h-[92px] items-center justify-center rounded-2xl border border-white/[.07] cloudtix-workspace-card bg-[#111216]">
         <Loader2 className="h-5 w-5 animate-spin text-slate-500" />
       </div>
     );
   }
 
   if (loadError) {
-    return <section className="flex items-center justify-between gap-4 rounded-2xl border border-white/10 bg-[#202124] px-5 py-5">
+    return <section className="flex items-center justify-between gap-4 rounded-2xl border border-white/10 cloudtix-workspace-card bg-[#202124] px-5 py-5">
       <p className="text-sm text-slate-400">{english ? "Module status unavailable." : "Modulstatus nicht verfügbar."}</p>
       <button type="button" onClick={toggle} className="rounded-xl border border-white/10 px-4 py-2 text-sm text-white">{english ? "Retry" : "Erneut laden"}</button>
     </section>;
@@ -103,11 +103,12 @@ export function GuildModuleStatus({ guildId, children }: { guildId: string; chil
   return (
     <><div className="module-banner-position" style={{ paddingTop: enabled ? 0 : "clamp(3rem, 18vh, 10rem)" }}><section
       className={cn(
-        "mx-auto flex w-full flex-col gap-4 rounded-2xl border px-5 py-5 transition-all duration-500 sm:flex-row sm:items-center",
+        "cloudtix-workspace-module-state mx-auto flex w-full flex-col gap-4 rounded-2xl border px-5 py-5 transition-all duration-500 sm:flex-row sm:items-center",
         enabled
           ? "border-emerald-400/25 bg-emerald-500/[.075]"
           : "max-w-3xl border-rose-400/25 bg-rose-500/[.075]"
       )}
+      data-enabled={String(enabled)}
       aria-live="polite"
     >
       <div className="flex min-w-0 flex-1 items-center gap-4">

@@ -68,18 +68,18 @@ export function AutomodStatus({ guildId }: { guildId: string }) {
 
   if (loading) {
     return (
-      <div className="bg-[#202124] border border-white/[.07] rounded-2xl p-4 sm:p-6 flex items-center justify-center">
+      <div className="cloudtix-workspace-card bg-[#202124] border border-white/[.07] rounded-2xl p-4 sm:p-6 flex items-center justify-center">
         <Loader2 className="h-6 w-6 text-primary animate-spin opacity-40" />
       </div>
     );
   }
 
-  if (!data) return <div className="rounded-2xl border border-white/10 bg-[#202124] p-6 space-y-3"><p className="text-sm text-slate-300">Live-Status konnte nicht geladen werden.</p><button type="button" onClick={load} className="text-sm text-blue-300">Erneut versuchen</button></div>;
+  if (!data) return <div className="rounded-2xl border border-white/10 cloudtix-workspace-card bg-[#202124] p-6 space-y-3"><p className="text-sm text-slate-300">Live-Status konnte nicht geladen werden.</p><button type="button" onClick={load} className="text-sm text-blue-300">Erneut versuchen</button></div>;
 
   return (
     <div
       className={cn(
-        "bg-[#202124] border rounded-2xl p-4 sm:p-6",
+        "cloudtix-workspace-card bg-[#202124] border rounded-2xl p-4 sm:p-6",
         data.master_enabled ? "border-emerald-500/25" : "border-white/[.07]"
       )}
     >

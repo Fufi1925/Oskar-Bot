@@ -46,7 +46,7 @@ import { DiscordEmoji } from "@/components/dashboard/discord-emoji";
 
 /** Der Feldrahmen, wie ihn die Panels benutzen. */
 const INPUT =
-  "w-full bg-[#0e0e12] border border-slate-800 rounded-xl px-4 py-3 " +
+  "w-full cloudtix-workspace-field bg-[#0e0e12] border border-slate-800 rounded-xl px-4 py-3 " +
   "text-sm text-white placeholder:text-slate-600 focus:outline-none " +
   "focus:border-primary/50 transition-colors";
 
@@ -380,7 +380,7 @@ export function EmojiOnly({
           onClick={() => onChange("")}
           title="Emoji entfernen"
           className={cn(
-            "relative w-16 h-[46px] bg-[#0b1626] border border-primary/30 rounded-xl",
+            "relative w-16 h-[46px] cloudtix-workspace-card bg-[#0b1626] border border-primary/30 rounded-xl",
             "flex items-center justify-center hover:border-primary/60 transition-colors",
             disabled && "opacity-50 cursor-not-allowed"
           )}
@@ -395,7 +395,7 @@ export function EmojiOnly({
           placeholder={placeholder}
           disabled={disabled}
           className={cn(
-            "w-16 bg-[#0b1626] border border-slate-800 rounded-xl px-2 py-3",
+            "w-16 cloudtix-workspace-card bg-[#0b1626] border border-slate-800 rounded-xl px-2 py-3",
             "text-sm text-white text-center focus:outline-none",
             "focus:border-primary/50 transition-colors"
           )}

@@ -176,7 +176,7 @@ export function TicketNotifyPanel({ guildId }: { guildId: string }) {
   return (
     <div className="space-y-5">
       {/* ── Nutzer-DM ─────────────────────────────────────────── */}
-      <div className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5">
+      <div className="cloudtix-workspace-card bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5">
         <div className="flex items-start justify-between gap-4">
           <div className="flex gap-3">
             <div className="shrink-0 h-10 w-10 rounded-2xl bg-purple-500/15 border border-purple-500/25 grid place-items-center">
@@ -229,7 +229,7 @@ export function TicketNotifyPanel({ guildId }: { guildId: string }) {
       </div>
 
       {/* ── Team-DM ───────────────────────────────────────────── */}
-      <div className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5">
+      <div className="cloudtix-workspace-card bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5">
         <div className="flex items-start justify-between gap-4">
           <div className="flex gap-3">
             <div className="shrink-0 h-10 w-10 rounded-2xl bg-amber-500/15 border border-amber-500/25 grid place-items-center">
@@ -283,7 +283,7 @@ export function TicketNotifyPanel({ guildId }: { guildId: string }) {
       </div>
 
       {/* ── Ruhezeit ──────────────────────────────────────────── */}
-      <div className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5">
+      <div className="cloudtix-workspace-card bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5">
         <div className="flex items-start justify-between gap-4">
           <div className="flex gap-3">
             <div className="shrink-0 h-10 w-10 rounded-2xl bg-indigo-500/15 border border-indigo-500/25 grid place-items-center">

@@ -32,7 +32,7 @@ import { toast } from "sonner";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
-const CARD = "bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6";
+const CARD = "cloudtix-workspace-card bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6";
 
 interface Frage {
   key: string;
@@ -139,7 +139,7 @@ export function BetaForm() {
       )}
 
       {antrag && antrag.status === "abgelehnt" && (
-        <div className="flex gap-3 rounded-3xl border border-slate-800 bg-[#0f0f13] p-4">
+        <div className="flex gap-3 rounded-3xl border border-slate-800 cloudtix-workspace-card bg-[#0f0f13] p-4">
           <XCircle className="mt-0.5 h-5 w-5 shrink-0 text-slate-500" />
           <div>
             <div className="font-semibold text-white">
@@ -187,7 +187,7 @@ export function BetaForm() {
 
             {f.readonly ? (
               // Das Discord-Konto. Nicht ausfüllbar.
-              <div className="mt-2 flex items-center gap-3 rounded-2xl border border-slate-800 bg-[#0f0f13] p-3">
+              <div className="mt-2 flex items-center gap-3 rounded-2xl border border-slate-800 cloudtix-workspace-card bg-[#0f0f13] p-3">
                 {nutzer.avatar ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
@@ -224,7 +224,7 @@ export function BetaForm() {
                   disabled={!darf || sendet}
                   maxLength={f.max}
                   rows={3}
-                  className="mt-2 w-full resize-y rounded-2xl border border-slate-800 bg-[#0f0f13] px-4 py-3 text-sm text-white outline-none focus:border-amber-400/50 disabled:opacity-50"
+                  className="mt-2 w-full resize-y rounded-2xl border border-slate-800 cloudtix-workspace-card bg-[#0f0f13] px-4 py-3 text-sm text-white outline-none focus:border-amber-400/50 disabled:opacity-50"
                 />
                 <div className="mt-1 flex justify-between text-xs">
                   <span className="text-slate-600">{f.hinweis}</span>

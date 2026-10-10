@@ -200,7 +200,7 @@ export function EmojiPicker({
         maxHeight={420}
         minHeight={160}
         fill
-        className="rounded-2xl border border-slate-700 bg-[#0d1728] shadow-2xl shadow-black/50"
+        className="rounded-2xl border border-slate-700 cloudtix-workspace-card bg-[#0d1728] shadow-2xl shadow-black/50"
       >
           <div className="flex items-center gap-2 p-2.5 border-b border-slate-800 shrink-0">
             <div className="relative flex-1">
@@ -210,7 +210,7 @@ export function EmojiPicker({
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
                 placeholder="Suchen"
-                className="w-full bg-[#0e0e12] border border-slate-800 rounded-lg pl-8 pr-2 py-1.5 text-[12px] text-slate-200 placeholder:text-slate-600 focus:outline-none focus:border-slate-700"
+                className="w-full cloudtix-workspace-field bg-[#0e0e12] border border-slate-800 rounded-lg pl-8 pr-2 py-1.5 text-[12px] text-slate-200 placeholder:text-slate-600 focus:outline-none focus:border-slate-700"
               />
             </div>
             <button

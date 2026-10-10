@@ -142,7 +142,7 @@ export default function LeaderboardPage({ params }: { params: { guildId: string 
       </div>
 
       {/* Main Leaderboard Table */}
-      <div className="bg-[#131318] border border-slate-800 rounded-[40px] overflow-hidden shadow-2xl">
+      <div className="cloudtix-workspace-card bg-[#131318] border border-slate-800 rounded-[40px] overflow-hidden shadow-2xl">
         <div className="overflow-x-auto">
           <table className="w-full text-left">
             <thead>

@@ -157,84 +157,9 @@ export function GuildHeader({
 
   const state = health(checked ? latency : null);
 
-  return (
-    <div className="rounded-2xl border border-slate-800 bg-[#131318] p-4 sm:p-5">
-      <div className="flex items-start gap-4">
-        {/* Das Serverbild. 56px statt 120 -- es ist eine Kennung,
-            kein Titelbild, und auf dem Telefon nahm es ein Drittel
-            der Breite ein. */}
-        <div className="relative shrink-0">
-          {guild.icon ? (
-            <Image
-              src={guild.icon}
-              alt=""
-              width={56}
-              height={56}
-              className="h-14 w-14 rounded-xl object-cover"
-            />
-          ) : (
-            <div className="grid h-14 w-14 place-items-center rounded-xl bg-indigo-500/15 text-[20px] font-bold text-indigo-300">
-              {guild.name.charAt(0)}
-            </div>
-          )}
-          <span
-            title={state.hint}
-            className={cn(
-              "absolute -bottom-1 -right-1 h-4 w-4 rounded-full border-2 border-[#131318]",
-              state.tone,
-            )}
-          />
-        </div>
-
-        <div className="min-w-0 flex-1">
-          <h1 className="truncate text-[20px] sm:text-[24px] font-bold tracking-tight text-white">
-            {guild.name}
-          </h1>
-
-          <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] text-slate-500">
-            <span className="text-slate-400">{state.label}</span>
-            <span className="text-slate-700">·</span>
-            <span>
-              {isOwner ? "Du bist Serverinhaber" : "Du verwaltest diesen Server"}
-            </span>
-            <span className="text-slate-700">·</span>
-            <button
-              type="button"
-              onClick={copyId}
-              title="Server-ID kopieren"
-              className="font-mono transition-colors hover:text-slate-300"
-            >
-              {copied ? "ID kopiert" : guild.id}
-            </button>
-          </div>
-        </div>
-
-        {/* Nur ein Symbol: „Aktualisieren“ ausgeschrieben in
-            Versalien war der lauteste Knopf auf der Seite, obwohl er
-            am seltensten gebraucht wird. */}
-        <button
-          type="button"
-          onClick={refresh}
-          disabled={busy}
-          title="Zahlen und Status neu laden"
-          aria-label="Aktualisieren"
-          className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-slate-800 text-slate-500 transition-colors hover:border-slate-700 hover:text-white disabled:opacity-40"
-        >
-          {busy ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <RefreshCw className="h-4 w-4" />
-          )}
-        </button>
-      </div>
-
-      {/* Die drei Zahlen. Auf dem Telefon untereinander statt in
-          drei Kästen nebeneinander, die dort ohnehin umbrechen. */}
-      <div className="mt-4 flex flex-wrap gap-x-6 gap-y-2 border-t border-slate-800 pt-4">
-        <Stat icon={Users} label="Mitglieder" value={guild.member_count} />
-        <Stat icon={Shield} label="Rollen" value={guild.role_count} />
-        <Stat icon={Hash} label="Kanäle" value={guild.channel_count} />
-      </div>
-    </div>
-  );
+  return <section className="cloudtix-workspace-guild-header" aria-label="Dein ausgewählter Server">
+    <div className="cloudtix-workspace-guild-identity">{guild.icon ? <Image src={guild.icon} alt="" width={48} height={48} unoptimized /> : <b>{guild.name.charAt(0).toUpperCase()}</b>}<div><h2 title={guild.name}>{guild.name}</h2><div className="cloudtix-workspace-guild-meta"><span title={state.hint}><i className={state.tone} />{state.label}</span><span>{isOwner ? "Serverinhaber" : "Serververwaltung"}</span><button type="button" onClick={copyId} title="Server-ID kopieren">{copied ? "ID kopiert" : guild.id}</button></div></div></div>
+    <div className="cloudtix-workspace-guild-stats">{[{ icon: Users, label: "Mitglieder", value: guild.member_count }, { icon: Shield, label: "Rollen", value: guild.role_count }, { icon: Hash, label: "Kanäle", value: guild.channel_count }].map(stat => <div key={stat.label}><stat.icon size={13} /><strong>{Number(stat.value ?? 0).toLocaleString(websiteLocale())}</strong><span>{stat.label}</span></div>)}</div>
+    <button type="button" onClick={refresh} disabled={busy} aria-label="Serverdaten aktualisieren" title="Zahlen und Status neu laden" className="cloudtix-workspace-guild-refresh">{busy ? <Loader2 size={15} className="animate-spin" /> : <RefreshCw size={15} />}</button>
+  </section>;
 }

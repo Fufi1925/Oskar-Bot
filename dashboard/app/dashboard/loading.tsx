@@ -1,33 +1,5 @@
-/**
- * ╔══════════════════════════════════════════════════════════════════╗
- * ║                                                                  ║
- * ║   ░█▀▀░█▀█░█▀▄░█▀▀░█░█   ░█▀▄░█▀▀░█░█░█▀▀                     ║
- * ║   ░█░░░█░█░█░█░█▀▀░▄▀▄   ░█░█░█▀▀░▀▄▀░▀▀█                     ║
- * ║   ░▀▀▀░▀▀▀░▀▀░░▀▀▀░▀░▀   ░▀▀░░▀▀▀░░▀░░▀▀▀                     ║
- * ║                                                                  ║
- * ║           © 2026 CloudTIX Devs — All Rights Reserved               ║
- * ║                                                                  ║
- * ║   discord  ──  https://discord.gg/F3TedBAVZT                      ║
- * ║   youtube  ──  https://youtube.com/@UniversityBotDevs                   ║
- * ║   github   ──  https://github.com/Fufi1925/Oskar-Bot                        ║
- * ║                                                                  ║
- * ╚══════════════════════════════════════════════════════════════════╝
- */
-
-import React from "react";
-import { RefreshCcw } from "lucide-react";
+import { Loader2 } from "lucide-react";
 
 export default function DashboardLoading() {
-  return (
-    <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-4 animate-in fade-in duration-500">
-      <div className="relative">
-        <div className="h-16 w-16 border-4 border-slate-800 rounded-full" />
-        <RefreshCcw className="h-16 w-16 text-primary animate-spin absolute top-0 left-0" />
-      </div>
-      <div className="space-y-2 text-center">
-        <h3 className="text-white font-bold text-lg">Initializing System</h3>
-        <p className="text-slate-500 text-sm animate-pulse">Fetching parameters from edge cortex...</p>
-      </div>
-    </div>
-  );
+  return <div role="status" className="flex min-h-[60vh] flex-col items-center justify-center gap-5 text-center"><span className="grid h-14 w-14 place-items-center rounded-2xl border border-white/15 bg-[#111111]"><Loader2 size={23} className="animate-spin text-slate-300" /></span><div><p className="text-lg font-semibold text-white">Dein Workspace wird geladen.</p><p className="mt-2 text-xs text-slate-500">Einen Moment – deine Übersicht ist gleich bereit.</p></div></div>;
 }

@@ -24,7 +24,6 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LanguageSwitcher } from "@/components/language-switcher";
 import { GlobalSearch } from "@/components/global-search";
-import { useProximity } from "@/components/ui/proximity";
 import { PopoverLayer } from "@/components/ui/popover-layer";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
 import {
@@ -42,6 +41,9 @@ import { AdminConfig } from "@/types/api";
 import { SUPPORT_INVITE } from "@/lib/legal";
 import { guildModuleFromHref } from "@/lib/guild-modules";
 import "@/components/dashboard/admin-workspace.css";
+import "@/components/dashboard/workspace.css";
+import { WorkspaceNavigation } from "@/components/dashboard/workspace-navigation";
+import { WorkspaceDotField } from "@/components/dashboard/workspace-dot-field";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { DiscordIdInspector } from "@/components/dashboard/discord-id-inspector";
 
@@ -52,6 +54,7 @@ export default function DashboardLayout({
 }) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isProfilOpen, setIsProfilOpen] = useState(false);
+  const closeSidebar = React.useCallback(() => setIsSidebarOpen(false), []);
   const pathname = usePathname();
   const isAdminRoute = pathname === "/dashboard/admin" || pathname.startsWith("/dashboard/admin/");
   const { language } = useLanguage();
@@ -275,10 +278,6 @@ export default function DashboardLayout({
     return () => { active = false; window.clearInterval(timer); };
   }, [currentGuildId, sessionUserId]);
 
-  // Keep the established pointer/ref plumbing so links retain all native
-  // behaviour. The clean sidebar neutralises its old travel in CSS.
-  const proximity = useProximity({ radius: 1, smoothing: 4 });
-
   if (status === "loading" || status === "unauthenticated") {
     return (
       <div className="min-h-screen bg-[#0a0a0c] flex items-center justify-center">
@@ -287,7 +286,7 @@ export default function DashboardLayout({
             <img src={BRAND_LOGO} alt="CloudTIX" className="h-full w-full rounded-xl object-cover" />
           </div>
           <p className="text-slate-400 font-bold tracking-widest uppercase text-xs">
-            Authenticating...
+            Anmeldung wird geprüft …
           </p>
         </div>
       </div>
@@ -468,7 +467,7 @@ export default function DashboardLayout({
     : allSidebarItems;
 
   return (
-    <div className={cn("user-dashboard-theme min-h-screen bg-[#0a0a0c] text-slate-200", isAdminRoute && "cloudtix-admin-shell")}>
+    <div className={cn("user-dashboard-theme min-h-screen bg-[#0a0a0c] text-slate-200", isAdminRoute ? "cloudtix-admin-shell" : "cloudtix-workspace-shell")}>
       <DiscordIdInspector />
       {/* Liquid Background Elements */}
       {/* Ein ruhiger Schein statt zwei pulsierender Flaechen. */}
@@ -476,186 +475,22 @@ export default function DashboardLayout({
         <div className="absolute top-[-15%] right-[-10%] h-[45%] w-[45%] rounded-full bg-indigo-600/[0.05] blur-[140px]" />
       </div>
 
-      {/* Mobile Sidebar Overlay */}
-      {isSidebarOpen && !isAdminRoute && (
-        <div
-          className="fixed inset-0 z-40 bg-[#02030a]/72 backdrop-blur-md lg:hidden"
-          onClick={() => setIsSidebarOpen(false)}
-        />
-      )}
-
-      {/* Clean server navigation: flat surfaces, quiet monochrome icons and
-          the same information order as the supplied reference. */}
-      {!isAdminRoute && <aside
-        className={cn(
-          "university-clean-sidebar fixed inset-y-0 left-0 z-50 flex w-[250px] flex-col border-r border-white/[.06] bg-[#191a1f] transition-transform duration-200 lg:translate-x-0",
-          isSidebarOpen ? "translate-x-0" : "-translate-x-full"
-        )}
-      >
-        <div className="flex h-[62px] shrink-0 items-center gap-2.5 border-b border-white/[.06] px-4">
-          <img src={BRAND_LOGO} alt="CloudTIX" className="h-8 w-8 rounded-lg object-cover" />
-          <span className="truncate text-[15px] font-bold text-white">CloudTIX</span>
-          <button
-            onClick={() => setIsSidebarOpen(false)}
-            className="ml-auto grid h-8 w-8 place-items-center text-slate-500 hover:text-white lg:hidden"
-            aria-label="Navigation schließen"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-
-        <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-5 pt-3 scrollbar-thin">
-          {currentGuildId && (
-            <>
-              <Link
-                href="/dashboard/guilds"
-                className="mb-3 flex h-8 items-center gap-2 px-1 text-xs font-medium text-slate-500 transition-colors hover:text-slate-200"
-              >
-                <span aria-hidden="true" className="text-base leading-none">←</span>
-                <span>Alle Server</span>
-              </Link>
-
-              <div className="mb-3 flex items-center gap-2.5 px-1">
-                <div className="relative h-9 w-9 shrink-0 overflow-hidden rounded-full bg-[#25262c]">
-                  {sidebarGuild?.icon ? (
-                    <img
-                      src={sidebarGuild.icon}
-                      alt=""
-                      className="h-full w-full object-cover"
-                    />
-                  ) : (
-                    <div className="grid h-full w-full place-items-center text-xs font-bold text-slate-400">
-                      {(sidebarGuild?.name || "S").slice(0, 1).toUpperCase()}
-                    </div>
-                  )}
-                  <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-[#191a1f] bg-blue-500" />
-                </div>
-                <span className="min-w-0 truncate text-sm font-semibold text-slate-100">
-                  {sidebarGuild?.name || "Server wird geladen …"}
-                </span>
-              </div>
-
-              <div className="mb-3">
-                <GlobalSearch sidebar />
-              </div>
-            </>
-          )}
-
-          <nav
-            aria-label="Dashboard-Navigation"
-            className="relative space-y-0.5"
-            {...proximity.containerProps}
-          >
-            {mainSidebarItems.map((item: any, groupIndex: number) => {
-              if (item.items) {
-                return (
-                  <div key={item.name} className="pb-2 pt-4 first:pt-2">
-                    <p className="mb-1.5 px-2 text-[10px] font-bold uppercase tracking-[0.13em] text-slate-500">
-                      {item.name}
-                    </p>
-                    <div className="space-y-0.5">
-                      {item.items.map((subItem: any, subIndex: number) => {
-                        const active = pathname === subItem.href ||
-                          (subItem.name !== "Übersicht" && pathname.startsWith(`${subItem.href}/`));
-                        const SubIcon = subItem.icon;
-                        const subModuleKey = currentGuildId
-                          ? guildModuleFromHref(subItem.href, currentGuildId)
-                          : null;
-                        return (
-                          <React.Fragment key={subItem.href}>
-                            <Link
-                              href={subItem.href}
-                              {...proximity.itemProps(groupIndex * 100 + subIndex)}
-                              className={cn(
-                                "prox-row flex h-9 items-center gap-2.5 rounded-md px-2.5 text-[12px] font-medium transition-colors",
-                                active
-                                  ? subItem.highlight
-                                    ? "bg-amber-400/[.10] text-amber-300"
-                                    : "bg-[#27324f] text-blue-300"
-                                  : subItem.highlight
-                                    ? "text-amber-300 hover:bg-amber-400/[.06] hover:text-amber-200"
-                                    : "text-slate-400 hover:bg-white/[.035] hover:text-slate-100"
-                              )}
-                            >
-                              <SubIcon className="h-[15px] w-[15px] shrink-0 text-current" />
-                              <span className="min-w-0 flex-1 truncate">{subItem.name}</span>
-                              {Number(subItem.notification || 0) > 0 ? (
-                                <span className="grid h-4 min-w-4 place-items-center rounded-full bg-rose-500 px-1 text-[9px] font-bold text-white">1</span>
-                              ) : subModuleKey ? (
-                                <span
-                                  className={cn(
-                                    "h-2 w-2 shrink-0 rounded-full transition-colors",
-                                    moduleStates[subModuleKey] === true
-                                      ? "bg-emerald-400 shadow-[0_0_7px_rgba(52,211,153,.65)]"
-                                      : "bg-slate-600"
-                                  )}
-                                  title={moduleStates[subModuleKey] === true
-                                    ? language === "en" ? "Enabled" : "Aktiviert"
-                                    : moduleStates[subModuleKey] === false
-                                      ? language === "en" ? "Disabled" : "Deaktiviert"
-                                      : language === "en" ? "Status unavailable" : "Status nicht verfügbar"}
-                                />
-                              ) : null}
-                            </Link>
-                            {subItem.children?.map((child: any) => {
-                              const childActive = pathname === child.href;
-                              const ChildIcon = child.icon;
-                              return (
-                                <Link
-                                  key={`${subItem.href}-${child.name}`}
-                                  href={child.href}
-                                  className={cn(
-                                    "ml-4 flex h-8 items-center gap-2 rounded-md px-2.5 text-[11px] font-medium transition-colors",
-                                    childActive
-                                      ? child.highlight ? "bg-amber-400/[.10] text-amber-300" : "bg-[#27324f] text-blue-300"
-                                      : child.highlight ? "text-amber-300 hover:bg-amber-400/[.06]" : "text-slate-500 hover:bg-white/[.035] hover:text-slate-200"
-                                  )}
-                                >
-                                  <ChildIcon className="h-3.5 w-3.5 shrink-0" />
-                                  <span className="truncate">{child.name}</span>
-                                </Link>
-                              );
-                            })}
-                          </React.Fragment>
-                        );
-                      })}
-                    </div>
-                  </div>
-                );
-              }
-
-              const active = pathname === item.href;
-              const ItemIcon = item.icon;
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  {...proximity.itemProps(groupIndex * 100)}
-                  className={cn(
-                    "prox-row flex h-9 items-center gap-2.5 rounded-md px-2.5 text-[12px] font-medium transition-colors",
-                    active
-                      ? item.highlight
-                        ? "bg-amber-400/[.10] text-amber-300"
-                        : "bg-[#27324f] text-blue-300"
-                      : item.highlight
-                        ? "text-amber-300 hover:bg-amber-400/[.06] hover:text-amber-200"
-                        : "text-slate-400 hover:bg-white/[.035] hover:text-slate-100"
-                  )}
-                >
-                  <ItemIcon className="h-[15px] w-[15px] shrink-0 text-current" />
-                  <span className="min-w-0 flex-1 truncate">{item.name}</span>
-                  {Number(item.notification || 0) > 0 ? (
-                    <span className="grid h-4 min-w-4 place-items-center rounded-full bg-rose-500 px-1 text-[9px] font-bold text-white">1</span>
-                  ) : null}
-                </Link>
-              );
-            })}
-          </nav>
-        </div>
-      </aside>}
+      {!isAdminRoute && <WorkspaceDotField />}
+      {!isAdminRoute && <WorkspaceNavigation
+        items={mainSidebarItems}
+        guildId={currentGuildId}
+        guild={sidebarGuild}
+        moduleStates={moduleStates}
+        mobileOpen={isSidebarOpen}
+        onClose={closeSidebar}
+        userName={session?.user?.name || "Dein Konto"}
+        role={teamAccess?.is_owner ? "Owner" : teamAccess?.roles?.[0]?.label || "Mitglied"}
+        premium={Boolean(premium?.aktiv)}
+        supportInvite={supportInvite}
+      />}
 
       {/* Main Content Area (unchanged) */}
-      <div className={cn("relative z-10 flex min-h-screen flex-col bg-[#191a1f] lg:pl-[250px]", isAdminRoute && "cloudtix-admin-frame")}>
+      <div className={cn("relative z-10 flex min-h-screen flex-col bg-[#191a1f] lg:pl-[250px]", isAdminRoute ? "cloudtix-admin-frame" : "cloudtix-workspace-frame")}>
         {/* Top Navbar (unchanged) */}
         <header className="dashboard-topbar sticky top-2 z-30 mx-3 mb-4 mt-3 flex h-16 isolate items-center justify-between gap-2 rounded-[24px] border border-white/[.1] bg-[#090b12]/78 px-2.5 shadow-[0_22px_70px_rgba(0,0,0,.32)] backdrop-blur-3xl lg:top-4 lg:mx-6 lg:mb-6 lg:mt-4 lg:h-[72px] lg:rounded-[28px] lg:px-4">
           <div className="dashboard-header-decoration pointer-events-none absolute inset-x-16 top-0 h-px bg-gradient-to-r from-transparent via-blue-300/35 to-transparent" />
@@ -663,13 +498,14 @@ export default function DashboardLayout({
           <button
             className="relative grid h-10 w-10 shrink-0 place-items-center rounded-2xl border border-white/[.08] bg-white/[.045] text-slate-400 transition hover:bg-white/[.09] hover:text-white lg:hidden"
             aria-label={isAdminRoute ? "Admin-Navigation öffnen" : "Navigation öffnen"}
-            aria-controls={isAdminRoute ? "cloudtix-admin-navigation" : undefined}
+            aria-controls={isAdminRoute ? "cloudtix-admin-navigation" : "cloudtix-workspace-navigation"}
+            aria-expanded={isAdminRoute ? undefined : isSidebarOpen}
             onClick={() => isAdminRoute ? window.dispatchEvent(new Event("cloudtix-admin-navigation-toggle")) : setIsSidebarOpen(true)}
           >
             <Menu className="h-6 w-6" />
           </button>
 
-          {isAdminRoute && <span className="cloudtix-admin-top-label"><Shield size={15} />Administration</span>}
+          {isAdminRoute ? <span className="cloudtix-admin-top-label"><Shield size={15} />Administration</span> : <Link href={currentGuildId ? `/dashboard/guild/${currentGuildId}` : "/dashboard"} className="cloudtix-workspace-top-label">{currentGuildId ? sidebarGuild?.name || "Serververwaltung" : "Dein Workspace"}</Link>}
           {!currentGuildId && <GlobalSearch />}
 
           <div className="relative ml-auto flex items-center gap-1.5 lg:gap-2">
@@ -754,7 +590,7 @@ export default function DashboardLayout({
                 sind. Auf schmalen Bildschirmen zeigt der Knopf nur die
                 Flagge, damit Glocke, Profil und Suche Platz behalten. */}
             <LanguageSwitcher />
-            {isAdminRoute && <ThemeToggle embedded />}
+            <ThemeToggle embedded />
 
             {/* Profil Dropdown (unchanged) */}
             <div className="relative" ref={profileRef}>
@@ -874,7 +710,7 @@ export default function DashboardLayout({
         </header>
 
         {/* Content Area */}
-        <main className={cn("flex-1 p-3 sm:p-6 lg:p-10 animate-in fade-in duration-700 relative z-10", isAdminRoute && "cloudtix-admin-main")}>
+        <main className={cn("flex-1 p-3 sm:p-6 lg:p-10 animate-in fade-in duration-700 relative z-10", isAdminRoute ? "cloudtix-admin-main" : "cloudtix-workspace-main")}>
           <div className="max-w-[1600px] mx-auto">
             {maintenance && (
               <div className="mb-6 flex items-center gap-3 rounded-2xl border border-amber-500/30 bg-amber-500/10 px-5 py-4">
