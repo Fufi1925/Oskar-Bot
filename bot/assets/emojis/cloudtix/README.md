@@ -1,5 +1,16 @@
 # CloudTIX Application Emojis
 
+## Aktive Sammlung: grauer Hintergrund
+
+`neutral/emojis.json` enthält die neue, bereinigte Sammlung aus den vom Nutzer
+hochgeladenen emoji.gg-Packs: **80 Motive** mit grauem Hintergrund, hellgrauen
+neutralen Symbolen und erhaltenen Signalfarben. Dazu gehören Voice-Zustände,
+Moderation, Mitglieder, Regelwerk, Verwaltung und die fünf Sternebewertungen.
+Das Dashboard zeigt ausschließlich diese Sammlung, ohne doppelte Stilvarianten.
+Die früheren Sammlungen und der genaue Löschplan bleiben archiviert.
+
+Details, Quellzuordnung und Export: [neutral/README.md](neutral/README.md).
+
 ## Löschung am 11. Oktober 2026 angefordert
 
 Die selbst erstellten Application-Emojis vom 10. und 11. Oktober sind deaktiviert.

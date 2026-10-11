@@ -170,14 +170,25 @@ export function EmojiPicker({
   // sofort geschlossen -- man haette nach jedem Emoji neu oeffnen
   // muessen.
 
+  const availableStyles = (["color", "gray"] as const).filter((value) =>
+    emojis.some(
+      (entry) =>
+        (entry.style ??
+          (entry.key.startsWith("CT_GRAY_") ? "gray" : "color")) === value,
+    ),
+  );
+  const effectiveStyle = availableStyles.includes(style)
+    ? style
+    : (availableStyles[0] ?? style);
   const styled = useMemo(
     () =>
       emojis.filter(
         (entry) =>
           (entry.style ??
-            (entry.key.startsWith("CT_GRAY_") ? "gray" : "color")) === style,
+            (entry.key.startsWith("CT_GRAY_") ? "gray" : "color")) ===
+          effectiveStyle,
       ),
-    [emojis, style],
+    [emojis, effectiveStyle],
   );
   const categories = [...new Set(styled.map(emojiCategory))];
   const grouped = useMemo(() => {
@@ -215,7 +226,7 @@ export function EmojiPicker({
     (entry) =>
       entry.source === "cloudtix" &&
       (entry.style ?? (entry.key.startsWith("CT_GRAY_") ? "gray" : "color")) ===
-        style,
+        effectiveStyle,
   );
   const cloudtixReady = cloudtix.filter((entry) => entry.raw).length;
   const cloudtixRetired = cloudtix.filter((entry) => entry.retired).length;
@@ -284,20 +295,24 @@ export function EmojiPicker({
           role="group"
           aria-label="Emoji-Stil"
         >
-          {(["color", "gray"] as const).map((value) => (
+          {availableStyles.map((value) => (
             <button
               key={value}
               type="button"
-              aria-pressed={style === value}
+              aria-pressed={effectiveStyle === value}
               onClick={() => chooseStyle(value)}
               className={cn(
                 "flex-1 rounded-lg border px-3 py-1.5 text-xs",
-                style === value
+                effectiveStyle === value
                   ? "border-white/30 bg-white/10 text-white"
                   : "border-white/10 text-slate-400 hover:text-white",
               )}
             >
-              {value === "color" ? "Farbe" : "Grau"}
+              {availableStyles.length === 1 && value === "gray"
+                ? "Grauer Hintergrund"
+                : value === "color"
+                  ? "Farbe"
+                  : "Grau"}
             </button>
           ))}
         </div>

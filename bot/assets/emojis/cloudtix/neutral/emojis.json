@@ -1,0 +1,2846 @@
+{
+  "schema_version": 1,
+  "brand": "CloudTIX",
+  "provider": "CloudTIX Neutral",
+  "source": "User-uploaded emoji.gg packs, edited with imagegen",
+  "emojis": [
+    {
+      "label": "Verbindung gut",
+      "category": "Voice",
+      "fallback": "📶",
+      "constants": [
+        "WIFI",
+        "UPTIME",
+        "universitybotCONNECTION"
+      ],
+      "replaces_keys": [
+        "connection"
+      ],
+      "keywords": [
+        "connection_good",
+        "connection good",
+        "Verbindung gut",
+        "connection"
+      ],
+      "source_file": "neutral/originals/6292-goodconnection.png",
+      "equivalent_sources": [],
+      "source_url": "https://emoji.gg/",
+      "key": "neutral_connection_good",
+      "name": "ct_neutral_connection_goo_e61bfc",
+      "file": "neutral/neutral_connection_good.png",
+      "animated": false,
+      "width": 128,
+      "height": 128,
+      "bytes": 12179,
+      "sha256": "e61bfc33c8f7d0c67f9765da4d7cecc526429ef7fdd5b9704756ca7d9a3b61fc",
+      "provider": "CloudTIX Neutral",
+      "style": "gray",
+      "background": "gray",
+      "visual_style": "neutral-background",
+      "dashboard_visible": true
+    },
+    {
+      "label": "Verbindung mittel",
+      "category": "Voice",
+      "fallback": "📶",
+      "constants": [],
+      "replaces_keys": [
+        "connection_idle"
+      ],
+      "keywords": [
+        "connection_idle",
+        "connection idle",
+        "Verbindung mittel"
+      ],
+      "source_file": "neutral/originals/5152-idleconnection.png",
+      "equivalent_sources": [],
+      "source_url": "https://emoji.gg/",
+      "key": "neutral_connection_idle",
+      "name": "ct_neutral_connection_idl_286ad3",
+      "file": "neutral/neutral_connection_idle.png",
+      "animated": false,
+      "width": 128,
+      "height": 128,
+      "bytes": 12041,
+      "sha256": "286ad36eeb4ea69543d6b0c080fe44635e8cb5a5453590a7ba4422caf92e1ff6",
+      "provider": "CloudTIX Neutral",
+      "style": "gray",
+      "background": "gray",
+      "visual_style": "neutral-background",
+      "dashboard_visible": true
+    },
+    {
+      "label": "Verbindung schlecht",
+      "category": "Voice",
+      "fallback": "📶",
+      "constants": [],
+      "replaces_keys": [
+        "connection_low"
+      ],
+      "keywords": [
+        "connection_low",
+        "connection low",
+        "Verbindung schlecht"
+      ],
+      "source_file": "neutral/originals/8031-lowconnection.png",
+      "equivalent_sources": [],
+      "source_url": "https://emoji.gg/",
+      "key": "neutral_connection_low",
+      "name": "ct_neutral_connection_low_b42111",
+      "file": "neutral/neutral_connection_low.png",
+      "animated": false,
+      "width": 128,
+      "height": 128,
+      "bytes": 12130,
+      "sha256": "b42111f78f2cbc3742e88b60f72a3a9e68f1affbf5277032d6b17f511c9a958a",
+      "provider": "CloudTIX Neutral",
+      "style": "gray",
+      "background": "gray",
+      "visual_style": "neutral-background",
+      "dashboard_visible": true
+    },
+    {
+      "label": "Audio deaktiviert",
+      "category": "Voice",
+      "fallback": "🔇",
+      "constants": [],
+      "replaces_keys": [
+        "deafen"
+      ],
+      "keywords": [
+        "deafen",
+        "Audio deaktiviert"
+      ],
+      "source_file": "neutral/originals/7992-headphonedeafen.png",
+      "equivalent_sources": [],
+      "source_url": "https://emoji.gg/",
+      "key": "neutral_deafen",
+      "name": "ct_neutral_deafen_d94442",
+      "file": "neutral/neutral_deafen.png",
+      "animated": false,
+      "width": 128,
+      "height": 128,
+      "bytes": 14672,
+      "sha256": "d944425488e05a691ec70562d6acaa19dcfa237e4af4056ddc8323dabee8215b",
+      "provider": "CloudTIX Neutral",
+      "style": "gray",
+      "background": "gray",
+      "visual_style": "neutral-background",
+      "dashboard_visible": true
+    },
+    {
+      "label": "Kopfhörer",
+      "category": "Voice",
+      "fallback": "🎧",
+      "constants": [
+        "MUSIC",
+        "ICONS_MUSIC",
+        "MUSIC_ALT1",
+        "VOICE"
+      ],
+      "replaces_keys": [
+        "headphones",
+        "voice"
+      ],
+      "keywords": [
+        "headphone",
+        "Kopfhörer",
+        "headphones",
+        "voice"
+      ],
+      "source_file": "neutral/originals/5922-headphone.png",
+      "equivalent_sources": [],
+      "source_url": "https://emoji.gg/",
+      "key": "neutral_headphone",
+      "name": "ct_neutral_headphone_b75ada",
+      "file": "neutral/neutral_headphone.png",
+      "animated": false,
+      "width": 128,
+      "height": 128,
+      "bytes": 13711,
+      "sha256": "b75ada0cc38f8df20318f8c6f370a650763aa9d13ed96b0fd7ebc6d07e863686",
+      "provider": "CloudTIX Neutral",
+      "style": "gray",
+      "background": "gray",
+      "visual_style": "neutral-background",
+      "dashboard_visible": true
+    },
+    {
+      "label": "Mikrofon",
+      "category": "Voice",
+      "fallback": "🎤",
+      "constants": [
+        "MICROPHONE",
+        "CATALOG_UNMUTE_MEMBER"
+      ],
+      "replaces_keys": [
+        "microphone",
+        "unmute_member"
+      ],
+      "keywords": [
+        "mic",
+        "Mikrofon",
+        "microphone",
+        "unmute_member",
+        "unmute",
+        "member"
+      ],
+      "source_file": "neutral/originals/4360-mic.png",
+      "equivalent_sources": [
+        "308605-microphone.png"
+      ],
+      "source_url": "https://emoji.gg/",
+      "key": "neutral_mic",
+      "name": "ct_neutral_mic_5fd909",
+      "file": "neutral/neutral_mic.png",
+      "animated": false,
+      "width": 128,
+      "height": 128,
+      "bytes": 13021,
+      "sha256": "5fd909469a92b14d8772207742a3fc6075faa85315831dbe4815aa1fba6790dc",
+      "provider": "CloudTIX Neutral",
+      "style": "gray",
+      "background": "gray",
+      "visual_style": "neutral-background",
+      "dashboard_visible": true
+    },
+    {
+      "label": "Mikrofon stumm",
+      "category": "Voice",
+      "fallback": "🔇",
+      "constants": [
+        "MICROPHONE_OFF",
+        "MUTE",
+        "ZMUTE",
+        "CATALOG_MUTE_MEMBER"
+      ],
+      "replaces_keys": [
+        "microphone_off",
+        "mute",
+        "mute_member"
+      ],
+      "keywords": [
+        "mic_mute",
+        "mic mute",
+        "Mikrofon stumm",
+        "microphone_off",
+        "mute",
+        "mute_member",
+        "member",
+        "stumm"
+      ],
+      "source_file": "neutral/originals/4360-micmute.png",
+      "equivalent_sources": [
+        "324948-microphoneoff.png"
+      ],
+      "source_url": "https://emoji.gg/",
+      "key": "neutral_mic_mute",
+      "name": "ct_neutral_mic_mute_634f80",
+      "file": "neutral/neutral_mic_mute.png",
+      "animated": false,
+      "width": 128,
+      "height": 128,
+      "bytes": 14634,
+      "sha256": "634f80deef59e92393d6a6061798d13579c18b7013473747b9786498733af37f",
+      "provider": "CloudTIX Neutral",
+      "style": "gray",
+      "background": "gray",
+      "visual_style": "neutral-background",
+      "dashboard_visible": true
+    },
+    {
+      "label": "Timeout",
+      "category": "Moderation",
+      "fallback": "⏳",
+      "constants": [
+        "TIMER",
+        "TIMER_ALT1"
+      ],
+      "replaces_keys": [
+        "timeout"
+      ],
+      "keywords": [
+        "timeout",
+        "Timeout"
+      ],
+      "source_file": "neutral/originals/2816-mute.png",
+      "equivalent_sources": [],
+      "source_url": "https://emoji.gg/",
+      "key": "neutral_timeout",
+      "name": "ct_neutral_timeout_8f9023",
+      "file": "neutral/neutral_timeout.png",
+      "animated": false,
+      "width": 128,
+      "height": 128,
+      "bytes": 14397,
+      "sha256": "8f9023511e4e2c033985b05b3fa3c2fbc71ba08843cac48865aa71f07730feaf",
+      "provider": "CloudTIX Neutral",
+      "style": "gray",
+      "background": "gray",
+      "visual_style": "neutral-background",
+      "dashboard_visible": true
+    },
+    {
+      "label": "Administrator",
+      "category": "Server",
+      "fallback": "🛡️",
+      "constants": [
+        "CATALOG_ADMIN"
+      ],
+      "replaces_keys": [
+        "admin"
+      ],
+      "keywords": [
+        "admin",
+        "Administrator",
+        "administrator",
+        "verwaltung"
+      ],
+      "source_file": "neutral/originals/40528-administrateur.png",
+      "equivalent_sources": [
+        "7964-modbadgewhite.png",
+        "84795-adminicon.png"
+      ],
+      "source_url": "https://emoji.gg/",
+      "key": "neutral_admin",
+      "name": "ct_neutral_admin_22ffd1",
+      "file": "neutral/neutral_admin.png",
+      "animated": false,
+      "width": 128,
+      "height": 128,
+      "bytes": 13576,
+      "sha256": "22ffd1b6f661185900c1a215e8ee31781bf1a227bf3da3423790e1cf5b9f3e61",
+      "provider": "CloudTIX Neutral",
+      "style": "gray",
+      "background": "gray",
+      "visual_style": "neutral-background",
+      "dashboard_visible": true
+    },
+    {
+      "label": "Altersbeschränkung",
+      "category": "Regelwerk",
+      "fallback": "🔞",
+      "constants": [
+        "CATALOG_AGE_LIMIT",
+        "CATALOG_NSFW"
+      ],
+      "replaces_keys": [
+        "age_limit",
+        "nsfw"
+      ],
+      "keywords": [
+        "age_restricted",
+        "age restricted",
+        "Altersbeschränkung",
+        "age_limit",
+        "age",
+        "limit",
+        "mindestalter",
+        "18",
+        "16",
+        "nsfw",
+        "adult",
+        "jugendschutz"
+      ],
+      "source_file": "neutral/originals/88339-agenumber.png",
+      "equivalent_sources": [],
+      "source_url": "https://emoji.gg/",
+      "key": "neutral_age_restricted",
+      "name": "ct_neutral_age_restricted_f715b4",
+      "file": "neutral/neutral_age_restricted.png",
+      "animated": false,
+      "width": 128,
+      "height": 128,
+      "bytes": 13202,
+      "sha256": "f715b405018e1aafcaf5043adc6c00b4ef96a60ec12d91e29d6b4c27aa72f774",
+      "provider": "CloudTIX Neutral",
+      "style": "gray",
+      "background": "gray",
+      "visual_style": "neutral-background",
+      "dashboard_visible": true
+    },
+    {
+      "label": "Protokolle",
+      "category": "Support",
+      "fallback": "📋",
+      "constants": [
+        "AUDIT_LOG",
+        "CATALOG_MOD_LOG",
+        "CATALOG_WARN_LIST"
+      ],
+      "replaces_keys": [
+        "audit_log",
+        "mod_log",
+        "warn_list"
+      ],
+      "keywords": [
+        "audit",
+        "Protokolle",
+        "audit_log",
+        "mod_log",
+        "modlog",
+        "moderation",
+        "logs",
+        "verlauf",
+        "warn_list",
+        "warns",
+        "warnings",
+        "warn",
+        "list"
+      ],
+      "source_file": "neutral/originals/62470-logs.png",
+      "equivalent_sources": [],
+      "source_url": "https://emoji.gg/",
+      "key": "neutral_audit",
+      "name": "ct_neutral_audit_432de4",
+      "file": "neutral/neutral_audit.png",
+      "animated": false,
+      "width": 128,
+      "height": 128,
+      "bytes": 13411,
+      "sha256": "432de418294688348cb2e0a646cde5bae84257f82712aa3803ced1a3d59c287b",
+      "provider": "CloudTIX Neutral",
+      "style": "gray",
+      "background": "gray",
+      "visual_style": "neutral-background",
+      "dashboard_visible": true
+    },
+    {
+      "label": "Benachrichtigung",
+      "category": "UI",
+      "fallback": "🔔",
+      "constants": [
+        "NOTIFICATION"
+      ],
+      "replaces_keys": [
+        "notification"
+      ],
+      "keywords": [
+        "bell",
+        "Benachrichtigung",
+        "notification"
+      ],
+      "source_file": "neutral/originals/944992-bell.png",
+      "equivalent_sources": [],
+      "source_url": "https://emoji.gg/",
+      "key": "neutral_bell",
+      "name": "ct_neutral_bell_23978e",
+      "file": "neutral/neutral_bell.png",
+      "animated": false,
+      "width": 128,
+      "height": 128,
+      "bytes": 12736,
+      "sha256": "23978ec822ce4fd8dee11ee7f1d4de46eb12dfaa9b12007eb9cb36d23eab8d75",
+      "provider": "CloudTIX Neutral",
+      "style": "gray",
+      "background": "gray",
+      "visual_style": "neutral-background",
+      "dashboard_visible": true
+    },
+    {
+      "label": "Buch",
+      "category": "Regelwerk",
+      "fallback": "▪️",
+      "constants": [],
+      "replaces_keys": [
+        "book"
+      ],
+      "keywords": [
+        "book",
+        "Buch"
+      ],
+      "source_file": "neutral/originals/401776-book.png",
+      "equivalent_sources": [],
+      "source_url": "https://emoji.gg/",
+      "key": "neutral_book",
+      "name": "ct_neutral_book_b4d108",
+      "file": "neutral/neutral_book.png",
+      "animated": false,
+      "width": 128,
+      "height": 128,
+      "bytes": 13745,
+      "sha256": "b4d108e7adc22d37ade59a67b775c85de26510b65079016f77730f21af5fdaca",
+      "provider": "CloudTIX Neutral",
+      "style": "gray",
+      "background": "gray",
+      "visual_style": "neutral-background",
+      "dashboard_visible": true
+    },
+    {
+      "label": "Lesezeichen",
+      "category": "UI",
+      "fallback": "▪️",
+      "constants": [],
+      "replaces_keys": [
+        "bookmark"
+      ],
+      "keywords": [
+        "bookmark",
+        "Lesezeichen"
+      ],
+      "source_file": "neutral/originals/27687-bookmark.png",
+      "equivalent_sources": [],
+      "source_url": "https://emoji.gg/",
+      "key": "neutral_bookmark",
+      "name": "ct_neutral_bookmark_13ff08",
+      "file": "neutral/neutral_bookmark.png",
+      "animated": false,
+      "width": 128,
+      "height": 128,
+      "bytes": 11882,
+      "sha256": "13ff0862f21f7c3aba984abe756fa1273c782773160c616df19cef890f747b93",
+      "provider": "CloudTIX Neutral",
+      "style": "gray",
+      "background": "gray",
+      "visual_style": "neutral-background",
+      "dashboard_visible": true
+    },
+    {
+      "label": "Boost",
+      "category": "Badges",
+      "fallback": "🚀",
+      "constants": [
+        "ZROCKET",
+        "BOOST",
+        "BOOSTS",
+        "NITRO_BOOST",
+        "CATALOG_BOOSTER",
+        "CATALOG_SERVER_BOOST"
+      ],
+      "replaces_keys": [
+        "boost",
+        "booster",
+        "server_boost"
+      ],
+      "keywords": [
+        "boost",
+        "Boost",
+        "booster",
+        "nitro",
+        "diamant",
+        "server_boost"
+      ],
+      "source_file": "neutral/originals/2577-white-nitro-boost.png",
+      "equivalent_sources": [],
+      "source_url": "https://emoji.gg/",
+      "key": "neutral_boost",
+      "name": "ct_neutral_boost_fa3c3d",
+      "file": "neutral/neutral_boost.png",
+      "animated": false,
+      "width": 128,
+      "height": 128,
+      "bytes": 14763,
+      "sha256": "fa3c3d4f6daa47f529314bfed6a6b40485a31579e0dbe22bb373baa75a6a36c5",
+      "provider": "CloudTIX Neutral",
+      "style": "gray",
+      "background": "gray",
+      "visual_style": "neutral-background",
+      "dashboard_visible": true
+    },
+    {
+      "label": "Boost Stufe 2",
+      "category": "Badges",
+      "fallback": "💎",
+      "constants": [],
+      "replaces_keys": [
+        "boost_level_2"
+      ],
+      "keywords": [
+        "boost_level_2",
+        "boost level 2",
+        "Boost Stufe 2"
+      ],
+      "source_file": "neutral/originals/9010-boost-level-2-white.png",
+      "equivalent_sources": [],
+      "source_url": "https://emoji.gg/",
+      "key": "neutral_boost_level_2",
+      "name": "ct_neutral_boost_level_2_dd27a1",
+      "file": "neutral/neutral_boost_level_2.png",
+      "animated": false,
+      "width": 128,
+      "height": 128,
+      "bytes": 14814,
+      "sha256": "dd27a129b0090fec261615bd21c5e204ce95c202da901cbcdd1372edab09d189",
+      "provider": "CloudTIX Neutral",
+      "style": "gray",
+      "background": "gray",
+      "visual_style": "neutral-background",
+      "dashboard_visible": true
+    },
+    {
+      "label": "Bot",
+      "category": "UI",
+      "fallback": "🤖",
+      "constants": [
+        "ZBOT",
+        "universitybotSYS"
+      ],
+      "replaces_keys": [
+        "bot"
+      ],
+      "keywords": [
+        "bot",
+        "Bot"
+      ],
+      "source_file": "neutral/originals/85722-bot.png",
+      "equivalent_sources": [],
+      "source_url": "https://emoji.gg/",
+      "key": "neutral_bot",
+      "name": "ct_neutral_bot_8f5046",
+      "file": "neutral/neutral_bot.png",
+      "animated": false,
+      "width": 128,
+      "height": 128,
+      "bytes": 14328,
+      "sha256": "8f5046e76e5b6a2f07ca26e7919b99bcfdb132974fb9271ef14d012e6b4dd0cf",
+      "provider": "CloudTIX Neutral",
+      "style": "gray",
+      "background": "gray",
+      "visual_style": "neutral-background",
+      "dashboard_visible": true
+    },
+    {
+      "label": "Kalender",
+      "category": "UI",
+      "fallback": "📅",
+      "constants": [
+        "EVENT",
+        "CATALOG_SCHEDULED"
+      ],
+      "replaces_keys": [
+        "event",
+        "scheduled"
+      ],
+      "keywords": [
+        "calendar",
+        "Kalender",
+        "event",
+        "scheduled",
+        "geplant",
+        "termin"
+      ],
+      "source_file": "neutral/originals/473488-calender.png",
+      "equivalent_sources": [],
+      "source_url": "https://emoji.gg/",
+      "key": "neutral_calendar",
+      "name": "ct_neutral_calendar_035fea",
+      "file": "neutral/neutral_calendar.png",
+      "animated": false,
+      "width": 128,
+      "height": 128,
+      "bytes": 13831,
+      "sha256": "035fea8d8d8cd032ecc6a25d19cec5e22b2c5bd8859ad850fdf3c62f722ebd45",
+      "provider": "CloudTIX Neutral",
+      "style": "gray",
+      "background": "gray",
+      "visual_style": "neutral-background",
+      "dashboard_visible": true
+    },
+    {
+      "label": "Geld",
+      "category": "Economy",
+      "fallback": "💵",
+      "constants": [
+        "MONEY",
+        "CATALOG_COINS",
+        "CATALOG_WALLET"
+      ],
+      "replaces_keys": [
+        "money",
+        "coins",
+        "wallet"
+      ],
+      "keywords": [
+        "cash",
+        "Geld",
+        "money",
+        "coins",
+        "geld",
+        "wallet",
+        "balance",
+        "guthaben"
+      ],
+      "source_file": "neutral/originals/249884-cash.png",
+      "equivalent_sources": [
+        "10845-currency.png"
+      ],
+      "source_url": "https://emoji.gg/",
+      "key": "neutral_cash",
+      "name": "ct_neutral_cash_d6dda9",
+      "file": "neutral/neutral_cash.png",
+      "animated": false,
+      "width": 128,
+      "height": 128,
+      "bytes": 14050,
+      "sha256": "d6dda998288bcae0c10b8af043aa787876c7324e0e42363ac339896b1baea6a9",
+      "provider": "CloudTIX Neutral",
+      "style": "gray",
+      "background": "gray",
+      "visual_style": "neutral-background",
+      "dashboard_visible": true
+    },
+    {
+      "label": "Chat",
+      "category": "Community",
+      "fallback": "💬",
+      "constants": [
+        "CATALOG_FORUM_CHANNEL",
+        "CATALOG_THREAD"
+      ],
+      "replaces_keys": [
+        "forum_channel",
+        "thread"
+      ],
+      "keywords": [
+        "chat",
+        "Chat",
+        "forum_channel",
+        "forum",
+        "channel",
+        "diskussion",
+        "thread",
+        "beitrag",
+        "unterhaltung"
+      ],
+      "source_file": "neutral/originals/9891-chat-icon.png",
+      "equivalent_sources": [],
+      "source_url": "https://emoji.gg/",
+      "key": "neutral_chat",
+      "name": "ct_neutral_chat_28c389",
+      "file": "neutral/neutral_chat.png",
+      "animated": false,
+      "width": 128,
+      "height": 128,
+      "bytes": 14875,
+      "sha256": "28c3893575de605cca3afb5d4c4419bd51ab66ece16919d90218a8d87c326da7",
+      "provider": "CloudTIX Neutral",
+      "style": "gray",
+      "background": "gray",
+      "visual_style": "neutral-background",
+      "dashboard_visible": true
+    },
+    {
+      "label": "Erfolg",
+      "category": "UI",
+      "fallback": "✅",
+      "constants": [
+        "TICK",
+        "TICK_ALT",
+        "ZTICK",
+        "SUCCESS",
+        "ENABLE",
+        "CHECKMARK",
+        "OK",
+        "ACCEPT",
+        "CATALOG_COMPLETE"
+      ],
+      "replaces_keys": [
+        "checkmark",
+        "accept",
+        "complete"
+      ],
+      "keywords": [
+        "check",
+        "Erfolg",
+        "checkmark",
+        "accept",
+        "complete",
+        "done",
+        "fertig",
+        "erledigt"
+      ],
+      "source_file": "neutral/originals/60226-check.png",
+      "equivalent_sources": [
+        "2647-check-yes-wb.png"
+      ],
+      "source_url": "https://emoji.gg/",
+      "key": "neutral_check",
+      "name": "ct_neutral_check_e30d33",
+      "file": "neutral/neutral_check.png",
+      "animated": false,
+      "width": 128,
+      "height": 128,
+      "bytes": 14048,
+      "sha256": "e30d33b27c603a9681fad2ca018b123db8ace857ab25530c3ffb9a3edd617719",
+      "provider": "CloudTIX Neutral",
+      "style": "gray",
+      "background": "gray",
+      "visual_style": "neutral-background",
+      "dashboard_visible": true
+    },
+    {
+      "label": "Uhr",
+      "category": "UI",
+      "fallback": "🕒",
+      "constants": [
+        "TIME",
+        "CLOCK"
+      ],
+      "replaces_keys": [
+        "clock"
+      ],
+      "keywords": [
+        "clock",
+        "Uhr"
+      ],
+      "source_file": "neutral/originals/779372-clock.png",
+      "equivalent_sources": [],
+      "source_url": "https://emoji.gg/",
+      "key": "neutral_clock",
+      "name": "ct_neutral_clock_d12494",
+      "file": "neutral/neutral_clock.png",
+      "animated": false,
+      "width": 128,
+      "height": 128,
+      "bytes": 15688,
+      "sha256": "d124949f6b16b10d7ab675d256c57519302f34c6bce1fb3a1f3f4c9b047a5891",
+      "provider": "CloudTIX Neutral",
+      "style": "gray",
+      "background": "gray",
+      "visual_style": "neutral-background",
+      "dashboard_visible": true
+    },
+    {
+      "label": "Fehler",
+      "category": "UI",
+      "fallback": "❌",
+      "constants": [
+        "CROSS",
+        "CROSS_ALT",
+        "ML_CROSS",
+        "ZCROSS",
+        "ERROR",
+        "DENIED",
+        "DISABLE",
+        "ERROR_UNICODE",
+        "BLOCK",
+        "CHECK",
+        "FAIL",
+        "NOT_OK",
+        "CROSS_MARK"
+      ],
+      "replaces_keys": [
+        "cross"
+      ],
+      "keywords": [
+        "cross",
+        "Fehler"
+      ],
+      "source_file": "neutral/originals/19463-croix.png",
+      "equivalent_sources": [],
+      "source_url": "https://emoji.gg/",
+      "key": "neutral_cross",
+      "name": "ct_neutral_cross_5f5d8f",
+      "file": "neutral/neutral_cross.png",
+      "animated": false,
+      "width": 128,
+      "height": 128,
+      "bytes": 13689,
+      "sha256": "5f5d8ff8a90c5e918ca76140048a5db4a5d724aff50448271b2e9c2905fc77f0",
+      "provider": "CloudTIX Neutral",
+      "style": "gray",
+      "background": "gray",
+      "visual_style": "neutral-background",
+      "dashboard_visible": true
+    },
+    {
+      "label": "Löschen",
+      "category": "UI",
+      "fallback": "🗑️",
+      "constants": [
+        "DELETE",
+        "DELETE_ALT1"
+      ],
+      "replaces_keys": [
+        "delete"
+      ],
+      "keywords": [
+        "delete",
+        "Löschen"
+      ],
+      "source_file": "neutral/originals/14385-supprimer.png",
+      "equivalent_sources": [],
+      "source_url": "https://emoji.gg/",
+      "key": "neutral_delete",
+      "name": "ct_neutral_delete_d76795",
+      "file": "neutral/neutral_delete.png",
+      "animated": false,
+      "width": 128,
+      "height": 128,
+      "bytes": 12933,
+      "sha256": "d76795f8aa737ddb006cb07337c0136f817aba019d7918ed92d96d393f230825",
+      "provider": "CloudTIX Neutral",
+      "style": "gray",
+      "background": "gray",
+      "visual_style": "neutral-background",
+      "dashboard_visible": true
+    },
+    {
+      "label": "Entwicklung",
+      "category": "Badges",
+      "fallback": "💻",
+      "constants": [
+        "CODEBASE",
+        "CODED",
+        "ACTIVE_DEVELOPER",
+        "Developer",
+        "EARLY_VERIFIED_BOT_DEV"
+      ],
+      "replaces_keys": [
+        "developer"
+      ],
+      "keywords": [
+        "developer",
+        "Entwicklung"
+      ],
+      "source_file": "neutral/originals/56832-developer.png",
+      "equivalent_sources": [],
+      "source_url": "https://emoji.gg/",
+      "key": "neutral_developer",
+      "name": "ct_neutral_developer_a088ac",
+      "file": "neutral/neutral_developer.png",
+      "animated": false,
+      "width": 128,
+      "height": 128,
+      "bytes": 12620,
+      "sha256": "a088aca6e4540e372d4d84f37fb814d2fc5f7fb4f54b123717fe8334a5d45ceb",
+      "provider": "CloudTIX Neutral",
+      "style": "gray",
+      "background": "gray",
+      "visual_style": "neutral-background",
+      "dashboard_visible": true
+    },
+    {
+      "label": "Discord",
+      "category": "Community",
+      "fallback": "🎮",
+      "constants": [],
+      "replaces_keys": [
+        "discord"
+      ],
+      "keywords": [
+        "discord",
+        "Discord"
+      ],
+      "source_file": "neutral/originals/553864-discord.gif",
+      "equivalent_sources": [],
+      "source_url": "https://emoji.gg/",
+      "key": "neutral_discord",
+      "name": "ct_neutral_discord_40d3a0",
+      "file": "neutral/neutral_discord.png",
+      "animated": false,
+      "width": 128,
+      "height": 128,
+      "bytes": 14079,
+      "sha256": "40d3a03b23142597bae2c2b5fe22caa2c4860d9555a3d2dba782fdd21b923748",
+      "provider": "CloudTIX Neutral",
+      "style": "gray",
+      "background": "gray",
+      "visual_style": "neutral-background",
+      "dashboard_visible": true
+    },
+    {
+      "label": "Gefällt mir nicht",
+      "category": "UI",
+      "fallback": "👎",
+      "constants": [],
+      "replaces_keys": [
+        "dislike"
+      ],
+      "keywords": [
+        "dislike",
+        "Gefällt mir nicht"
+      ],
+      "source_file": "neutral/originals/63157-dislike.png",
+      "equivalent_sources": [],
+      "source_url": "https://emoji.gg/",
+      "key": "neutral_dislike",
+      "name": "ct_neutral_dislike_148b35",
+      "file": "neutral/neutral_dislike.png",
+      "animated": false,
+      "width": 128,
+      "height": 128,
+      "bytes": 12216,
+      "sha256": "148b354809fbc3147243696c37d87853e66b70535661e9bc8b2cca1c8a7add4b",
+      "provider": "CloudTIX Neutral",
+      "style": "gray",
+      "background": "gray",
+      "visual_style": "neutral-background",
+      "dashboard_visible": true
+    },
+    {
+      "label": "Punkt",
+      "category": "UI",
+      "fallback": "●",
+      "constants": [
+        "ZCIRCLE",
+        "ZCIRCLE_ALT1",
+        "RED_BUTTON",
+        "REDDOT"
+      ],
+      "replaces_keys": [
+        "circle"
+      ],
+      "keywords": [
+        "dot",
+        "Punkt",
+        "circle"
+      ],
+      "source_file": "neutral/originals/6304-whitesmalldot.png",
+      "equivalent_sources": [],
+      "source_url": "https://emoji.gg/",
+      "key": "neutral_dot",
+      "name": "ct_neutral_dot_8376f6",
+      "file": "neutral/neutral_dot.png",
+      "animated": false,
+      "width": 128,
+      "height": 128,
+      "bytes": 10434,
+      "sha256": "8376f699006a1d02b73c783688386c1f6454e6d0107859cc74ea7e99f9f641a8",
+      "provider": "CloudTIX Neutral",
+      "style": "gray",
+      "background": "gray",
+      "visual_style": "neutral-background",
+      "dashboard_visible": true
+    },
+    {
+      "label": "Bearbeiten",
+      "category": "UI",
+      "fallback": "✏️",
+      "constants": [
+        "EDIT"
+      ],
+      "replaces_keys": [
+        "edit"
+      ],
+      "keywords": [
+        "edit",
+        "Bearbeiten"
+      ],
+      "source_file": "neutral/originals/11569-crayon.png",
+      "equivalent_sources": [
+        "904340-pencil.png"
+      ],
+      "source_url": "https://emoji.gg/",
+      "key": "neutral_edit",
+      "name": "ct_neutral_edit_a5d0b7",
+      "file": "neutral/neutral_edit.png",
+      "animated": false,
+      "width": 128,
+      "height": 128,
+      "bytes": 13583,
+      "sha256": "a5d0b74901af16d768fe32621b9908b86063b7e943a33b36dfa52ced063979ee",
+      "provider": "CloudTIX Neutral",
+      "style": "gray",
+      "background": "gray",
+      "visual_style": "neutral-background",
+      "dashboard_visible": true
+    },
+    {
+      "label": "Externer Link",
+      "category": "UI",
+      "fallback": "↗️",
+      "constants": [
+        "EXTERNAL_LINK"
+      ],
+      "replaces_keys": [
+        "external_link"
+      ],
+      "keywords": [
+        "external_link",
+        "external link",
+        "Externer Link"
+      ],
+      "source_file": "neutral/originals/82321-tts-external-link.png",
+      "equivalent_sources": [],
+      "source_url": "https://emoji.gg/",
+      "key": "neutral_external_link",
+      "name": "ct_neutral_external_link_45fdc6",
+      "file": "neutral/neutral_external_link.png",
+      "animated": false,
+      "width": 128,
+      "height": 128,
+      "bytes": 13379,
+      "sha256": "45fdc60efeb486b6509b74a8dac2c8c744b402ac46ba22741dbb576ee07e7a93",
+      "provider": "CloudTIX Neutral",
+      "style": "gray",
+      "background": "gray",
+      "visual_style": "neutral-background",
+      "dashboard_visible": true
+    },
+    {
+      "label": "Spiel",
+      "category": "Community",
+      "fallback": "🎮",
+      "constants": [
+        "GAMES",
+        "GAME_CONTROLLER",
+        "MINECRAFT",
+        "MAX__A"
+      ],
+      "replaces_keys": [
+        "game"
+      ],
+      "keywords": [
+        "game",
+        "Spiel"
+      ],
+      "source_file": "neutral/originals/67811-jeu.png",
+      "equivalent_sources": [
+        "875408-controller.png"
+      ],
+      "source_url": "https://emoji.gg/",
+      "key": "neutral_game",
+      "name": "ct_neutral_game_0b0c9d",
+      "file": "neutral/neutral_game.png",
+      "animated": false,
+      "width": 128,
+      "height": 128,
+      "bytes": 14099,
+      "sha256": "0b0c9d1e34527d1c8ba80d649caf0781b9722feb9d3688e3b90c2405817227de",
+      "provider": "CloudTIX Neutral",
+      "style": "gray",
+      "background": "gray",
+      "visual_style": "neutral-background",
+      "dashboard_visible": true
+    },
+    {
+      "label": "Moderation",
+      "category": "Moderation",
+      "fallback": "🔨",
+      "constants": [
+        "ZBAN",
+        "universitybotHAMMER",
+        "CATALOG_TEMPBAN",
+        "CATALOG_SOFTBAN"
+      ],
+      "replaces_keys": [
+        "ban",
+        "tempban",
+        "softban"
+      ],
+      "keywords": [
+        "gavel",
+        "Moderation",
+        "ban",
+        "bans",
+        "bann",
+        "sperren",
+        "bannen",
+        "tempban",
+        "zeitlich",
+        "zeitban",
+        "softban",
+        "soft"
+      ],
+      "source_file": "neutral/originals/998896-gavel.png",
+      "equivalent_sources": [
+        "4534-tts-ban-white.png"
+      ],
+      "source_url": "https://emoji.gg/",
+      "key": "neutral_gavel",
+      "name": "ct_neutral_gavel_996809",
+      "file": "neutral/neutral_gavel.png",
+      "animated": false,
+      "width": 128,
+      "height": 128,
+      "bytes": 14960,
+      "sha256": "9968090289a11e31cf63c86162b429f3913a1776930650d7dedb06323b160636",
+      "provider": "CloudTIX Neutral",
+      "style": "gray",
+      "background": "gray",
+      "visual_style": "neutral-background",
+      "dashboard_visible": true
+    },
+    {
+      "label": "Geschenk",
+      "category": "Community",
+      "fallback": "🎁",
+      "constants": [
+        "CATALOG_GIFT_CLAIM"
+      ],
+      "replaces_keys": [
+        "gift_claim"
+      ],
+      "keywords": [
+        "gift",
+        "Geschenk",
+        "gift_claim",
+        "claim",
+        "giveaway",
+        "gewinn"
+      ],
+      "source_file": "neutral/originals/463819-giveaway.png",
+      "equivalent_sources": [],
+      "source_url": "https://emoji.gg/",
+      "key": "neutral_gift",
+      "name": "ct_neutral_gift_4e26a0",
+      "file": "neutral/neutral_gift.png",
+      "animated": false,
+      "width": 128,
+      "height": 128,
+      "bytes": 15392,
+      "sha256": "4e26a02b01447a6f88bb181bab1fbace99cd68a82e617d0b430125e892676189",
+      "provider": "CloudTIX Neutral",
+      "style": "gray",
+      "background": "gray",
+      "visual_style": "neutral-background",
+      "dashboard_visible": true
+    },
+    {
+      "label": "Welt",
+      "category": "UI",
+      "fallback": "🌍",
+      "constants": [
+        "CATALOG_GLOBE",
+        "ICON_BROWSER",
+        "universitybot_GLOBAL"
+      ],
+      "replaces_keys": [
+        "globe",
+        "browser"
+      ],
+      "keywords": [
+        "globe",
+        "Welt",
+        "welt",
+        "world",
+        "global",
+        "internet",
+        "browser",
+        "web"
+      ],
+      "source_file": "neutral/originals/64005-web.png",
+      "equivalent_sources": [
+        "9847-public.png"
+      ],
+      "source_url": "https://emoji.gg/",
+      "key": "neutral_globe",
+      "name": "ct_neutral_globe_fa05af",
+      "file": "neutral/neutral_globe.png",
+      "animated": false,
+      "width": 128,
+      "height": 128,
+      "bytes": 15973,
+      "sha256": "fa05af0bd6f7f5ba80f29815250fe7f507a2b2ede9aaafa8b4a93e40fa1bc63b",
+      "provider": "CloudTIX Neutral",
+      "style": "gray",
+      "background": "gray",
+      "visual_style": "neutral-background",
+      "dashboard_visible": true
+    },
+    {
+      "label": "Startseite",
+      "category": "UI",
+      "fallback": "🏠",
+      "constants": [
+        "HOME"
+      ],
+      "replaces_keys": [
+        "home"
+      ],
+      "keywords": [
+        "home",
+        "Startseite"
+      ],
+      "source_file": "neutral/originals/13860-house.png",
+      "equivalent_sources": [],
+      "source_url": "https://emoji.gg/",
+      "key": "neutral_home",
+      "name": "ct_neutral_home_1cb804",
+      "file": "neutral/neutral_home.png",
+      "animated": false,
+      "width": 128,
+      "height": 128,
+      "bytes": 12789,
+      "sha256": "1cb804a1ae574128cc015bf52a8423146b11e7fcb781b8fb133708064aabb309",
+      "provider": "CloudTIX Neutral",
+      "style": "gray",
+      "background": "gray",
+      "visual_style": "neutral-background",
+      "dashboard_visible": true
+    },
+    {
+      "label": "Kennung",
+      "category": "UI",
+      "fallback": "🆔",
+      "constants": [],
+      "replaces_keys": [
+        "id"
+      ],
+      "keywords": [
+        "id",
+        "Kennung"
+      ],
+      "source_file": "neutral/originals/47886-identifiant.png",
+      "equivalent_sources": [],
+      "source_url": "https://emoji.gg/",
+      "key": "neutral_id",
+      "name": "ct_neutral_id_19beae",
+      "file": "neutral/neutral_id.png",
+      "animated": false,
+      "width": 128,
+      "height": 128,
+      "bytes": 13419,
+      "sha256": "19beaeaef0cd7131448cf2215fe2f394b13ad34962cae71673528648598ebf60",
+      "provider": "CloudTIX Neutral",
+      "style": "gray",
+      "background": "gray",
+      "visual_style": "neutral-background",
+      "dashboard_visible": true
+    },
+    {
+      "label": "Information",
+      "category": "UI",
+      "fallback": "ℹ️",
+      "constants": [
+        "INFO"
+      ],
+      "replaces_keys": [
+        "info"
+      ],
+      "keywords": [
+        "info",
+        "Information"
+      ],
+      "source_file": "neutral/originals/66880-info.png",
+      "equivalent_sources": [
+        "685951-info.png",
+        "10447-information.png"
+      ],
+      "source_url": "https://emoji.gg/",
+      "key": "neutral_info",
+      "name": "ct_neutral_info_244066",
+      "file": "neutral/neutral_info.png",
+      "animated": false,
+      "width": 128,
+      "height": 128,
+      "bytes": 14391,
+      "sha256": "24406684d05587271810cdd25fb84fc9c667be320de73be26bfaccd43a906033",
+      "provider": "CloudTIX Neutral",
+      "style": "gray",
+      "background": "gray",
+      "visual_style": "neutral-background",
+      "dashboard_visible": true
+    },
+    {
+      "label": "Gefällt mir",
+      "category": "UI",
+      "fallback": "👍",
+      "constants": [],
+      "replaces_keys": [
+        "like"
+      ],
+      "keywords": [
+        "like",
+        "Gefällt mir"
+      ],
+      "source_file": "neutral/originals/84613-like.png",
+      "equivalent_sources": [],
+      "source_url": "https://emoji.gg/",
+      "key": "neutral_like",
+      "name": "ct_neutral_like_3a9dbd",
+      "file": "neutral/neutral_like.png",
+      "animated": false,
+      "width": 128,
+      "height": 128,
+      "bytes": 13181,
+      "sha256": "3a9dbd8b0360119d39e10fd11809716a6c16f10337d939059894e6c434e713f8",
+      "provider": "CloudTIX Neutral",
+      "style": "gray",
+      "background": "gray",
+      "visual_style": "neutral-background",
+      "dashboard_visible": true
+    },
+    {
+      "label": "Link",
+      "category": "UI",
+      "fallback": "🔗",
+      "constants": [
+        "links",
+        "universitybotLINKS"
+      ],
+      "replaces_keys": [
+        "link"
+      ],
+      "keywords": [
+        "link",
+        "Link"
+      ],
+      "source_file": "neutral/originals/50494-lien.png",
+      "equivalent_sources": [
+        "206806-link.png",
+        "3007-link.png"
+      ],
+      "source_url": "https://emoji.gg/",
+      "key": "neutral_link",
+      "name": "ct_neutral_link_95cfcd",
+      "file": "neutral/neutral_link.png",
+      "animated": false,
+      "width": 128,
+      "height": 128,
+      "bytes": 15213,
+      "sha256": "95cfcdf1b572df2273c60cec7ce75dec07d068ab84949497b39dcd13ea70e84d",
+      "provider": "CloudTIX Neutral",
+      "style": "gray",
+      "background": "gray",
+      "visual_style": "neutral-background",
+      "dashboard_visible": true
+    },
+    {
+      "label": "Sperren",
+      "category": "UI",
+      "fallback": "🔒",
+      "constants": [
+        "LOCKDOWN",
+        "LOCK_UNICODE",
+        "JAIL",
+        "LOCK"
+      ],
+      "replaces_keys": [
+        "lockdown",
+        "jail"
+      ],
+      "keywords": [
+        "lock",
+        "Sperren",
+        "lockdown",
+        "jail"
+      ],
+      "source_file": "neutral/originals/80091-fermer.png",
+      "equivalent_sources": [],
+      "source_url": "https://emoji.gg/",
+      "key": "neutral_lock",
+      "name": "ct_neutral_lock_952deb",
+      "file": "neutral/neutral_lock.png",
+      "animated": false,
+      "width": 128,
+      "height": 128,
+      "bytes": 13235,
+      "sha256": "952debc0044e00834456f395011d8a708915e55339e27f90e227c151d4fbdbcc",
+      "provider": "CloudTIX Neutral",
+      "style": "gray",
+      "background": "gray",
+      "visual_style": "neutral-background",
+      "dashboard_visible": true
+    },
+    {
+      "label": "Nachricht",
+      "category": "Support",
+      "fallback": "✉️",
+      "constants": [
+        "MAIL",
+        "MESSAGE"
+      ],
+      "replaces_keys": [
+        "mail",
+        "message"
+      ],
+      "keywords": [
+        "mail",
+        "Nachricht",
+        "message"
+      ],
+      "source_file": "neutral/originals/84613-mail.png",
+      "equivalent_sources": [
+        "416391-mail.png"
+      ],
+      "source_url": "https://emoji.gg/",
+      "key": "neutral_mail",
+      "name": "ct_neutral_mail_f215a6",
+      "file": "neutral/neutral_mail.png",
+      "animated": false,
+      "width": 128,
+      "height": 128,
+      "bytes": 13808,
+      "sha256": "f215a6b5d0b82d1b3ea34eaca4f8be0c0e9310b644133c957f05bb0ce9a15295",
+      "provider": "CloudTIX Neutral",
+      "style": "gray",
+      "background": "gray",
+      "visual_style": "neutral-background",
+      "dashboard_visible": true
+    },
+    {
+      "label": "Nachricht geöffnet",
+      "category": "Support",
+      "fallback": "📥",
+      "constants": [
+        "INBOX"
+      ],
+      "replaces_keys": [
+        "inbox"
+      ],
+      "keywords": [
+        "mail_open",
+        "mail open",
+        "Nachricht geöffnet",
+        "inbox"
+      ],
+      "source_file": "neutral/originals/537744-openedmail.png",
+      "equivalent_sources": [],
+      "source_url": "https://emoji.gg/",
+      "key": "neutral_mail_open",
+      "name": "ct_neutral_mail_open_748977",
+      "file": "neutral/neutral_mail_open.png",
+      "animated": false,
+      "width": 128,
+      "height": 128,
+      "bytes": 15007,
+      "sha256": "7489773e53d57b75c51bad081545e53358f80bd8bcf68012a09c03bcb3c9375f",
+      "provider": "CloudTIX Neutral",
+      "style": "gray",
+      "background": "gray",
+      "visual_style": "neutral-background",
+      "dashboard_visible": true
+    },
+    {
+      "label": "Verwaltung",
+      "category": "Server",
+      "fallback": "▪️",
+      "constants": [],
+      "replaces_keys": [
+        "management"
+      ],
+      "keywords": [
+        "management",
+        "Verwaltung"
+      ],
+      "source_file": "neutral/originals/75565-management.png",
+      "equivalent_sources": [],
+      "source_url": "https://emoji.gg/",
+      "key": "neutral_management",
+      "name": "ct_neutral_management_eb6975",
+      "file": "neutral/neutral_management.png",
+      "animated": false,
+      "width": 128,
+      "height": 128,
+      "bytes": 12286,
+      "sha256": "eb6975b0689cdd7bce588f1f61946400e9f8e60c93ea9e489e17e5a887cb47d7",
+      "provider": "CloudTIX Neutral",
+      "style": "gray",
+      "background": "gray",
+      "visual_style": "neutral-background",
+      "dashboard_visible": true
+    },
+    {
+      "label": "Ankündigung",
+      "category": "UI",
+      "fallback": "📣",
+      "constants": [
+        "ANNOUNCEMENT",
+        "CATALOG_ANNOUNCEMENT_RULES"
+      ],
+      "replaces_keys": [
+        "announcement",
+        "announcement_rules"
+      ],
+      "keywords": [
+        "megaphone",
+        "Ankündigung",
+        "announcement",
+        "announcement_rules",
+        "rules",
+        "bekanntmachung"
+      ],
+      "source_file": "neutral/originals/1882-megaphone.png",
+      "equivalent_sources": [],
+      "source_url": "https://emoji.gg/",
+      "key": "neutral_megaphone",
+      "name": "ct_neutral_megaphone_29f35e",
+      "file": "neutral/neutral_megaphone.png",
+      "animated": false,
+      "width": 128,
+      "height": 128,
+      "bytes": 13014,
+      "sha256": "29f35e74cb6e57a160fce6967cd28cb0fd0962faac6a62ab5367a13ee9773087",
+      "provider": "CloudTIX Neutral",
+      "style": "gray",
+      "background": "gray",
+      "visual_style": "neutral-background",
+      "dashboard_visible": true
+    },
+    {
+      "label": "Mitglied",
+      "category": "Community",
+      "fallback": "👤",
+      "constants": [
+        "CATALOG_MEMBER"
+      ],
+      "replaces_keys": [
+        "member"
+      ],
+      "keywords": [
+        "member",
+        "Mitglied",
+        "user",
+        "person",
+        "nutzer"
+      ],
+      "source_file": "neutral/originals/7188-other-icon.png",
+      "equivalent_sources": [
+        "13371-memberwhite.png",
+        "7428-whitemember.png",
+        "7549-member.png"
+      ],
+      "source_url": "https://emoji.gg/",
+      "key": "neutral_member",
+      "name": "ct_neutral_member_ab87c8",
+      "file": "neutral/neutral_member.png",
+      "animated": false,
+      "width": 128,
+      "height": 128,
+      "bytes": 12828,
+      "sha256": "ab87c816fc3f4626505740b9236b00e70ed038236406b958d63f7a8d099490be",
+      "provider": "CloudTIX Neutral",
+      "style": "gray",
+      "background": "gray",
+      "visual_style": "neutral-background",
+      "dashboard_visible": true
+    },
+    {
+      "label": "Mitglieder",
+      "category": "Community",
+      "fallback": "👥",
+      "constants": [
+        "ZPEOPLE",
+        "HUMAN",
+        "ZHUMAN"
+      ],
+      "replaces_keys": [
+        "members"
+      ],
+      "keywords": [
+        "members",
+        "Mitglieder",
+        "member",
+        "mitglieder",
+        "users"
+      ],
+      "source_file": "neutral/originals/19492-membres.png",
+      "equivalent_sources": [
+        "91221-members.png",
+        "4696-members.png"
+      ],
+      "source_url": "https://emoji.gg/",
+      "key": "neutral_members",
+      "name": "ct_neutral_members_d40ed0",
+      "file": "neutral/neutral_members.png",
+      "animated": false,
+      "width": 128,
+      "height": 128,
+      "bytes": 14876,
+      "sha256": "d40ed0e1e9ae78cff3f5d18113915152f555e25e13a05cacf69bad2d82901f57",
+      "provider": "CloudTIX Neutral",
+      "style": "gray",
+      "background": "gray",
+      "visual_style": "neutral-background",
+      "dashboard_visible": true
+    },
+    {
+      "label": "Entfernen",
+      "category": "UI",
+      "fallback": "➖",
+      "constants": [],
+      "replaces_keys": [
+        "minus"
+      ],
+      "keywords": [
+        "minus",
+        "Entfernen"
+      ],
+      "source_file": "neutral/originals/67516-moins.png",
+      "equivalent_sources": [],
+      "source_url": "https://emoji.gg/",
+      "key": "neutral_minus",
+      "name": "ct_neutral_minus_5e6f72",
+      "file": "neutral/neutral_minus.png",
+      "animated": false,
+      "width": 128,
+      "height": 128,
+      "bytes": 11429,
+      "sha256": "5e6f72cee84e635aa1a570bc6db1dd47a97b8528740c199e9db7e9b7d0d42b9d",
+      "provider": "CloudTIX Neutral",
+      "style": "gray",
+      "background": "gray",
+      "visual_style": "neutral-background",
+      "dashboard_visible": true
+    },
+    {
+      "label": "Moderator",
+      "category": "Moderation",
+      "fallback": "🛡️",
+      "constants": [
+        "CATALOG_MODERATOR",
+        "SWORD"
+      ],
+      "replaces_keys": [
+        "moderator"
+      ],
+      "keywords": [
+        "moderator",
+        "Moderator",
+        "mod",
+        "moderation"
+      ],
+      "source_file": "neutral/originals/13206-moderateur.png",
+      "equivalent_sources": [],
+      "source_url": "https://emoji.gg/",
+      "key": "neutral_moderator",
+      "name": "ct_neutral_moderator_dd3a9d",
+      "file": "neutral/neutral_moderator.png",
+      "animated": false,
+      "width": 128,
+      "height": 128,
+      "bytes": 15900,
+      "sha256": "dd3a9d92ba5fd9e811c80e8d04df90fb8900e725fc17ad1e69565257169ccbe0",
+      "provider": "CloudTIX Neutral",
+      "style": "gray",
+      "background": "gray",
+      "visual_style": "neutral-background",
+      "dashboard_visible": true
+    },
+    {
+      "label": "Nächste Seite",
+      "category": "UI",
+      "fallback": "⏭️",
+      "constants": [
+        "NEXT",
+        "NEXT_ALT1",
+        "SKIP",
+        "FORWARD"
+      ],
+      "replaces_keys": [
+        "skip"
+      ],
+      "keywords": [
+        "next",
+        "Nächste Seite",
+        "skip"
+      ],
+      "source_file": "neutral/originals/858081-nextpage.png",
+      "equivalent_sources": [],
+      "source_url": "https://emoji.gg/",
+      "key": "neutral_next",
+      "name": "ct_neutral_next_c7db3f",
+      "file": "neutral/neutral_next.png",
+      "animated": false,
+      "width": 128,
+      "height": 128,
+      "bytes": 13983,
+      "sha256": "c7db3f1bd41776e921c6ec0073ecd505ed5a829b186d5cc6291bf8e5ed8ed9fa",
+      "provider": "CloudTIX Neutral",
+      "style": "gray",
+      "background": "gray",
+      "visual_style": "neutral-background",
+      "dashboard_visible": true
+    },
+    {
+      "label": "Team benachrichtigen",
+      "category": "Server",
+      "fallback": "🛟",
+      "constants": [
+        "SUPPORT",
+        "HANDSHAKE",
+        "MINGLE"
+      ],
+      "replaces_keys": [
+        "support"
+      ],
+      "keywords": [
+        "notify_staff",
+        "notify staff",
+        "Team benachrichtigen",
+        "support"
+      ],
+      "source_file": "neutral/originals/2904-notify-staff.png",
+      "equivalent_sources": [],
+      "source_url": "https://emoji.gg/",
+      "key": "neutral_notify_staff",
+      "name": "ct_neutral_notify_staff_93f975",
+      "file": "neutral/neutral_notify_staff.png",
+      "animated": false,
+      "width": 128,
+      "height": 128,
+      "bytes": 14674,
+      "sha256": "93f975fb9038b701763e22bb81b26dad567da4abdab953e2814a1bbdbd2eb5bf",
+      "provider": "CloudTIX Neutral",
+      "style": "gray",
+      "background": "gray",
+      "visual_style": "neutral-background",
+      "dashboard_visible": true
+    },
+    {
+      "label": "Besitzer",
+      "category": "Badges",
+      "fallback": "👑",
+      "constants": [
+        "universitybot_OWNER",
+        "KING",
+        "KING_ALT1",
+        "BLACKCROWN",
+        "CATALOG_SERVER_OWNER"
+      ],
+      "replaces_keys": [
+        "owner",
+        "crown",
+        "server_owner"
+      ],
+      "keywords": [
+        "owner",
+        "Besitzer",
+        "crown",
+        "server_owner",
+        "inhaber",
+        "besitzer"
+      ],
+      "source_file": "neutral/originals/23786-proprietaire.png",
+      "equivalent_sources": [
+        "9049-crown.png",
+        "4007-crown.png"
+      ],
+      "source_url": "https://emoji.gg/",
+      "key": "neutral_owner",
+      "name": "ct_neutral_owner_dec624",
+      "file": "neutral/neutral_owner.png",
+      "animated": false,
+      "width": 128,
+      "height": 128,
+      "bytes": 13552,
+      "sha256": "dec6249c17143d7ca34159bc2c58ec2c00f5ec377ec4f6cda10851429955120f",
+      "provider": "CloudTIX Neutral",
+      "style": "gray",
+      "background": "gray",
+      "visual_style": "neutral-background",
+      "dashboard_visible": true
+    },
+    {
+      "label": "Partnerschaft",
+      "category": "Badges",
+      "fallback": "🤝",
+      "constants": [
+        "CATALOG_PARTNER"
+      ],
+      "replaces_keys": [
+        "partner"
+      ],
+      "keywords": [
+        "partner",
+        "Partnerschaft",
+        "partnership",
+        "partnerschaft"
+      ],
+      "source_file": "neutral/originals/7240-partner-white.png",
+      "equivalent_sources": [],
+      "source_url": "https://emoji.gg/",
+      "key": "neutral_partner",
+      "name": "ct_neutral_partner_83f671",
+      "file": "neutral/neutral_partner.png",
+      "animated": false,
+      "width": 128,
+      "height": 128,
+      "bytes": 14719,
+      "sha256": "83f6713b80e4802484f74cf684d6c3894a6739ab4849a611f92dacd952366210",
+      "provider": "CloudTIX Neutral",
+      "style": "gray",
+      "background": "gray",
+      "visual_style": "neutral-background",
+      "dashboard_visible": true
+    },
+    {
+      "label": "Feier",
+      "category": "Community",
+      "fallback": "🎉",
+      "constants": [
+        "CATALOG_PARTY"
+      ],
+      "replaces_keys": [
+        "party"
+      ],
+      "keywords": [
+        "party",
+        "Feier",
+        "feiern",
+        "celebration"
+      ],
+      "source_file": "neutral/originals/250885-giveaway.png",
+      "equivalent_sources": [],
+      "source_url": "https://emoji.gg/",
+      "key": "neutral_party",
+      "name": "ct_neutral_party_0694d7",
+      "file": "neutral/neutral_party.png",
+      "animated": false,
+      "width": 128,
+      "height": 128,
+      "bytes": 16264,
+      "sha256": "0694d7e36b9f299636fe30572bfb95d26093acb1ae516a0e4e97302ef2003e16",
+      "provider": "CloudTIX Neutral",
+      "style": "gray",
+      "background": "gray",
+      "visual_style": "neutral-background",
+      "dashboard_visible": true
+    },
+    {
+      "label": "Anpinnen",
+      "category": "UI",
+      "fallback": "📌",
+      "constants": [
+        "PIN",
+        "RED_PIN"
+      ],
+      "replaces_keys": [
+        "pin"
+      ],
+      "keywords": [
+        "pin",
+        "Anpinnen"
+      ],
+      "source_file": "neutral/originals/1569-white-pin.png",
+      "equivalent_sources": [],
+      "source_url": "https://emoji.gg/",
+      "key": "neutral_pin",
+      "name": "ct_neutral_pin_17798c",
+      "file": "neutral/neutral_pin.png",
+      "animated": false,
+      "width": 128,
+      "height": 128,
+      "bytes": 13332,
+      "sha256": "17798c5decd1a0bc8c3f669d8994ed2bbdddbb56a32047caf339f8708c1acd64",
+      "provider": "CloudTIX Neutral",
+      "style": "gray",
+      "background": "gray",
+      "visual_style": "neutral-background",
+      "dashboard_visible": true
+    },
+    {
+      "label": "Hinzufügen",
+      "category": "UI",
+      "fallback": "➕",
+      "constants": [
+        "ZPLUS",
+        "ICONS_PLUS"
+      ],
+      "replaces_keys": [
+        "plus"
+      ],
+      "keywords": [
+        "plus",
+        "Hinzufügen"
+      ],
+      "source_file": "neutral/originals/85722-ajouter.png",
+      "equivalent_sources": [],
+      "source_url": "https://emoji.gg/",
+      "key": "neutral_plus",
+      "name": "ct_neutral_plus_f9b8cc",
+      "file": "neutral/neutral_plus.png",
+      "animated": false,
+      "width": 128,
+      "height": 128,
+      "bytes": 12438,
+      "sha256": "f9b8cced276d0c52a1fcb3f5d2db41139f79af0c30a6c3745af2ea11a722f6fd",
+      "provider": "CloudTIX Neutral",
+      "style": "gray",
+      "background": "gray",
+      "visual_style": "neutral-background",
+      "dashboard_visible": true
+    },
+    {
+      "label": "Vorherige Seite",
+      "category": "UI",
+      "fallback": "«",
+      "constants": [
+        "PREVIOUS"
+      ],
+      "replaces_keys": [
+        "previous"
+      ],
+      "keywords": [
+        "previous",
+        "Vorherige Seite"
+      ],
+      "source_file": "neutral/originals/518471-lastpage.png",
+      "equivalent_sources": [],
+      "source_url": "https://emoji.gg/",
+      "key": "neutral_previous",
+      "name": "ct_neutral_previous_7dc98a",
+      "file": "neutral/neutral_previous.png",
+      "animated": false,
+      "width": 128,
+      "height": 128,
+      "bytes": 13877,
+      "sha256": "7dc98a743cdc3966734eb41bffa4df221156ce27ed3839b5aca266e5a75b81c7",
+      "provider": "CloudTIX Neutral",
+      "style": "gray",
+      "background": "gray",
+      "visual_style": "neutral-background",
+      "dashboard_visible": true
+    },
+    {
+      "label": "Profil",
+      "category": "Community",
+      "fallback": "👤",
+      "constants": [
+        "CATALOG_USER_PROFILE"
+      ],
+      "replaces_keys": [
+        "user_profile"
+      ],
+      "keywords": [
+        "profile",
+        "Profil",
+        "user_profile",
+        "account",
+        "konto"
+      ],
+      "source_file": "neutral/originals/13431-profil.png",
+      "equivalent_sources": [],
+      "source_url": "https://emoji.gg/",
+      "key": "neutral_profile",
+      "name": "ct_neutral_profile_09dab3",
+      "file": "neutral/neutral_profile.png",
+      "animated": false,
+      "width": 128,
+      "height": 128,
+      "bytes": 14353,
+      "sha256": "09dab3443cefd604d0aca66158a585767b7ed863b611eac042afd82188b46598",
+      "provider": "CloudTIX Neutral",
+      "style": "gray",
+      "background": "gray",
+      "visual_style": "neutral-background",
+      "dashboard_visible": true
+    },
+    {
+      "label": "Wiederholen",
+      "category": "UI",
+      "fallback": "🔁",
+      "constants": [
+        "REPEAT"
+      ],
+      "replaces_keys": [
+        "repeat"
+      ],
+      "keywords": [
+        "repeat",
+        "Wiederholen"
+      ],
+      "source_file": "neutral/originals/6129-spotify-repeat.png",
+      "equivalent_sources": [],
+      "source_url": "https://emoji.gg/",
+      "key": "neutral_repeat",
+      "name": "ct_neutral_repeat_447dea",
+      "file": "neutral/neutral_repeat.png",
+      "animated": false,
+      "width": 128,
+      "height": 128,
+      "bytes": 14170,
+      "sha256": "447deaf36f7da8a72a860c703c97c89dcff55002f9f285bdabcea0151bae31df",
+      "provider": "CloudTIX Neutral",
+      "style": "gray",
+      "background": "gray",
+      "visual_style": "neutral-background",
+      "dashboard_visible": true
+    },
+    {
+      "label": "Nach rechts",
+      "category": "UI",
+      "fallback": "›",
+      "constants": [
+        "ZARROW",
+        "ARROWRED",
+        "ARROW_RIGHT"
+      ],
+      "replaces_keys": [
+        "arrow"
+      ],
+      "keywords": [
+        "right",
+        "Nach rechts",
+        "arrow"
+      ],
+      "source_file": "neutral/originals/61991-right.png",
+      "equivalent_sources": [],
+      "source_url": "https://emoji.gg/",
+      "key": "neutral_right",
+      "name": "ct_neutral_right_ea64e8",
+      "file": "neutral/neutral_right.png",
+      "animated": false,
+      "width": 128,
+      "height": 128,
+      "bytes": 13327,
+      "sha256": "ea64e892c13bf2cf10ef0e1f92d5f47a37b00935f957cf112ae0ab4d5ec56930",
+      "provider": "CloudTIX Neutral",
+      "style": "gray",
+      "background": "gray",
+      "visual_style": "neutral-background",
+      "dashboard_visible": true
+    },
+    {
+      "label": "Regelwerk",
+      "category": "Regelwerk",
+      "fallback": "📖",
+      "constants": [
+        "RULES",
+        "REGELWERK",
+        "REDRULESBOOK"
+      ],
+      "replaces_keys": [
+        "rules"
+      ],
+      "keywords": [
+        "rules",
+        "Regelwerk",
+        "regelwerk",
+        "regeln",
+        "regelbuch"
+      ],
+      "source_file": "neutral/originals/75219-regles.png",
+      "equivalent_sources": [],
+      "source_url": "https://emoji.gg/",
+      "key": "neutral_rules",
+      "name": "ct_neutral_rules_96aa2f",
+      "file": "neutral/neutral_rules.png",
+      "animated": false,
+      "width": 128,
+      "height": 128,
+      "bytes": 13870,
+      "sha256": "96aa2fee75178cf508941c44210a879602a5c50fa21c4a1ac36771f71cffc753",
+      "provider": "CloudTIX Neutral",
+      "style": "gray",
+      "background": "gray",
+      "visual_style": "neutral-background",
+      "dashboard_visible": true
+    },
+    {
+      "label": "Suchen",
+      "category": "UI",
+      "fallback": "🔍",
+      "constants": [
+        "universitybot_SEARCH",
+        "universitybot_CODE",
+        "universitybot_COMMAND"
+      ],
+      "replaces_keys": [
+        "search"
+      ],
+      "keywords": [
+        "search",
+        "Suchen"
+      ],
+      "source_file": "neutral/originals/34996-chercher.png",
+      "equivalent_sources": [],
+      "source_url": "https://emoji.gg/",
+      "key": "neutral_search",
+      "name": "ct_neutral_search_5017b0",
+      "file": "neutral/neutral_search.png",
+      "animated": false,
+      "width": 128,
+      "height": 128,
+      "bytes": 14987,
+      "sha256": "5017b03d726d7ef46195657e1d8375ff7af36c0cff144e09c283c4d2da4cafc7",
+      "provider": "CloudTIX Neutral",
+      "style": "gray",
+      "background": "gray",
+      "visual_style": "neutral-background",
+      "dashboard_visible": true
+    },
+    {
+      "label": "Sicherheit",
+      "category": "Moderation",
+      "fallback": "🛡️",
+      "constants": [
+        "SHIELD",
+        "FIREWALL",
+        "PROTECTION"
+      ],
+      "replaces_keys": [
+        "shield",
+        "firewall",
+        "protection"
+      ],
+      "keywords": [
+        "security",
+        "Sicherheit",
+        "shield",
+        "firewall",
+        "protection"
+      ],
+      "source_file": "neutral/originals/45228-cybersecurite.png",
+      "equivalent_sources": [],
+      "source_url": "https://emoji.gg/",
+      "key": "neutral_security",
+      "name": "ct_neutral_security_a11c97",
+      "file": "neutral/neutral_security.png",
+      "animated": false,
+      "width": 128,
+      "height": 128,
+      "bytes": 14109,
+      "sha256": "a11c975a7762ede8b35c5c9f106f4e20f9bea2816b15c6bd25bd4011713994ab",
+      "provider": "CloudTIX Neutral",
+      "style": "gray",
+      "background": "gray",
+      "visual_style": "neutral-background",
+      "dashboard_visible": true
+    },
+    {
+      "label": "Server",
+      "category": "Server",
+      "fallback": "🖥️",
+      "constants": [
+        "CATALOG_SERVER"
+      ],
+      "replaces_keys": [
+        "server"
+      ],
+      "keywords": [
+        "servers",
+        "Server",
+        "server",
+        "guild",
+        "discord"
+      ],
+      "source_file": "neutral/originals/99847-serveurs.png",
+      "equivalent_sources": [],
+      "source_url": "https://emoji.gg/",
+      "key": "neutral_servers",
+      "name": "ct_neutral_servers_f809ff",
+      "file": "neutral/neutral_servers.png",
+      "animated": false,
+      "width": 128,
+      "height": 128,
+      "bytes": 16057,
+      "sha256": "f809ffdfab269772c863f917659c8f90660fb631041c05593c8d49e0193ff987",
+      "provider": "CloudTIX Neutral",
+      "style": "gray",
+      "background": "gray",
+      "visual_style": "neutral-background",
+      "dashboard_visible": true
+    },
+    {
+      "label": "Einstellungen",
+      "category": "UI",
+      "fallback": "⚙️",
+      "constants": [
+        "ZSETTINGS"
+      ],
+      "replaces_keys": [
+        "settings"
+      ],
+      "keywords": [
+        "settings",
+        "Einstellungen"
+      ],
+      "source_file": "neutral/originals/570616-gear-icon.png",
+      "equivalent_sources": [],
+      "source_url": "https://emoji.gg/",
+      "key": "neutral_settings",
+      "name": "ct_neutral_settings_26b090",
+      "file": "neutral/neutral_settings.png",
+      "animated": false,
+      "width": 128,
+      "height": 128,
+      "bytes": 14715,
+      "sha256": "26b090aee457d716216f1cfd97a7add46ec14186b0083445e672ad042c05ed8d",
+      "provider": "CloudTIX Neutral",
+      "style": "gray",
+      "background": "gray",
+      "visual_style": "neutral-background",
+      "dashboard_visible": true
+    },
+    {
+      "label": "Warenkorb",
+      "category": "Economy",
+      "fallback": "🛒",
+      "constants": [
+        "CATALOG_CART",
+        "CATALOG_SHOP"
+      ],
+      "replaces_keys": [
+        "cart",
+        "shop"
+      ],
+      "keywords": [
+        "shopping_cart",
+        "shopping cart",
+        "Warenkorb",
+        "cart",
+        "einkauf",
+        "bestellen",
+        "shop",
+        "laden",
+        "kaufen"
+      ],
+      "source_file": "neutral/originals/435031-shoppingcart.png",
+      "equivalent_sources": [
+        "9183-shoppingcart.png"
+      ],
+      "source_url": "https://emoji.gg/",
+      "key": "neutral_shopping_cart",
+      "name": "ct_neutral_shopping_cart_c2acb1",
+      "file": "neutral/neutral_shopping_cart.png",
+      "animated": false,
+      "width": 128,
+      "height": 128,
+      "bytes": 15341,
+      "sha256": "c2acb13729c7879d09555a2328b6d40886f73f1008dbe7ee22fb8c98671d95ed",
+      "provider": "CloudTIX Neutral",
+      "style": "gray",
+      "background": "gray",
+      "visual_style": "neutral-background",
+      "dashboard_visible": true
+    },
+    {
+      "label": "Teamwerkzeuge",
+      "category": "Server",
+      "fallback": "🛠️",
+      "constants": [
+        "CATALOG_STAFF",
+        "ROLE",
+        "HEADMOD",
+        "MANAGER",
+        "U_ADMIN",
+        "STAFF"
+      ],
+      "replaces_keys": [
+        "staff",
+        "role"
+      ],
+      "keywords": [
+        "staff",
+        "Teamwerkzeuge",
+        "team",
+        "helfer",
+        "role"
+      ],
+      "source_file": "neutral/originals/52657-staff.png",
+      "equivalent_sources": [
+        "5448-staff-white.png"
+      ],
+      "source_url": "https://emoji.gg/",
+      "key": "neutral_staff",
+      "name": "ct_neutral_staff_f196ff",
+      "file": "neutral/neutral_staff.png",
+      "animated": false,
+      "width": 128,
+      "height": 128,
+      "bytes": 15488,
+      "sha256": "f196ff05332944b0661fa0cd392d1e46915a92fc3bbc853ceaa8d43adec237af",
+      "provider": "CloudTIX Neutral",
+      "style": "gray",
+      "background": "gray",
+      "visual_style": "neutral-background",
+      "dashboard_visible": true
+    },
+    {
+      "label": "Stern",
+      "category": "Badges",
+      "fallback": "⭐",
+      "constants": [
+        "STAR",
+        "STAR_ALT1",
+        "STAR_ALT2",
+        "SYSTEM",
+        "STAR_UNICODE"
+      ],
+      "replaces_keys": [
+        "star"
+      ],
+      "keywords": [
+        "star",
+        "Stern"
+      ],
+      "source_file": "neutral/originals/75645-star.png",
+      "equivalent_sources": [
+        "693596-winterstar.png"
+      ],
+      "source_url": "https://emoji.gg/",
+      "key": "neutral_star",
+      "name": "ct_neutral_star_50099f",
+      "file": "neutral/neutral_star.png",
+      "animated": false,
+      "width": 128,
+      "height": 128,
+      "bytes": 13864,
+      "sha256": "50099fce7e8285ee181ff0132565999cf1ce537704e07371e1aa33a7b49826c4",
+      "provider": "CloudTIX Neutral",
+      "style": "gray",
+      "background": "gray",
+      "visual_style": "neutral-background",
+      "dashboard_visible": true
+    },
+    {
+      "label": "Statistik",
+      "category": "Server",
+      "fallback": "📊",
+      "constants": [
+        "CATALOG_SERVER_STATS",
+        "LEVEL_UP"
+      ],
+      "replaces_keys": [
+        "server_stats",
+        "level"
+      ],
+      "keywords": [
+        "statistics",
+        "Statistik",
+        "server_stats",
+        "stats",
+        "statistik",
+        "zahlen",
+        "level"
+      ],
+      "source_file": "neutral/originals/41378-statistiques.png",
+      "equivalent_sources": [],
+      "source_url": "https://emoji.gg/",
+      "key": "neutral_statistics",
+      "name": "ct_neutral_statistics_5e2955",
+      "file": "neutral/neutral_statistics.png",
+      "animated": false,
+      "width": 128,
+      "height": 128,
+      "bytes": 13918,
+      "sha256": "5e2955d99df5bab7223416ce3f5440487e44a2e040152a7b9c6a130bda50f461",
+      "provider": "CloudTIX Neutral",
+      "style": "gray",
+      "background": "gray",
+      "visual_style": "neutral-background",
+      "dashboard_visible": true
+    },
+    {
+      "label": "Timer",
+      "category": "UI",
+      "fallback": "▪️",
+      "constants": [],
+      "replaces_keys": [
+        "timer"
+      ],
+      "keywords": [
+        "timer",
+        "Timer"
+      ],
+      "source_file": "neutral/originals/41158-timer.png",
+      "equivalent_sources": [
+        "4655-stopwatch.png"
+      ],
+      "source_url": "https://emoji.gg/",
+      "key": "neutral_timer",
+      "name": "ct_neutral_timer_f4d3e4",
+      "file": "neutral/neutral_timer.png",
+      "animated": false,
+      "width": 128,
+      "height": 128,
+      "bytes": 16418,
+      "sha256": "f4d3e46ecdb7635a251428fcce669e2595ac7b4fa0bb3b0e866ed65b67ec2716",
+      "provider": "CloudTIX Neutral",
+      "style": "gray",
+      "background": "gray",
+      "visual_style": "neutral-background",
+      "dashboard_visible": true
+    },
+    {
+      "label": "Werkzeuge",
+      "category": "Server",
+      "fallback": "🔧",
+      "constants": [
+        "ZWRENCH",
+        "TOOLS"
+      ],
+      "replaces_keys": [
+        "tools"
+      ],
+      "keywords": [
+        "tools",
+        "Werkzeuge"
+      ],
+      "source_file": "neutral/originals/56644-tools.png",
+      "equivalent_sources": [],
+      "source_url": "https://emoji.gg/",
+      "key": "neutral_tools",
+      "name": "ct_neutral_tools_8ad134",
+      "file": "neutral/neutral_tools.png",
+      "animated": false,
+      "width": 128,
+      "height": 128,
+      "bytes": 16312,
+      "sha256": "8ad1345a5cc693fff41d06e16f3f87bc026185987113089277752351c21b1948",
+      "provider": "CloudTIX Neutral",
+      "style": "gray",
+      "background": "gray",
+      "visual_style": "neutral-background",
+      "dashboard_visible": true
+    },
+    {
+      "label": "Entsperren",
+      "category": "UI",
+      "fallback": "🔓",
+      "constants": [
+        "UNLOCK"
+      ],
+      "replaces_keys": [
+        "unlock"
+      ],
+      "keywords": [
+        "unlock",
+        "Entsperren"
+      ],
+      "source_file": "neutral/originals/9068-ouvert.png",
+      "equivalent_sources": [],
+      "source_url": "https://emoji.gg/",
+      "key": "neutral_unlock",
+      "name": "ct_neutral_unlock_f0225a",
+      "file": "neutral/neutral_unlock.png",
+      "animated": false,
+      "width": 128,
+      "height": 128,
+      "bytes": 13821,
+      "sha256": "f0225a06d8b8e40289a3bbcb7ef7ebb10d5eb3ef6ddbd8b146420908a2429858",
+      "provider": "CloudTIX Neutral",
+      "style": "gray",
+      "background": "gray",
+      "visual_style": "neutral-background",
+      "dashboard_visible": true
+    },
+    {
+      "label": "Verifiziert",
+      "category": "Badges",
+      "fallback": "✅",
+      "constants": [
+        "VERIFICATION",
+        "ZSAFE",
+        "CERTIFIED_MODERATOR",
+        "CATALOG_MEMBER_VERIFIED"
+      ],
+      "replaces_keys": [
+        "verification",
+        "member_verified"
+      ],
+      "keywords": [
+        "verified",
+        "Verifiziert",
+        "verification",
+        "member_verified",
+        "member",
+        "bestätigt"
+      ],
+      "source_file": "neutral/originals/16121-certifier.png",
+      "equivalent_sources": [
+        "3590-verified-white.png"
+      ],
+      "source_url": "https://emoji.gg/",
+      "key": "neutral_verified",
+      "name": "ct_neutral_verified_b8962b",
+      "file": "neutral/neutral_verified.png",
+      "animated": false,
+      "width": 128,
+      "height": 128,
+      "bytes": 14481,
+      "sha256": "b8962b1e2548711c46247089f45068e63964f570c93f021d40f64d3a8d8343b9",
+      "provider": "CloudTIX Neutral",
+      "style": "gray",
+      "background": "gray",
+      "visual_style": "neutral-background",
+      "dashboard_visible": true
+    },
+    {
+      "label": "Warnung rot",
+      "category": "Moderation",
+      "fallback": "🚨",
+      "constants": [
+        "CATALOG_OUTAGE"
+      ],
+      "replaces_keys": [
+        "outage"
+      ],
+      "keywords": [
+        "warning_high",
+        "warning high",
+        "Warnung rot",
+        "outage",
+        "down",
+        "offline",
+        "fehler",
+        "!",
+        "warn",
+        "warns",
+        "Warnung",
+        "Ausrufezeichen"
+      ],
+      "source_file": "neutral/originals/685108-warn.png",
+      "equivalent_sources": [],
+      "source_url": "https://emoji.gg/",
+      "key": "neutral_warning_high",
+      "name": "ct_neutral_warning_high_9a6ddc",
+      "file": "neutral/neutral_warning_high.png",
+      "animated": false,
+      "width": 128,
+      "height": 128,
+      "bytes": 13309,
+      "sha256": "9a6ddc9be51702e8ea9f21a6b1cd0d3ec0502aca213c1a19ccd0688ac9ae2ff7",
+      "provider": "CloudTIX Neutral",
+      "style": "gray",
+      "background": "gray",
+      "visual_style": "neutral-background",
+      "dashboard_visible": true
+    },
+    {
+      "label": "Warnung gelb",
+      "category": "Moderation",
+      "fallback": "⚠️",
+      "constants": [
+        "WARNING",
+        "WARNING_ALT",
+        "ZWARNING",
+        "ICONS_WARNING",
+        "ICONS_WARNING_ALT1",
+        "_37496ALERT",
+        "WARNING_UNICODE",
+        "WARN",
+        "CATALOG_EXCLAMATION"
+      ],
+      "replaces_keys": [
+        "warning",
+        "warn",
+        "exclamation"
+      ],
+      "keywords": [
+        "warning_low",
+        "warning low",
+        "Warnung gelb",
+        "warning",
+        "!",
+        "warn",
+        "achtung",
+        "warns",
+        "warnings",
+        "verwarnen",
+        "exclamation",
+        "wichtig",
+        "alert",
+        "attention",
+        "!",
+        "warn",
+        "warns",
+        "Warnung",
+        "Ausrufezeichen"
+      ],
+      "source_file": "neutral/originals/429042-lowwarning.png",
+      "equivalent_sources": [],
+      "source_url": "https://emoji.gg/",
+      "key": "neutral_warning_low",
+      "name": "ct_neutral_warning_low_1aadbc",
+      "file": "neutral/neutral_warning_low.png",
+      "animated": false,
+      "width": 128,
+      "height": 128,
+      "bytes": 14247,
+      "sha256": "1aadbc2080ecf69257101f8864adaa857f304c96da93b566a153f740f0292e8c",
+      "provider": "CloudTIX Neutral",
+      "style": "gray",
+      "background": "gray",
+      "visual_style": "neutral-background",
+      "dashboard_visible": true
+    },
+    {
+      "label": "Webseite",
+      "category": "UI",
+      "fallback": "🌐",
+      "constants": [],
+      "replaces_keys": [
+        "website"
+      ],
+      "keywords": [
+        "website",
+        "Webseite"
+      ],
+      "source_file": "neutral/originals/8454-website.png",
+      "equivalent_sources": [],
+      "source_url": "https://emoji.gg/",
+      "key": "neutral_website",
+      "name": "ct_neutral_website_9a8a4d",
+      "file": "neutral/neutral_website.png",
+      "animated": false,
+      "width": 128,
+      "height": 128,
+      "bytes": 18278,
+      "sha256": "9a8a4db1000824bbac3ef3528754eda268dc308dd20873a33bd2f36c8ec2b7b5",
+      "provider": "CloudTIX Neutral",
+      "style": "gray",
+      "background": "gray",
+      "visual_style": "neutral-background",
+      "dashboard_visible": true
+    },
+    {
+      "label": "Bewertung 1 Sterne",
+      "category": "Community",
+      "fallback": "▪️",
+      "constants": [],
+      "replaces_keys": [
+        "rating_1"
+      ],
+      "keywords": [
+        "rating_1",
+        "rating 1",
+        "Bewertung 1 Sterne",
+        "Bewertung",
+        "rating",
+        "feedback",
+        "Sterne",
+        "1 Sterne"
+      ],
+      "source_file": "neutral/originals/454422-1star-rating-ids.png",
+      "equivalent_sources": [],
+      "source_url": "https://emoji.gg/",
+      "key": "neutral_rating_1",
+      "name": "ct_neutral_rating_1_c8a890",
+      "file": "neutral/neutral_rating_1.png",
+      "animated": false,
+      "width": 128,
+      "height": 128,
+      "bytes": 14415,
+      "sha256": "c8a890f9c4811d615f2fba0119eb0aae6c5eb41d02dde48811b54d8161e4aa83",
+      "provider": "CloudTIX Neutral",
+      "style": "gray",
+      "background": "gray",
+      "visual_style": "neutral-background",
+      "dashboard_visible": true
+    },
+    {
+      "label": "Bewertung 2 Sterne",
+      "category": "Community",
+      "fallback": "▪️",
+      "constants": [],
+      "replaces_keys": [
+        "rating_2"
+      ],
+      "keywords": [
+        "rating_2",
+        "rating 2",
+        "Bewertung 2 Sterne",
+        "Bewertung",
+        "rating",
+        "feedback",
+        "Sterne",
+        "2 Sterne"
+      ],
+      "source_file": "neutral/originals/872219-2star-rating-ids.png",
+      "equivalent_sources": [],
+      "source_url": "https://emoji.gg/",
+      "key": "neutral_rating_2",
+      "name": "ct_neutral_rating_2_8c2cf0",
+      "file": "neutral/neutral_rating_2.png",
+      "animated": false,
+      "width": 128,
+      "height": 128,
+      "bytes": 14372,
+      "sha256": "8c2cf06f994f649ac928320d2e518192194f41421164468806c2bdad02cbfd4e",
+      "provider": "CloudTIX Neutral",
+      "style": "gray",
+      "background": "gray",
+      "visual_style": "neutral-background",
+      "dashboard_visible": true
+    },
+    {
+      "label": "Bewertung 3 Sterne",
+      "category": "Community",
+      "fallback": "▪️",
+      "constants": [],
+      "replaces_keys": [
+        "rating_3"
+      ],
+      "keywords": [
+        "rating_3",
+        "rating 3",
+        "Bewertung 3 Sterne",
+        "Bewertung",
+        "rating",
+        "feedback",
+        "Sterne",
+        "3 Sterne"
+      ],
+      "source_file": "neutral/originals/356885-3star-rating-ids.png",
+      "equivalent_sources": [],
+      "source_url": "https://emoji.gg/",
+      "key": "neutral_rating_3",
+      "name": "ct_neutral_rating_3_5437de",
+      "file": "neutral/neutral_rating_3.png",
+      "animated": false,
+      "width": 128,
+      "height": 128,
+      "bytes": 14139,
+      "sha256": "5437de57a2aea2371bd19977c7bcab93b33609fc7cb5685186b39c79d7efa8f8",
+      "provider": "CloudTIX Neutral",
+      "style": "gray",
+      "background": "gray",
+      "visual_style": "neutral-background",
+      "dashboard_visible": true
+    },
+    {
+      "label": "Bewertung 4 Sterne",
+      "category": "Community",
+      "fallback": "▪️",
+      "constants": [],
+      "replaces_keys": [
+        "rating_4"
+      ],
+      "keywords": [
+        "rating_4",
+        "rating 4",
+        "Bewertung 4 Sterne",
+        "Bewertung",
+        "rating",
+        "feedback",
+        "Sterne",
+        "4 Sterne"
+      ],
+      "source_file": "neutral/originals/649339-4star-rating-ids.png",
+      "equivalent_sources": [],
+      "source_url": "https://emoji.gg/",
+      "key": "neutral_rating_4",
+      "name": "ct_neutral_rating_4_a907ef",
+      "file": "neutral/neutral_rating_4.png",
+      "animated": false,
+      "width": 128,
+      "height": 128,
+      "bytes": 14262,
+      "sha256": "a907efdfde19cb32ba6b4ac91a83e52c9f87aefcfae20e8c9fd779e1bea860f1",
+      "provider": "CloudTIX Neutral",
+      "style": "gray",
+      "background": "gray",
+      "visual_style": "neutral-background",
+      "dashboard_visible": true
+    },
+    {
+      "label": "Bewertung 5 Sterne",
+      "category": "Community",
+      "fallback": "▪️",
+      "constants": [],
+      "replaces_keys": [
+        "rating_5"
+      ],
+      "keywords": [
+        "rating_5",
+        "rating 5",
+        "Bewertung 5 Sterne",
+        "Bewertung",
+        "rating",
+        "feedback",
+        "Sterne",
+        "5 Sterne"
+      ],
+      "source_file": "neutral/originals/263780-5star-rating-ids.png",
+      "equivalent_sources": [],
+      "source_url": "https://emoji.gg/",
+      "key": "neutral_rating_5",
+      "name": "ct_neutral_rating_5_3e8086",
+      "file": "neutral/neutral_rating_5.png",
+      "animated": false,
+      "width": 128,
+      "height": 128,
+      "bytes": 13115,
+      "sha256": "3e808662b9a638a1508111eee6b7b01cd37585e2d6143a1b333044c73f89b5b5",
+      "provider": "CloudTIX Neutral",
+      "style": "gray",
+      "background": "gray",
+      "visual_style": "neutral-background",
+      "dashboard_visible": true
+    }
+  ]
+}

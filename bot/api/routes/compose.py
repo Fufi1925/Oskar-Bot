@@ -510,6 +510,7 @@ async def emojis(bot: "universitybot" = Depends(get_bot)):
         "Support": "Support",
         "Community": "Community",
         "Music": "Musik",
+        "Voice": "Sprachchat",
         "UI": "Oberfläche",
         "Badges": "Abzeichen",
         "Status": "Status",
@@ -527,7 +528,7 @@ async def emojis(bot: "universitybot" = Depends(get_bot)):
     for entry in pack:
         raw = entry["discord_code"]
         match = pattern.fullmatch(raw) if raw else None
-        style = "Grau" if entry.get("provider") == "CloudTIX Gray" else "Farbe"
+        style = "Grau" if entry.get("style") == "gray" or entry.get("provider") == "CloudTIX Gray" else "Farbe"
         items.append({
             "key": f"CT_{entry['key'].upper()}",
             "name": entry["name"],

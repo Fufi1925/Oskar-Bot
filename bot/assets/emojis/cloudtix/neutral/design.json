@@ -1,0 +1,2052 @@
+{
+  "schema_version": 1,
+  "description": "User-provided emoji.gg artwork edited with imagegen; gray tiles, light gray neutral symbols, original accent families preserved.",
+  "source_packs": [
+    "89865-white-utility",
+    "514002-white-utility-megapack-1",
+    "56400-admin-bot-emotes",
+    "8745-voice-emojis"
+  ],
+  "distinct_original_filenames": 107,
+  "unique_motifs": 80,
+  "entries": [
+    {
+      "key": "connection_good",
+      "label": "Verbindung gut",
+      "batch": 0,
+      "slot": 0,
+      "category": "Voice",
+      "fallback": "📶",
+      "constants": [
+        "WIFI",
+        "UPTIME",
+        "universitybotCONNECTION"
+      ],
+      "replaces_keys": [
+        "connection"
+      ],
+      "keywords": [
+        "connection_good",
+        "connection good",
+        "Verbindung gut",
+        "connection"
+      ],
+      "source_file": "neutral/originals/6292-goodconnection.png",
+      "equivalent_sources": [],
+      "source_url": "https://emoji.gg/"
+    },
+    {
+      "key": "connection_idle",
+      "label": "Verbindung mittel",
+      "batch": 0,
+      "slot": 1,
+      "category": "Voice",
+      "fallback": "📶",
+      "constants": [],
+      "replaces_keys": [
+        "connection_idle"
+      ],
+      "keywords": [
+        "connection_idle",
+        "connection idle",
+        "Verbindung mittel"
+      ],
+      "source_file": "neutral/originals/5152-idleconnection.png",
+      "equivalent_sources": [],
+      "source_url": "https://emoji.gg/"
+    },
+    {
+      "key": "connection_low",
+      "label": "Verbindung schlecht",
+      "batch": 0,
+      "slot": 2,
+      "category": "Voice",
+      "fallback": "📶",
+      "constants": [],
+      "replaces_keys": [
+        "connection_low"
+      ],
+      "keywords": [
+        "connection_low",
+        "connection low",
+        "Verbindung schlecht"
+      ],
+      "source_file": "neutral/originals/8031-lowconnection.png",
+      "equivalent_sources": [],
+      "source_url": "https://emoji.gg/"
+    },
+    {
+      "key": "deafen",
+      "label": "Audio deaktiviert",
+      "batch": 0,
+      "slot": 3,
+      "category": "Voice",
+      "fallback": "🔇",
+      "constants": [],
+      "replaces_keys": [
+        "deafen"
+      ],
+      "keywords": [
+        "deafen",
+        "Audio deaktiviert"
+      ],
+      "source_file": "neutral/originals/7992-headphonedeafen.png",
+      "equivalent_sources": [],
+      "source_url": "https://emoji.gg/"
+    },
+    {
+      "key": "headphone",
+      "label": "Kopfhörer",
+      "batch": 0,
+      "slot": 4,
+      "category": "Voice",
+      "fallback": "🎧",
+      "constants": [
+        "MUSIC",
+        "ICONS_MUSIC",
+        "MUSIC_ALT1",
+        "VOICE"
+      ],
+      "replaces_keys": [
+        "headphones",
+        "voice"
+      ],
+      "keywords": [
+        "headphone",
+        "Kopfhörer",
+        "headphones",
+        "voice"
+      ],
+      "source_file": "neutral/originals/5922-headphone.png",
+      "equivalent_sources": [],
+      "source_url": "https://emoji.gg/"
+    },
+    {
+      "key": "mic",
+      "label": "Mikrofon",
+      "batch": 0,
+      "slot": 5,
+      "category": "Voice",
+      "fallback": "🎤",
+      "constants": [
+        "MICROPHONE",
+        "CATALOG_UNMUTE_MEMBER"
+      ],
+      "replaces_keys": [
+        "microphone",
+        "unmute_member"
+      ],
+      "keywords": [
+        "mic",
+        "Mikrofon",
+        "microphone",
+        "unmute_member",
+        "unmute",
+        "member"
+      ],
+      "source_file": "neutral/originals/4360-mic.png",
+      "equivalent_sources": [
+        "308605-microphone.png"
+      ],
+      "source_url": "https://emoji.gg/"
+    },
+    {
+      "key": "mic_mute",
+      "label": "Mikrofon stumm",
+      "batch": 0,
+      "slot": 6,
+      "category": "Voice",
+      "fallback": "🔇",
+      "constants": [
+        "MICROPHONE_OFF",
+        "MUTE",
+        "ZMUTE",
+        "CATALOG_MUTE_MEMBER"
+      ],
+      "replaces_keys": [
+        "microphone_off",
+        "mute",
+        "mute_member"
+      ],
+      "keywords": [
+        "mic_mute",
+        "mic mute",
+        "Mikrofon stumm",
+        "microphone_off",
+        "mute",
+        "mute_member",
+        "member",
+        "stumm"
+      ],
+      "source_file": "neutral/originals/4360-micmute.png",
+      "equivalent_sources": [
+        "324948-microphoneoff.png"
+      ],
+      "source_url": "https://emoji.gg/"
+    },
+    {
+      "key": "timeout",
+      "label": "Timeout",
+      "batch": 0,
+      "slot": 7,
+      "category": "Moderation",
+      "fallback": "⏳",
+      "constants": [
+        "TIMER",
+        "TIMER_ALT1"
+      ],
+      "replaces_keys": [
+        "timeout"
+      ],
+      "keywords": [
+        "timeout",
+        "Timeout"
+      ],
+      "source_file": "neutral/originals/2816-mute.png",
+      "equivalent_sources": [],
+      "source_url": "https://emoji.gg/"
+    },
+    {
+      "key": "admin",
+      "label": "Administrator",
+      "batch": 0,
+      "slot": 8,
+      "category": "Server",
+      "fallback": "🛡️",
+      "constants": [
+        "CATALOG_ADMIN"
+      ],
+      "replaces_keys": [
+        "admin"
+      ],
+      "keywords": [
+        "admin",
+        "Administrator",
+        "administrator",
+        "verwaltung"
+      ],
+      "source_file": "neutral/originals/40528-administrateur.png",
+      "equivalent_sources": [
+        "7964-modbadgewhite.png",
+        "84795-adminicon.png"
+      ],
+      "source_url": "https://emoji.gg/"
+    },
+    {
+      "key": "age_restricted",
+      "label": "Altersbeschränkung",
+      "batch": 0,
+      "slot": 9,
+      "category": "Regelwerk",
+      "fallback": "🔞",
+      "constants": [
+        "CATALOG_AGE_LIMIT",
+        "CATALOG_NSFW"
+      ],
+      "replaces_keys": [
+        "age_limit",
+        "nsfw"
+      ],
+      "keywords": [
+        "age_restricted",
+        "age restricted",
+        "Altersbeschränkung",
+        "age_limit",
+        "age",
+        "limit",
+        "mindestalter",
+        "18",
+        "16",
+        "nsfw",
+        "adult",
+        "jugendschutz"
+      ],
+      "source_file": "neutral/originals/88339-agenumber.png",
+      "equivalent_sources": [],
+      "source_url": "https://emoji.gg/"
+    },
+    {
+      "key": "audit",
+      "label": "Protokolle",
+      "batch": 0,
+      "slot": 10,
+      "category": "Support",
+      "fallback": "📋",
+      "constants": [
+        "AUDIT_LOG",
+        "CATALOG_MOD_LOG",
+        "CATALOG_WARN_LIST"
+      ],
+      "replaces_keys": [
+        "audit_log",
+        "mod_log",
+        "warn_list"
+      ],
+      "keywords": [
+        "audit",
+        "Protokolle",
+        "audit_log",
+        "mod_log",
+        "modlog",
+        "moderation",
+        "logs",
+        "verlauf",
+        "warn_list",
+        "warns",
+        "warnings",
+        "warn",
+        "list"
+      ],
+      "source_file": "neutral/originals/62470-logs.png",
+      "equivalent_sources": [],
+      "source_url": "https://emoji.gg/"
+    },
+    {
+      "key": "bell",
+      "label": "Benachrichtigung",
+      "batch": 0,
+      "slot": 11,
+      "category": "UI",
+      "fallback": "🔔",
+      "constants": [
+        "NOTIFICATION"
+      ],
+      "replaces_keys": [
+        "notification"
+      ],
+      "keywords": [
+        "bell",
+        "Benachrichtigung",
+        "notification"
+      ],
+      "source_file": "neutral/originals/944992-bell.png",
+      "equivalent_sources": [],
+      "source_url": "https://emoji.gg/"
+    },
+    {
+      "key": "book",
+      "label": "Buch",
+      "batch": 0,
+      "slot": 12,
+      "category": "Regelwerk",
+      "fallback": "▪️",
+      "constants": [],
+      "replaces_keys": [
+        "book"
+      ],
+      "keywords": [
+        "book",
+        "Buch"
+      ],
+      "source_file": "neutral/originals/401776-book.png",
+      "equivalent_sources": [],
+      "source_url": "https://emoji.gg/"
+    },
+    {
+      "key": "bookmark",
+      "label": "Lesezeichen",
+      "batch": 0,
+      "slot": 13,
+      "category": "UI",
+      "fallback": "▪️",
+      "constants": [],
+      "replaces_keys": [
+        "bookmark"
+      ],
+      "keywords": [
+        "bookmark",
+        "Lesezeichen"
+      ],
+      "source_file": "neutral/originals/27687-bookmark.png",
+      "equivalent_sources": [],
+      "source_url": "https://emoji.gg/"
+    },
+    {
+      "key": "boost",
+      "label": "Boost",
+      "batch": 0,
+      "slot": 14,
+      "category": "Badges",
+      "fallback": "🚀",
+      "constants": [
+        "ZROCKET",
+        "BOOST",
+        "BOOSTS",
+        "NITRO_BOOST",
+        "CATALOG_BOOSTER",
+        "CATALOG_SERVER_BOOST"
+      ],
+      "replaces_keys": [
+        "boost",
+        "booster",
+        "server_boost"
+      ],
+      "keywords": [
+        "boost",
+        "Boost",
+        "booster",
+        "nitro",
+        "diamant",
+        "server_boost"
+      ],
+      "source_file": "neutral/originals/2577-white-nitro-boost.png",
+      "equivalent_sources": [],
+      "source_url": "https://emoji.gg/"
+    },
+    {
+      "key": "boost_level_2",
+      "label": "Boost Stufe 2",
+      "batch": 0,
+      "slot": 15,
+      "category": "Badges",
+      "fallback": "💎",
+      "constants": [],
+      "replaces_keys": [
+        "boost_level_2"
+      ],
+      "keywords": [
+        "boost_level_2",
+        "boost level 2",
+        "Boost Stufe 2"
+      ],
+      "source_file": "neutral/originals/9010-boost-level-2-white.png",
+      "equivalent_sources": [],
+      "source_url": "https://emoji.gg/"
+    },
+    {
+      "key": "bot",
+      "label": "Bot",
+      "batch": 1,
+      "slot": 0,
+      "category": "UI",
+      "fallback": "🤖",
+      "constants": [
+        "ZBOT",
+        "universitybotSYS"
+      ],
+      "replaces_keys": [
+        "bot"
+      ],
+      "keywords": [
+        "bot",
+        "Bot"
+      ],
+      "source_file": "neutral/originals/85722-bot.png",
+      "equivalent_sources": [],
+      "source_url": "https://emoji.gg/"
+    },
+    {
+      "key": "calendar",
+      "label": "Kalender",
+      "batch": 1,
+      "slot": 1,
+      "category": "UI",
+      "fallback": "📅",
+      "constants": [
+        "EVENT",
+        "CATALOG_SCHEDULED"
+      ],
+      "replaces_keys": [
+        "event",
+        "scheduled"
+      ],
+      "keywords": [
+        "calendar",
+        "Kalender",
+        "event",
+        "scheduled",
+        "geplant",
+        "termin"
+      ],
+      "source_file": "neutral/originals/473488-calender.png",
+      "equivalent_sources": [],
+      "source_url": "https://emoji.gg/"
+    },
+    {
+      "key": "cash",
+      "label": "Geld",
+      "batch": 1,
+      "slot": 2,
+      "category": "Economy",
+      "fallback": "💵",
+      "constants": [
+        "MONEY",
+        "CATALOG_COINS",
+        "CATALOG_WALLET"
+      ],
+      "replaces_keys": [
+        "money",
+        "coins",
+        "wallet"
+      ],
+      "keywords": [
+        "cash",
+        "Geld",
+        "money",
+        "coins",
+        "geld",
+        "wallet",
+        "balance",
+        "guthaben"
+      ],
+      "source_file": "neutral/originals/249884-cash.png",
+      "equivalent_sources": [
+        "10845-currency.png"
+      ],
+      "source_url": "https://emoji.gg/"
+    },
+    {
+      "key": "chat",
+      "label": "Chat",
+      "batch": 1,
+      "slot": 3,
+      "category": "Community",
+      "fallback": "💬",
+      "constants": [
+        "CATALOG_FORUM_CHANNEL",
+        "CATALOG_THREAD"
+      ],
+      "replaces_keys": [
+        "forum_channel",
+        "thread"
+      ],
+      "keywords": [
+        "chat",
+        "Chat",
+        "forum_channel",
+        "forum",
+        "channel",
+        "diskussion",
+        "thread",
+        "beitrag",
+        "unterhaltung"
+      ],
+      "source_file": "neutral/originals/9891-chat-icon.png",
+      "equivalent_sources": [],
+      "source_url": "https://emoji.gg/"
+    },
+    {
+      "key": "check",
+      "label": "Erfolg",
+      "batch": 1,
+      "slot": 4,
+      "category": "UI",
+      "fallback": "✅",
+      "constants": [
+        "TICK",
+        "TICK_ALT",
+        "ZTICK",
+        "SUCCESS",
+        "ENABLE",
+        "CHECKMARK",
+        "OK",
+        "ACCEPT",
+        "CATALOG_COMPLETE"
+      ],
+      "replaces_keys": [
+        "checkmark",
+        "accept",
+        "complete"
+      ],
+      "keywords": [
+        "check",
+        "Erfolg",
+        "checkmark",
+        "accept",
+        "complete",
+        "done",
+        "fertig",
+        "erledigt"
+      ],
+      "source_file": "neutral/originals/60226-check.png",
+      "equivalent_sources": [
+        "2647-check-yes-wb.png"
+      ],
+      "source_url": "https://emoji.gg/"
+    },
+    {
+      "key": "clock",
+      "label": "Uhr",
+      "batch": 1,
+      "slot": 5,
+      "category": "UI",
+      "fallback": "🕒",
+      "constants": [
+        "TIME",
+        "CLOCK"
+      ],
+      "replaces_keys": [
+        "clock"
+      ],
+      "keywords": [
+        "clock",
+        "Uhr"
+      ],
+      "source_file": "neutral/originals/779372-clock.png",
+      "equivalent_sources": [],
+      "source_url": "https://emoji.gg/"
+    },
+    {
+      "key": "cross",
+      "label": "Fehler",
+      "batch": 1,
+      "slot": 6,
+      "category": "UI",
+      "fallback": "❌",
+      "constants": [
+        "CROSS",
+        "CROSS_ALT",
+        "ML_CROSS",
+        "ZCROSS",
+        "ERROR",
+        "DENIED",
+        "DISABLE",
+        "ERROR_UNICODE",
+        "BLOCK",
+        "CHECK",
+        "FAIL",
+        "NOT_OK",
+        "CROSS_MARK"
+      ],
+      "replaces_keys": [
+        "cross"
+      ],
+      "keywords": [
+        "cross",
+        "Fehler"
+      ],
+      "source_file": "neutral/originals/19463-croix.png",
+      "equivalent_sources": [],
+      "source_url": "https://emoji.gg/"
+    },
+    {
+      "key": "delete",
+      "label": "Löschen",
+      "batch": 1,
+      "slot": 7,
+      "category": "UI",
+      "fallback": "🗑️",
+      "constants": [
+        "DELETE",
+        "DELETE_ALT1"
+      ],
+      "replaces_keys": [
+        "delete"
+      ],
+      "keywords": [
+        "delete",
+        "Löschen"
+      ],
+      "source_file": "neutral/originals/14385-supprimer.png",
+      "equivalent_sources": [],
+      "source_url": "https://emoji.gg/"
+    },
+    {
+      "key": "developer",
+      "label": "Entwicklung",
+      "batch": 1,
+      "slot": 8,
+      "category": "Badges",
+      "fallback": "💻",
+      "constants": [
+        "CODEBASE",
+        "CODED",
+        "ACTIVE_DEVELOPER",
+        "Developer",
+        "EARLY_VERIFIED_BOT_DEV"
+      ],
+      "replaces_keys": [
+        "developer"
+      ],
+      "keywords": [
+        "developer",
+        "Entwicklung"
+      ],
+      "source_file": "neutral/originals/56832-developer.png",
+      "equivalent_sources": [],
+      "source_url": "https://emoji.gg/"
+    },
+    {
+      "key": "discord",
+      "label": "Discord",
+      "batch": 1,
+      "slot": 9,
+      "category": "Community",
+      "fallback": "🎮",
+      "constants": [],
+      "replaces_keys": [
+        "discord"
+      ],
+      "keywords": [
+        "discord",
+        "Discord"
+      ],
+      "source_file": "neutral/originals/553864-discord.gif",
+      "equivalent_sources": [],
+      "source_url": "https://emoji.gg/"
+    },
+    {
+      "key": "dislike",
+      "label": "Gefällt mir nicht",
+      "batch": 1,
+      "slot": 10,
+      "category": "UI",
+      "fallback": "👎",
+      "constants": [],
+      "replaces_keys": [
+        "dislike"
+      ],
+      "keywords": [
+        "dislike",
+        "Gefällt mir nicht"
+      ],
+      "source_file": "neutral/originals/63157-dislike.png",
+      "equivalent_sources": [],
+      "source_url": "https://emoji.gg/"
+    },
+    {
+      "key": "dot",
+      "label": "Punkt",
+      "batch": 1,
+      "slot": 11,
+      "category": "UI",
+      "fallback": "●",
+      "constants": [
+        "ZCIRCLE",
+        "ZCIRCLE_ALT1",
+        "RED_BUTTON",
+        "REDDOT"
+      ],
+      "replaces_keys": [
+        "circle"
+      ],
+      "keywords": [
+        "dot",
+        "Punkt",
+        "circle"
+      ],
+      "source_file": "neutral/originals/6304-whitesmalldot.png",
+      "equivalent_sources": [],
+      "source_url": "https://emoji.gg/"
+    },
+    {
+      "key": "edit",
+      "label": "Bearbeiten",
+      "batch": 1,
+      "slot": 12,
+      "category": "UI",
+      "fallback": "✏️",
+      "constants": [
+        "EDIT"
+      ],
+      "replaces_keys": [
+        "edit"
+      ],
+      "keywords": [
+        "edit",
+        "Bearbeiten"
+      ],
+      "source_file": "neutral/originals/11569-crayon.png",
+      "equivalent_sources": [
+        "904340-pencil.png"
+      ],
+      "source_url": "https://emoji.gg/"
+    },
+    {
+      "key": "external_link",
+      "label": "Externer Link",
+      "batch": 1,
+      "slot": 13,
+      "category": "UI",
+      "fallback": "↗️",
+      "constants": [
+        "EXTERNAL_LINK"
+      ],
+      "replaces_keys": [
+        "external_link"
+      ],
+      "keywords": [
+        "external_link",
+        "external link",
+        "Externer Link"
+      ],
+      "source_file": "neutral/originals/82321-tts-external-link.png",
+      "equivalent_sources": [],
+      "source_url": "https://emoji.gg/"
+    },
+    {
+      "key": "game",
+      "label": "Spiel",
+      "batch": 1,
+      "slot": 14,
+      "category": "Community",
+      "fallback": "🎮",
+      "constants": [
+        "GAMES",
+        "GAME_CONTROLLER",
+        "MINECRAFT",
+        "MAX__A"
+      ],
+      "replaces_keys": [
+        "game"
+      ],
+      "keywords": [
+        "game",
+        "Spiel"
+      ],
+      "source_file": "neutral/originals/67811-jeu.png",
+      "equivalent_sources": [
+        "875408-controller.png"
+      ],
+      "source_url": "https://emoji.gg/"
+    },
+    {
+      "key": "gavel",
+      "label": "Moderation",
+      "batch": 1,
+      "slot": 15,
+      "category": "Moderation",
+      "fallback": "🔨",
+      "constants": [
+        "ZBAN",
+        "universitybotHAMMER",
+        "CATALOG_TEMPBAN",
+        "CATALOG_SOFTBAN"
+      ],
+      "replaces_keys": [
+        "ban",
+        "tempban",
+        "softban"
+      ],
+      "keywords": [
+        "gavel",
+        "Moderation",
+        "ban",
+        "bans",
+        "bann",
+        "sperren",
+        "bannen",
+        "tempban",
+        "zeitlich",
+        "zeitban",
+        "softban",
+        "soft"
+      ],
+      "source_file": "neutral/originals/998896-gavel.png",
+      "equivalent_sources": [
+        "4534-tts-ban-white.png"
+      ],
+      "source_url": "https://emoji.gg/"
+    },
+    {
+      "key": "gift",
+      "label": "Geschenk",
+      "batch": 2,
+      "slot": 0,
+      "category": "Community",
+      "fallback": "🎁",
+      "constants": [
+        "CATALOG_GIFT_CLAIM"
+      ],
+      "replaces_keys": [
+        "gift_claim"
+      ],
+      "keywords": [
+        "gift",
+        "Geschenk",
+        "gift_claim",
+        "claim",
+        "giveaway",
+        "gewinn"
+      ],
+      "source_file": "neutral/originals/463819-giveaway.png",
+      "equivalent_sources": [],
+      "source_url": "https://emoji.gg/"
+    },
+    {
+      "key": "globe",
+      "label": "Welt",
+      "batch": 2,
+      "slot": 1,
+      "category": "UI",
+      "fallback": "🌍",
+      "constants": [
+        "CATALOG_GLOBE",
+        "ICON_BROWSER",
+        "universitybot_GLOBAL"
+      ],
+      "replaces_keys": [
+        "globe",
+        "browser"
+      ],
+      "keywords": [
+        "globe",
+        "Welt",
+        "welt",
+        "world",
+        "global",
+        "internet",
+        "browser",
+        "web"
+      ],
+      "source_file": "neutral/originals/64005-web.png",
+      "equivalent_sources": [
+        "9847-public.png"
+      ],
+      "source_url": "https://emoji.gg/"
+    },
+    {
+      "key": "home",
+      "label": "Startseite",
+      "batch": 2,
+      "slot": 2,
+      "category": "UI",
+      "fallback": "🏠",
+      "constants": [
+        "HOME"
+      ],
+      "replaces_keys": [
+        "home"
+      ],
+      "keywords": [
+        "home",
+        "Startseite"
+      ],
+      "source_file": "neutral/originals/13860-house.png",
+      "equivalent_sources": [],
+      "source_url": "https://emoji.gg/"
+    },
+    {
+      "key": "id",
+      "label": "Kennung",
+      "batch": 2,
+      "slot": 3,
+      "category": "UI",
+      "fallback": "🆔",
+      "constants": [],
+      "replaces_keys": [
+        "id"
+      ],
+      "keywords": [
+        "id",
+        "Kennung"
+      ],
+      "source_file": "neutral/originals/47886-identifiant.png",
+      "equivalent_sources": [],
+      "source_url": "https://emoji.gg/"
+    },
+    {
+      "key": "info",
+      "label": "Information",
+      "batch": 2,
+      "slot": 4,
+      "category": "UI",
+      "fallback": "ℹ️",
+      "constants": [
+        "INFO"
+      ],
+      "replaces_keys": [
+        "info"
+      ],
+      "keywords": [
+        "info",
+        "Information"
+      ],
+      "source_file": "neutral/originals/66880-info.png",
+      "equivalent_sources": [
+        "685951-info.png",
+        "10447-information.png"
+      ],
+      "source_url": "https://emoji.gg/"
+    },
+    {
+      "key": "like",
+      "label": "Gefällt mir",
+      "batch": 2,
+      "slot": 5,
+      "category": "UI",
+      "fallback": "👍",
+      "constants": [],
+      "replaces_keys": [
+        "like"
+      ],
+      "keywords": [
+        "like",
+        "Gefällt mir"
+      ],
+      "source_file": "neutral/originals/84613-like.png",
+      "equivalent_sources": [],
+      "source_url": "https://emoji.gg/"
+    },
+    {
+      "key": "link",
+      "label": "Link",
+      "batch": 2,
+      "slot": 6,
+      "category": "UI",
+      "fallback": "🔗",
+      "constants": [
+        "links",
+        "universitybotLINKS"
+      ],
+      "replaces_keys": [
+        "link"
+      ],
+      "keywords": [
+        "link",
+        "Link"
+      ],
+      "source_file": "neutral/originals/50494-lien.png",
+      "equivalent_sources": [
+        "206806-link.png",
+        "3007-link.png"
+      ],
+      "source_url": "https://emoji.gg/"
+    },
+    {
+      "key": "lock",
+      "label": "Sperren",
+      "batch": 2,
+      "slot": 7,
+      "category": "UI",
+      "fallback": "🔒",
+      "constants": [
+        "LOCKDOWN",
+        "LOCK_UNICODE",
+        "JAIL",
+        "LOCK"
+      ],
+      "replaces_keys": [
+        "lockdown",
+        "jail"
+      ],
+      "keywords": [
+        "lock",
+        "Sperren",
+        "lockdown",
+        "jail"
+      ],
+      "source_file": "neutral/originals/80091-fermer.png",
+      "equivalent_sources": [],
+      "source_url": "https://emoji.gg/"
+    },
+    {
+      "key": "mail",
+      "label": "Nachricht",
+      "batch": 2,
+      "slot": 8,
+      "category": "Support",
+      "fallback": "✉️",
+      "constants": [
+        "MAIL",
+        "MESSAGE"
+      ],
+      "replaces_keys": [
+        "mail",
+        "message"
+      ],
+      "keywords": [
+        "mail",
+        "Nachricht",
+        "message"
+      ],
+      "source_file": "neutral/originals/84613-mail.png",
+      "equivalent_sources": [
+        "416391-mail.png"
+      ],
+      "source_url": "https://emoji.gg/"
+    },
+    {
+      "key": "mail_open",
+      "label": "Nachricht geöffnet",
+      "batch": 2,
+      "slot": 9,
+      "category": "Support",
+      "fallback": "📥",
+      "constants": [
+        "INBOX"
+      ],
+      "replaces_keys": [
+        "inbox"
+      ],
+      "keywords": [
+        "mail_open",
+        "mail open",
+        "Nachricht geöffnet",
+        "inbox"
+      ],
+      "source_file": "neutral/originals/537744-openedmail.png",
+      "equivalent_sources": [],
+      "source_url": "https://emoji.gg/"
+    },
+    {
+      "key": "management",
+      "label": "Verwaltung",
+      "batch": 2,
+      "slot": 10,
+      "category": "Server",
+      "fallback": "▪️",
+      "constants": [],
+      "replaces_keys": [
+        "management"
+      ],
+      "keywords": [
+        "management",
+        "Verwaltung"
+      ],
+      "source_file": "neutral/originals/75565-management.png",
+      "equivalent_sources": [],
+      "source_url": "https://emoji.gg/"
+    },
+    {
+      "key": "megaphone",
+      "label": "Ankündigung",
+      "batch": 2,
+      "slot": 11,
+      "category": "UI",
+      "fallback": "📣",
+      "constants": [
+        "ANNOUNCEMENT",
+        "CATALOG_ANNOUNCEMENT_RULES"
+      ],
+      "replaces_keys": [
+        "announcement",
+        "announcement_rules"
+      ],
+      "keywords": [
+        "megaphone",
+        "Ankündigung",
+        "announcement",
+        "announcement_rules",
+        "rules",
+        "bekanntmachung"
+      ],
+      "source_file": "neutral/originals/1882-megaphone.png",
+      "equivalent_sources": [],
+      "source_url": "https://emoji.gg/"
+    },
+    {
+      "key": "member",
+      "label": "Mitglied",
+      "batch": 2,
+      "slot": 12,
+      "category": "Community",
+      "fallback": "👤",
+      "constants": [
+        "CATALOG_MEMBER"
+      ],
+      "replaces_keys": [
+        "member"
+      ],
+      "keywords": [
+        "member",
+        "Mitglied",
+        "user",
+        "person",
+        "nutzer"
+      ],
+      "source_file": "neutral/originals/7188-other-icon.png",
+      "equivalent_sources": [
+        "13371-memberwhite.png",
+        "7428-whitemember.png",
+        "7549-member.png"
+      ],
+      "source_url": "https://emoji.gg/"
+    },
+    {
+      "key": "members",
+      "label": "Mitglieder",
+      "batch": 2,
+      "slot": 13,
+      "category": "Community",
+      "fallback": "👥",
+      "constants": [
+        "ZPEOPLE",
+        "HUMAN",
+        "ZHUMAN"
+      ],
+      "replaces_keys": [
+        "members"
+      ],
+      "keywords": [
+        "members",
+        "Mitglieder",
+        "member",
+        "mitglieder",
+        "users"
+      ],
+      "source_file": "neutral/originals/19492-membres.png",
+      "equivalent_sources": [
+        "91221-members.png",
+        "4696-members.png"
+      ],
+      "source_url": "https://emoji.gg/"
+    },
+    {
+      "key": "minus",
+      "label": "Entfernen",
+      "batch": 2,
+      "slot": 14,
+      "category": "UI",
+      "fallback": "➖",
+      "constants": [],
+      "replaces_keys": [
+        "minus"
+      ],
+      "keywords": [
+        "minus",
+        "Entfernen"
+      ],
+      "source_file": "neutral/originals/67516-moins.png",
+      "equivalent_sources": [],
+      "source_url": "https://emoji.gg/"
+    },
+    {
+      "key": "moderator",
+      "label": "Moderator",
+      "batch": 2,
+      "slot": 15,
+      "category": "Moderation",
+      "fallback": "🛡️",
+      "constants": [
+        "CATALOG_MODERATOR",
+        "SWORD"
+      ],
+      "replaces_keys": [
+        "moderator"
+      ],
+      "keywords": [
+        "moderator",
+        "Moderator",
+        "mod",
+        "moderation"
+      ],
+      "source_file": "neutral/originals/13206-moderateur.png",
+      "equivalent_sources": [],
+      "source_url": "https://emoji.gg/"
+    },
+    {
+      "key": "next",
+      "label": "Nächste Seite",
+      "batch": 3,
+      "slot": 0,
+      "category": "UI",
+      "fallback": "⏭️",
+      "constants": [
+        "NEXT",
+        "NEXT_ALT1",
+        "SKIP",
+        "FORWARD"
+      ],
+      "replaces_keys": [
+        "skip"
+      ],
+      "keywords": [
+        "next",
+        "Nächste Seite",
+        "skip"
+      ],
+      "source_file": "neutral/originals/858081-nextpage.png",
+      "equivalent_sources": [],
+      "source_url": "https://emoji.gg/"
+    },
+    {
+      "key": "notify_staff",
+      "label": "Team benachrichtigen",
+      "batch": 3,
+      "slot": 1,
+      "category": "Server",
+      "fallback": "🛟",
+      "constants": [
+        "SUPPORT",
+        "HANDSHAKE",
+        "MINGLE"
+      ],
+      "replaces_keys": [
+        "support"
+      ],
+      "keywords": [
+        "notify_staff",
+        "notify staff",
+        "Team benachrichtigen",
+        "support"
+      ],
+      "source_file": "neutral/originals/2904-notify-staff.png",
+      "equivalent_sources": [],
+      "source_url": "https://emoji.gg/"
+    },
+    {
+      "key": "owner",
+      "label": "Besitzer",
+      "batch": 3,
+      "slot": 2,
+      "category": "Badges",
+      "fallback": "👑",
+      "constants": [
+        "universitybot_OWNER",
+        "KING",
+        "KING_ALT1",
+        "BLACKCROWN",
+        "CATALOG_SERVER_OWNER"
+      ],
+      "replaces_keys": [
+        "owner",
+        "crown",
+        "server_owner"
+      ],
+      "keywords": [
+        "owner",
+        "Besitzer",
+        "crown",
+        "server_owner",
+        "inhaber",
+        "besitzer"
+      ],
+      "source_file": "neutral/originals/23786-proprietaire.png",
+      "equivalent_sources": [
+        "9049-crown.png",
+        "4007-crown.png"
+      ],
+      "source_url": "https://emoji.gg/"
+    },
+    {
+      "key": "partner",
+      "label": "Partnerschaft",
+      "batch": 3,
+      "slot": 3,
+      "category": "Badges",
+      "fallback": "🤝",
+      "constants": [
+        "CATALOG_PARTNER"
+      ],
+      "replaces_keys": [
+        "partner"
+      ],
+      "keywords": [
+        "partner",
+        "Partnerschaft",
+        "partnership",
+        "partnerschaft"
+      ],
+      "source_file": "neutral/originals/7240-partner-white.png",
+      "equivalent_sources": [],
+      "source_url": "https://emoji.gg/"
+    },
+    {
+      "key": "party",
+      "label": "Feier",
+      "batch": 3,
+      "slot": 4,
+      "category": "Community",
+      "fallback": "🎉",
+      "constants": [
+        "CATALOG_PARTY"
+      ],
+      "replaces_keys": [
+        "party"
+      ],
+      "keywords": [
+        "party",
+        "Feier",
+        "feiern",
+        "celebration"
+      ],
+      "source_file": "neutral/originals/250885-giveaway.png",
+      "equivalent_sources": [],
+      "source_url": "https://emoji.gg/"
+    },
+    {
+      "key": "pin",
+      "label": "Anpinnen",
+      "batch": 3,
+      "slot": 5,
+      "category": "UI",
+      "fallback": "📌",
+      "constants": [
+        "PIN",
+        "RED_PIN"
+      ],
+      "replaces_keys": [
+        "pin"
+      ],
+      "keywords": [
+        "pin",
+        "Anpinnen"
+      ],
+      "source_file": "neutral/originals/1569-white-pin.png",
+      "equivalent_sources": [],
+      "source_url": "https://emoji.gg/"
+    },
+    {
+      "key": "plus",
+      "label": "Hinzufügen",
+      "batch": 3,
+      "slot": 6,
+      "category": "UI",
+      "fallback": "➕",
+      "constants": [
+        "ZPLUS",
+        "ICONS_PLUS"
+      ],
+      "replaces_keys": [
+        "plus"
+      ],
+      "keywords": [
+        "plus",
+        "Hinzufügen"
+      ],
+      "source_file": "neutral/originals/85722-ajouter.png",
+      "equivalent_sources": [],
+      "source_url": "https://emoji.gg/"
+    },
+    {
+      "key": "previous",
+      "label": "Vorherige Seite",
+      "batch": 3,
+      "slot": 7,
+      "category": "UI",
+      "fallback": "«",
+      "constants": [
+        "PREVIOUS"
+      ],
+      "replaces_keys": [
+        "previous"
+      ],
+      "keywords": [
+        "previous",
+        "Vorherige Seite"
+      ],
+      "source_file": "neutral/originals/518471-lastpage.png",
+      "equivalent_sources": [],
+      "source_url": "https://emoji.gg/"
+    },
+    {
+      "key": "profile",
+      "label": "Profil",
+      "batch": 3,
+      "slot": 8,
+      "category": "Community",
+      "fallback": "👤",
+      "constants": [
+        "CATALOG_USER_PROFILE"
+      ],
+      "replaces_keys": [
+        "user_profile"
+      ],
+      "keywords": [
+        "profile",
+        "Profil",
+        "user_profile",
+        "account",
+        "konto"
+      ],
+      "source_file": "neutral/originals/13431-profil.png",
+      "equivalent_sources": [],
+      "source_url": "https://emoji.gg/"
+    },
+    {
+      "key": "repeat",
+      "label": "Wiederholen",
+      "batch": 3,
+      "slot": 9,
+      "category": "UI",
+      "fallback": "🔁",
+      "constants": [
+        "REPEAT"
+      ],
+      "replaces_keys": [
+        "repeat"
+      ],
+      "keywords": [
+        "repeat",
+        "Wiederholen"
+      ],
+      "source_file": "neutral/originals/6129-spotify-repeat.png",
+      "equivalent_sources": [],
+      "source_url": "https://emoji.gg/"
+    },
+    {
+      "key": "right",
+      "label": "Nach rechts",
+      "batch": 3,
+      "slot": 10,
+      "category": "UI",
+      "fallback": "›",
+      "constants": [
+        "ZARROW",
+        "ARROWRED",
+        "ARROW_RIGHT"
+      ],
+      "replaces_keys": [
+        "arrow"
+      ],
+      "keywords": [
+        "right",
+        "Nach rechts",
+        "arrow"
+      ],
+      "source_file": "neutral/originals/61991-right.png",
+      "equivalent_sources": [],
+      "source_url": "https://emoji.gg/"
+    },
+    {
+      "key": "rules",
+      "label": "Regelwerk",
+      "batch": 3,
+      "slot": 11,
+      "category": "Regelwerk",
+      "fallback": "📖",
+      "constants": [
+        "RULES",
+        "REGELWERK",
+        "REDRULESBOOK"
+      ],
+      "replaces_keys": [
+        "rules"
+      ],
+      "keywords": [
+        "rules",
+        "Regelwerk",
+        "regelwerk",
+        "regeln",
+        "regelbuch"
+      ],
+      "source_file": "neutral/originals/75219-regles.png",
+      "equivalent_sources": [],
+      "source_url": "https://emoji.gg/"
+    },
+    {
+      "key": "search",
+      "label": "Suchen",
+      "batch": 3,
+      "slot": 12,
+      "category": "UI",
+      "fallback": "🔍",
+      "constants": [
+        "universitybot_SEARCH",
+        "universitybot_CODE",
+        "universitybot_COMMAND"
+      ],
+      "replaces_keys": [
+        "search"
+      ],
+      "keywords": [
+        "search",
+        "Suchen"
+      ],
+      "source_file": "neutral/originals/34996-chercher.png",
+      "equivalent_sources": [],
+      "source_url": "https://emoji.gg/"
+    },
+    {
+      "key": "security",
+      "label": "Sicherheit",
+      "batch": 3,
+      "slot": 13,
+      "category": "Moderation",
+      "fallback": "🛡️",
+      "constants": [
+        "SHIELD",
+        "FIREWALL",
+        "PROTECTION"
+      ],
+      "replaces_keys": [
+        "shield",
+        "firewall",
+        "protection"
+      ],
+      "keywords": [
+        "security",
+        "Sicherheit",
+        "shield",
+        "firewall",
+        "protection"
+      ],
+      "source_file": "neutral/originals/45228-cybersecurite.png",
+      "equivalent_sources": [],
+      "source_url": "https://emoji.gg/"
+    },
+    {
+      "key": "servers",
+      "label": "Server",
+      "batch": 3,
+      "slot": 14,
+      "category": "Server",
+      "fallback": "🖥️",
+      "constants": [
+        "CATALOG_SERVER"
+      ],
+      "replaces_keys": [
+        "server"
+      ],
+      "keywords": [
+        "servers",
+        "Server",
+        "server",
+        "guild",
+        "discord"
+      ],
+      "source_file": "neutral/originals/99847-serveurs.png",
+      "equivalent_sources": [],
+      "source_url": "https://emoji.gg/"
+    },
+    {
+      "key": "settings",
+      "label": "Einstellungen",
+      "batch": 3,
+      "slot": 15,
+      "category": "UI",
+      "fallback": "⚙️",
+      "constants": [
+        "ZSETTINGS"
+      ],
+      "replaces_keys": [
+        "settings"
+      ],
+      "keywords": [
+        "settings",
+        "Einstellungen"
+      ],
+      "source_file": "neutral/originals/570616-gear-icon.png",
+      "equivalent_sources": [],
+      "source_url": "https://emoji.gg/"
+    },
+    {
+      "key": "shopping_cart",
+      "label": "Warenkorb",
+      "batch": 4,
+      "slot": 0,
+      "category": "Economy",
+      "fallback": "🛒",
+      "constants": [
+        "CATALOG_CART",
+        "CATALOG_SHOP"
+      ],
+      "replaces_keys": [
+        "cart",
+        "shop"
+      ],
+      "keywords": [
+        "shopping_cart",
+        "shopping cart",
+        "Warenkorb",
+        "cart",
+        "einkauf",
+        "bestellen",
+        "shop",
+        "laden",
+        "kaufen"
+      ],
+      "source_file": "neutral/originals/435031-shoppingcart.png",
+      "equivalent_sources": [
+        "9183-shoppingcart.png"
+      ],
+      "source_url": "https://emoji.gg/"
+    },
+    {
+      "key": "staff",
+      "label": "Teamwerkzeuge",
+      "batch": 4,
+      "slot": 1,
+      "category": "Server",
+      "fallback": "🛠️",
+      "constants": [
+        "CATALOG_STAFF",
+        "ROLE",
+        "HEADMOD",
+        "MANAGER",
+        "U_ADMIN",
+        "STAFF"
+      ],
+      "replaces_keys": [
+        "staff",
+        "role"
+      ],
+      "keywords": [
+        "staff",
+        "Teamwerkzeuge",
+        "team",
+        "helfer",
+        "role"
+      ],
+      "source_file": "neutral/originals/52657-staff.png",
+      "equivalent_sources": [
+        "5448-staff-white.png"
+      ],
+      "source_url": "https://emoji.gg/"
+    },
+    {
+      "key": "star",
+      "label": "Stern",
+      "batch": 4,
+      "slot": 2,
+      "category": "Badges",
+      "fallback": "⭐",
+      "constants": [
+        "STAR",
+        "STAR_ALT1",
+        "STAR_ALT2",
+        "SYSTEM",
+        "STAR_UNICODE"
+      ],
+      "replaces_keys": [
+        "star"
+      ],
+      "keywords": [
+        "star",
+        "Stern"
+      ],
+      "source_file": "neutral/originals/75645-star.png",
+      "equivalent_sources": [
+        "693596-winterstar.png"
+      ],
+      "source_url": "https://emoji.gg/"
+    },
+    {
+      "key": "statistics",
+      "label": "Statistik",
+      "batch": 4,
+      "slot": 3,
+      "category": "Server",
+      "fallback": "📊",
+      "constants": [
+        "CATALOG_SERVER_STATS",
+        "LEVEL_UP"
+      ],
+      "replaces_keys": [
+        "server_stats",
+        "level"
+      ],
+      "keywords": [
+        "statistics",
+        "Statistik",
+        "server_stats",
+        "stats",
+        "statistik",
+        "zahlen",
+        "level"
+      ],
+      "source_file": "neutral/originals/41378-statistiques.png",
+      "equivalent_sources": [],
+      "source_url": "https://emoji.gg/"
+    },
+    {
+      "key": "timer",
+      "label": "Timer",
+      "batch": 4,
+      "slot": 4,
+      "category": "UI",
+      "fallback": "▪️",
+      "constants": [],
+      "replaces_keys": [
+        "timer"
+      ],
+      "keywords": [
+        "timer",
+        "Timer"
+      ],
+      "source_file": "neutral/originals/41158-timer.png",
+      "equivalent_sources": [
+        "4655-stopwatch.png"
+      ],
+      "source_url": "https://emoji.gg/"
+    },
+    {
+      "key": "tools",
+      "label": "Werkzeuge",
+      "batch": 4,
+      "slot": 5,
+      "category": "Server",
+      "fallback": "🔧",
+      "constants": [
+        "ZWRENCH",
+        "TOOLS"
+      ],
+      "replaces_keys": [
+        "tools"
+      ],
+      "keywords": [
+        "tools",
+        "Werkzeuge"
+      ],
+      "source_file": "neutral/originals/56644-tools.png",
+      "equivalent_sources": [],
+      "source_url": "https://emoji.gg/"
+    },
+    {
+      "key": "unlock",
+      "label": "Entsperren",
+      "batch": 4,
+      "slot": 6,
+      "category": "UI",
+      "fallback": "🔓",
+      "constants": [
+        "UNLOCK"
+      ],
+      "replaces_keys": [
+        "unlock"
+      ],
+      "keywords": [
+        "unlock",
+        "Entsperren"
+      ],
+      "source_file": "neutral/originals/9068-ouvert.png",
+      "equivalent_sources": [],
+      "source_url": "https://emoji.gg/"
+    },
+    {
+      "key": "verified",
+      "label": "Verifiziert",
+      "batch": 4,
+      "slot": 7,
+      "category": "Badges",
+      "fallback": "✅",
+      "constants": [
+        "VERIFICATION",
+        "ZSAFE",
+        "CERTIFIED_MODERATOR",
+        "CATALOG_MEMBER_VERIFIED"
+      ],
+      "replaces_keys": [
+        "verification",
+        "member_verified"
+      ],
+      "keywords": [
+        "verified",
+        "Verifiziert",
+        "verification",
+        "member_verified",
+        "member",
+        "bestätigt"
+      ],
+      "source_file": "neutral/originals/16121-certifier.png",
+      "equivalent_sources": [
+        "3590-verified-white.png"
+      ],
+      "source_url": "https://emoji.gg/"
+    },
+    {
+      "key": "warning_high",
+      "label": "Warnung rot",
+      "batch": 4,
+      "slot": 8,
+      "category": "Moderation",
+      "fallback": "🚨",
+      "constants": [
+        "CATALOG_OUTAGE"
+      ],
+      "replaces_keys": [
+        "outage"
+      ],
+      "keywords": [
+        "warning_high",
+        "warning high",
+        "Warnung rot",
+        "outage",
+        "down",
+        "offline",
+        "fehler",
+        "!",
+        "warn",
+        "warns",
+        "Warnung",
+        "Ausrufezeichen"
+      ],
+      "source_file": "neutral/originals/685108-warn.png",
+      "equivalent_sources": [],
+      "source_url": "https://emoji.gg/"
+    },
+    {
+      "key": "warning_low",
+      "label": "Warnung gelb",
+      "batch": 4,
+      "slot": 9,
+      "category": "Moderation",
+      "fallback": "⚠️",
+      "constants": [
+        "WARNING",
+        "WARNING_ALT",
+        "ZWARNING",
+        "ICONS_WARNING",
+        "ICONS_WARNING_ALT1",
+        "_37496ALERT",
+        "WARNING_UNICODE",
+        "WARN",
+        "CATALOG_EXCLAMATION"
+      ],
+      "replaces_keys": [
+        "warning",
+        "warn",
+        "exclamation"
+      ],
+      "keywords": [
+        "warning_low",
+        "warning low",
+        "Warnung gelb",
+        "warning",
+        "!",
+        "warn",
+        "achtung",
+        "warns",
+        "warnings",
+        "verwarnen",
+        "exclamation",
+        "wichtig",
+        "alert",
+        "attention",
+        "!",
+        "warn",
+        "warns",
+        "Warnung",
+        "Ausrufezeichen"
+      ],
+      "source_file": "neutral/originals/429042-lowwarning.png",
+      "equivalent_sources": [],
+      "source_url": "https://emoji.gg/"
+    },
+    {
+      "key": "website",
+      "label": "Webseite",
+      "batch": 5,
+      "slot": 0,
+      "category": "UI",
+      "fallback": "🌐",
+      "constants": [],
+      "replaces_keys": [
+        "website"
+      ],
+      "keywords": [
+        "website",
+        "Webseite"
+      ],
+      "source_file": "neutral/originals/8454-website.png",
+      "equivalent_sources": [],
+      "source_url": "https://emoji.gg/"
+    },
+    {
+      "key": "rating_1",
+      "label": "Bewertung 1 Sterne",
+      "batch": 5,
+      "slot": 1,
+      "category": "Community",
+      "fallback": "▪️",
+      "constants": [],
+      "replaces_keys": [
+        "rating_1"
+      ],
+      "keywords": [
+        "rating_1",
+        "rating 1",
+        "Bewertung 1 Sterne",
+        "Bewertung",
+        "rating",
+        "feedback",
+        "Sterne",
+        "1 Sterne"
+      ],
+      "source_file": "neutral/originals/454422-1star-rating-ids.png",
+      "equivalent_sources": [],
+      "source_url": "https://emoji.gg/"
+    },
+    {
+      "key": "rating_2",
+      "label": "Bewertung 2 Sterne",
+      "batch": 5,
+      "slot": 2,
+      "category": "Community",
+      "fallback": "▪️",
+      "constants": [],
+      "replaces_keys": [
+        "rating_2"
+      ],
+      "keywords": [
+        "rating_2",
+        "rating 2",
+        "Bewertung 2 Sterne",
+        "Bewertung",
+        "rating",
+        "feedback",
+        "Sterne",
+        "2 Sterne"
+      ],
+      "source_file": "neutral/originals/872219-2star-rating-ids.png",
+      "equivalent_sources": [],
+      "source_url": "https://emoji.gg/"
+    },
+    {
+      "key": "rating_3",
+      "label": "Bewertung 3 Sterne",
+      "batch": 5,
+      "slot": 3,
+      "category": "Community",
+      "fallback": "▪️",
+      "constants": [],
+      "replaces_keys": [
+        "rating_3"
+      ],
+      "keywords": [
+        "rating_3",
+        "rating 3",
+        "Bewertung 3 Sterne",
+        "Bewertung",
+        "rating",
+        "feedback",
+        "Sterne",
+        "3 Sterne"
+      ],
+      "source_file": "neutral/originals/356885-3star-rating-ids.png",
+      "equivalent_sources": [],
+      "source_url": "https://emoji.gg/"
+    },
+    {
+      "key": "rating_4",
+      "label": "Bewertung 4 Sterne",
+      "batch": 5,
+      "slot": 4,
+      "category": "Community",
+      "fallback": "▪️",
+      "constants": [],
+      "replaces_keys": [
+        "rating_4"
+      ],
+      "keywords": [
+        "rating_4",
+        "rating 4",
+        "Bewertung 4 Sterne",
+        "Bewertung",
+        "rating",
+        "feedback",
+        "Sterne",
+        "4 Sterne"
+      ],
+      "source_file": "neutral/originals/649339-4star-rating-ids.png",
+      "equivalent_sources": [],
+      "source_url": "https://emoji.gg/"
+    },
+    {
+      "key": "rating_5",
+      "label": "Bewertung 5 Sterne",
+      "batch": 5,
+      "slot": 5,
+      "category": "Community",
+      "fallback": "▪️",
+      "constants": [],
+      "replaces_keys": [
+        "rating_5"
+      ],
+      "keywords": [
+        "rating_5",
+        "rating 5",
+        "Bewertung 5 Sterne",
+        "Bewertung",
+        "rating",
+        "feedback",
+        "Sterne",
+        "5 Sterne"
+      ],
+      "source_file": "neutral/originals/263780-5star-rating-ids.png",
+      "equivalent_sources": [],
+      "source_url": "https://emoji.gg/"
+    }
+  ]
+}

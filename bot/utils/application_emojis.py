@@ -19,9 +19,10 @@ LOG = logging.getLogger("cloudtix.emojis")
 BOT_DIR = Path(__file__).resolve().parents[1]
 ASSETS = BOT_DIR / "assets/emojis/cloudtix"
 MANIFEST = json.loads((ASSETS / "emojis.json").read_text(encoding="utf-8"))
-# Later packs take precedence for native bot aliases. The dashboard offers
-# both gray and colorful symbols; other collections remain available to the bot.
-for relative_manifest in ("discord-color/emojis.json", "discord-utility/emojis.json", "bot-gray/emojis.json", "bot-color/emojis.json"):
+# Later packs take precedence for native bot aliases. Retired collections are
+# kept for the precise deletion plan; the replacement pack has unique keys.
+NEUTRAL_PACK = ASSETS / "neutral/emojis.json"
+for relative_manifest in ("discord-color/emojis.json", "discord-utility/emojis.json", "bot-gray/emojis.json", "bot-color/emojis.json", "neutral/emojis.json"):
     pack_path = ASSETS / relative_manifest
     if pack_path.exists():
         MANIFEST["emojis"].extend(json.loads(pack_path.read_text(encoding="utf-8"))["emojis"])
@@ -124,11 +125,12 @@ def load_collection(application_id=None):
     cached = _cache(application_id)
     collection = {entry["key"]: _code(entry, cached) or entry["fallback"]
                   for entry in MANIFEST["emojis"]}
-    # Semantic keys use the current colorful bot artwork. Explicit "gray_*"
-    # keys retain the neutral variant for dashboard selections.
+    # Later active packs override the matching semantic keys and constants.
     for entry in MANIFEST["emojis"]:
         if entry.get("replaces"):
             collection[entry["replaces"]] = collection[entry["key"]]
+        for semantic_key in entry.get("replaces_keys", []):
+            collection[semantic_key] = collection[entry["key"]]
     return collection
 
 
@@ -144,7 +146,9 @@ def catalog(application_id=None, *, dashboard_only=True):
     cached = _cache(application_id)
     entries = [{**entry, "discord_code": _code(entry, cached), "retired": _retired(entry)}
                for entry in MANIFEST["emojis"]
-               if not dashboard_only or entry.get("dashboard_visible", True)]
+               if not dashboard_only or (
+                   entry["file"].startswith("neutral/") if NEUTRAL_PACK.exists()
+                   else entry.get("dashboard_visible", True))]
     providers = list(dict.fromkeys(entry.get("provider", MANIFEST["provider"]) for entry in entries))
     return {"brand": "CloudTIX", "provider": ", ".join(providers), "emojis": entries,
             "ready": sum(entry["discord_code"] is not None for entry in entries),
@@ -230,8 +234,9 @@ async def sync_from_token(token):
         # Upload the current bot style and dashboard pack before older sets,
         # so unused historical artwork cannot consume the startup time budget.
         upload_entries = sorted((entry for entry in MANIFEST["emojis"] if not _retired(entry)), key=lambda entry: (
-            0 if entry["file"].startswith("bot-color/") else
-            1 if entry.get("dashboard_visible", True) else 2
+            0 if entry["file"].startswith("neutral/") else
+            1 if entry["file"].startswith("bot-color/") else
+            2 if entry.get("dashboard_visible", True) else 3
         ))
         for entry in upload_entries:
             emoji = existing.get(entry["name"])

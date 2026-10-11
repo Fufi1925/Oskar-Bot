@@ -11,6 +11,7 @@
     Security: "Sicherheit",
     Community: "Community",
     Music: "Musik",
+    Voice: "Sprachchat",
     UI: "Oberfläche",
     Badges: "Abzeichen",
     Economy: "Wirtschaft",
@@ -149,10 +150,17 @@
     })
     .then((manifest) => {
       entries = manifest.emojis;
-      [
+      const availableStyles = [
         ["color", "Farbe"],
         ["gray", "Grau"],
-      ].forEach(([value, label]) => {
+      ].filter(([value]) =>
+        entries.some((entry) => entryStyle(entry) === value),
+      );
+      if (!availableStyles.some(([value]) => value === style))
+        style = availableStyles[0]?.[0] || "gray";
+      availableStyles.forEach(([value, label]) => {
+        if (availableStyles.length === 1 && value === "gray")
+          label = "Grauer Hintergrund";
         const button = element("button", label);
         button.setAttribute("aria-pressed", String(style === value));
         button.addEventListener("click", () => {
