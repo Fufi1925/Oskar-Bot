@@ -51,6 +51,12 @@
 body:has([data-dashboard-save-bar]) .cloudtix-bug-trigger {
   bottom: calc(100px + env(safe-area-inset-bottom));
 }
+body:has(.dashboard-theme-toggle.fixed) .cloudtix-bug-trigger {
+  bottom: calc(80px + env(safe-area-inset-bottom));
+}
+.cloudtix-bug-login-note {
+  margin-top: 14px;
+}
 .cloudtix-bug-dialog {
   width: min(480px, calc(100vw - 32px));
   max-height: min(820px, calc(100dvh - 32px));

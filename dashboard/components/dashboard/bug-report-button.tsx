@@ -3,9 +3,13 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { usePathname } from "next/navigation";
+import { useSession } from "next-auth/react";
+import { openLoginPanel } from "@/lib/login-panel";
 import { Check, Loader2, Send, X } from "lucide-react";
 import { api } from "@/lib/api";
 import "./bug-report-button.css";
+
+const DRAFT_KEY = "cloudtix-bug-report-draft";
 
 function WormIcon() {
   return (
@@ -28,6 +32,8 @@ function WormIcon() {
 
 export function BugReportButton() {
   const pathname = usePathname();
+  const { status } = useSession();
+  const authenticationPage = pathname.startsWith("/auth/");
   const [mounted, setMounted] = useState(false);
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState("");
@@ -43,6 +49,40 @@ export function BugReportButton() {
 
   useEffect(() => setMounted(true), []);
   useEffect(() => {
+    if (!mounted || status !== "authenticated" || authenticationPage) return;
+    try {
+      const saved = sessionStorage.getItem(DRAFT_KEY);
+      if (!saved) return;
+      const draft = JSON.parse(saved);
+      if (
+        typeof draft.title !== "string" ||
+        typeof draft.body !== "string" ||
+        typeof draft.page !== "string" ||
+        !/^\/(?!\/)[A-Za-z0-9%_.~/-]*$/.test(draft.page) ||
+        draft.title.length > 120 ||
+        draft.body.length > 3500 ||
+        draft.page.length > 300
+      ) {
+        sessionStorage.removeItem(DRAFT_KEY);
+        return;
+      }
+      setTitle(draft.title);
+      setBody(draft.body);
+      setPage(draft.page);
+      setPriority(
+        ["low", "normal", "high", "critical"].includes(draft.priority)
+          ? draft.priority
+          : "normal",
+      );
+      setError("");
+      setReportId(null);
+      setOpen(true);
+      sessionStorage.removeItem(DRAFT_KEY);
+    } catch {
+      // Storage may be unavailable. The form still works for signed-in users.
+    }
+  }, [mounted, status, authenticationPage]);
+  useEffect(() => {
     const element = dialog.current;
     if (!element) return;
     if (!open) {
@@ -57,7 +97,7 @@ export function BugReportButton() {
       document.body.style.overflow = previousOverflow;
       if (element.open) element.close();
     };
-  }, [open]);
+  }, [open, authenticationPage]);
 
   function openReport() {
     if (reportId !== null) {
@@ -78,6 +118,22 @@ export function BugReportButton() {
       setError(
         "Bitte gib einen Titel mit mindestens 5 Zeichen und eine Beschreibung mit mindestens 10 Zeichen ein.",
       );
+      return;
+    }
+    if (status === "loading") return;
+    if (status !== "authenticated") {
+      try {
+        sessionStorage.setItem(
+          DRAFT_KEY,
+          JSON.stringify({ title, body, page, priority }),
+        );
+      } catch {
+        setError(
+          "Dein Entwurf konnte nicht zwischengespeichert werden. Bitte melde dich zuerst an und öffne das Formular erneut.",
+        );
+        return;
+      }
+      openLoginPanel(window.location.href);
       return;
     }
     sending.current = true;
@@ -105,7 +161,8 @@ export function BugReportButton() {
     }
   }
 
-  if (!mounted) return null;
+  if (!mounted || authenticationPage || pathname.startsWith("/api/"))
+    return null;
   return createPortal(
     <>
       <button
@@ -220,13 +277,19 @@ export function BugReportButton() {
                   Eine wichtige Funktion ist blockiert
                 </option>
                 <option value="critical">
-                  Das Dashboard ist nicht benutzbar
+                  Die Website oder das Dashboard ist nicht benutzbar
                 </option>
               </select>
               <p className="cloudtix-bug-context">
                 Betroffene Seite: <span>{page}</span>
               </p>
             </fieldset>
+            {status === "unauthenticated" && (
+              <p className="cloudtix-bug-context cloudtix-bug-login-note">
+                Zum Absenden meldest du dich mit Discord an. Dein Entwurf bleibt
+                erhalten.
+              </p>
+            )}
             {error && (
               <p role="alert" className="cloudtix-bug-error">
                 {error}
@@ -235,14 +298,20 @@ export function BugReportButton() {
             <button
               type="submit"
               className="cloudtix-bug-submit"
-              disabled={busy}
+              disabled={busy || status === "loading"}
             >
               {busy ? (
                 <Loader2 size={16} className="animate-spin" />
               ) : (
                 <Send size={16} />
               )}
-              {busy ? "Wird gesendet …" : "Bug melden"}
+              {busy
+                ? "Wird gesendet …"
+                : status === "loading"
+                  ? "Anmeldung wird geprüft …"
+                  : status === "unauthenticated"
+                    ? "Mit Discord anmelden und Bug melden"
+                    : "Bug melden"}
             </button>
           </form>
         )}

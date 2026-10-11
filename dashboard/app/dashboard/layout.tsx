@@ -45,7 +45,6 @@ import { WorkspaceNavigation } from "@/components/dashboard/workspace-navigation
 import { WorkspaceDotField } from "@/components/dashboard/workspace-dot-field";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { DiscordIdInspector } from "@/components/dashboard/discord-id-inspector";
-import { BugReportButton } from "@/components/dashboard/bug-report-button";
 
 export default function DashboardLayout({
   children,
@@ -470,7 +469,6 @@ export default function DashboardLayout({
   return (
     <div className={cn("user-dashboard-theme min-h-screen bg-[#0a0a0c] text-slate-200", isAdminRoute ? "cloudtix-admin-shell" : "cloudtix-workspace-shell", !isAdminRoute && navigationCollapsed && "is-nav-collapsed")}>
       <DiscordIdInspector />
-      <BugReportButton />
       {/* Liquid Background Elements */}
       {/* Ein ruhiger Schein statt zwei pulsierender Flaechen. */}
       <div className="dashboard-background-decoration fixed inset-0 overflow-hidden pointer-events-none z-0">

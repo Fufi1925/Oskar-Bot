@@ -145,7 +145,7 @@ async def feedback_detail(entry_id: int, user_id: str = ""):
     return entry
 
 
-@router.post("/bug-report", summary="Bug aus dem Dashboard melden")
+@router.post("/bug-report", summary="Bug auf Website oder Dashboard melden")
 async def dashboard_bug_report(data: dict):
     # The authenticated dashboard proxy supplies this identity. This route
     # allows submission only; the private tester/owner views stay restricted.
@@ -159,11 +159,12 @@ async def dashboard_bug_report(data: dict):
         raise HTTPException(status_code=400, detail="Der Titel muss 5 bis 120 Zeichen enthalten.")
     if not 10 <= len(body) <= 3500:
         raise HTTPException(status_code=400, detail="Beschreibe den Bug mit 10 bis 3500 Zeichen.")
-    if len(page) > 300 or not re.fullmatch(r"/dashboard(?:/[A-Za-z0-9_/-]*)?", page):
-        raise HTTPException(status_code=400, detail="Ungültige Dashboard-Seite.")
+    if len(page) > 300 or not re.fullmatch(r"/(?!/)[A-Za-z0-9%_.~/-]*", page):
+        raise HTTPException(status_code=400, detail="Ungültige Website-Seite.")
+    area = "Dashboard" if page == "/dashboard" or page.startswith("/dashboard/") else "Website"
     result = feedback.submit(
-        uid, title, body=f"{body}\n\nDashboard-Seite: {page}",
-        kind="bug", area=f"Dashboard: {page}",
+        uid, title, body=f"{body}\n\n{area}-Seite: {page}",
+        kind="bug", area=f"{area}: {page}",
         priority=str(data.get("priority") or "normal"),
         user_name=str(data.get("user_name") or "")[:100], rate_limit=5,
     )

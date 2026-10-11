@@ -28,6 +28,7 @@ import { PublicFooter } from "@/components/public-footer";
 import { PublicWebsiteSurface } from "@/components/public-website-surface";
 import { LanguageProvider } from "@/lib/i18n/LanguageContext";
 import { SUPPORT_INVITE } from "@/lib/legal";
+import { BugReportButton } from "@/components/dashboard/bug-report-button";
 
 const brandName = normalisiereMarke(process.env.NEXT_PUBLIC_BRAND_NAME);
 const footerEmail = process.env.FOOTER_EMAIL || "fufi1925@proton.me";
@@ -100,6 +101,7 @@ export default function RootLayout({
                 des angemeldeten Discord-Kontos benötigen. */}
             <GlobalPopups />
             <ThemeToggle />
+            <BugReportButton />
           </LanguageProvider>
         </AuthProvider>
       </body>
