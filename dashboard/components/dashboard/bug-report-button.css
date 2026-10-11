@@ -207,6 +207,46 @@ body:has(.dashboard-theme-toggle.fixed) .cloudtix-bug-trigger {
 .cloudtix-bug-success {
   margin-top: 24px;
 }
+.cloudtix-bug-support {
+  margin-top: 22px;
+  border-top: 1px solid #333;
+  padding-top: 18px;
+}
+.cloudtix-bug-support p {
+  color: #aaa;
+  font-size: 12px;
+  line-height: 1.7;
+}
+.cloudtix-bug-support a {
+  display: grid;
+  gap: 5px;
+  margin-top: 12px;
+  border: 1px solid #444;
+  border-radius: 12px;
+  background: #202020;
+  padding: 12px 14px;
+  color: #eee;
+  transition:
+    border-color 0.2s,
+    background 0.2s;
+}
+.cloudtix-bug-support a:hover {
+  border-color: #888;
+  background: #292929;
+}
+.cloudtix-bug-support a > span {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 600;
+}
+.cloudtix-bug-support small {
+  color: #aaa;
+  font-size: 10px;
+  overflow-wrap: anywhere;
+}
 .cloudtix-bug-success > span {
   display: flex;
   align-items: center;

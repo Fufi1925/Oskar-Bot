@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import { usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { openLoginPanel } from "@/lib/login-panel";
-import { Check, Loader2, Send, X } from "lucide-react";
+import { Check, ExternalLink, Loader2, Send, X } from "lucide-react";
 import { api } from "@/lib/api";
 import "./bug-report-button.css";
 
@@ -30,7 +30,7 @@ function WormIcon() {
   );
 }
 
-export function BugReportButton() {
+export function BugReportButton({ supportInvite }: { supportInvite: string }) {
   const pathname = usePathname();
   const { status } = useSession();
   const authenticationPage = pathname.startsWith("/auth/");
@@ -234,6 +234,19 @@ export function BugReportButton() {
             >
               Fertig
             </button>
+            <div className="cloudtix-bug-support">
+              <p>
+                Damit wir deinen Bug schneller beheben können, tritt gerne
+                unserem Support-Server bei und nenne dort deine Meldungsnummer #
+                {reportId}.
+              </p>
+              <a href={supportInvite} target="_blank" rel="noopener noreferrer">
+                <span>
+                  Support-Server beitreten <ExternalLink size={14} />
+                </span>
+                <small>{supportInvite}</small>
+              </a>
+            </div>
           </div>
         ) : (
           <form onSubmit={submit}>

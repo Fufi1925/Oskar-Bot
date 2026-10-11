@@ -101,7 +101,7 @@ export default function RootLayout({
                 des angemeldeten Discord-Kontos benötigen. */}
             <GlobalPopups />
             <ThemeToggle />
-            <BugReportButton />
+            <BugReportButton supportInvite={SUPPORT_INVITE} />
           </LanguageProvider>
         </AuthProvider>
       </body>
