@@ -684,7 +684,8 @@ export function TesterPanel() {
 
                       <p className="text-[10px] text-slate-600 mt-2 font-mono">
                         #{entry.id} · {when(entry.at)}
-                        {scope === "all" && ` · ${entry.user_id}`}
+                        {scope === "all" && ` · ${entry.user_name || entry.user_id}`}
+                        {scope === "all" && entry.user_name && ` (${entry.user_id})`}
                       </p>
                     </div>
 
@@ -704,6 +705,15 @@ export function TesterPanel() {
                     </button>
                   </div>
 
+                  <div className="mt-4 rounded-xl border border-white/10 bg-black/20 p-3">
+                    <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                      {entry.kind === "bug" ? "Was funktioniert nicht?" : "Beschreibung"}
+                    </p>
+                    <p className="whitespace-pre-wrap break-words text-[12px] leading-relaxed text-slate-300">
+                      {entry.body || "Keine Beschreibung angegeben."}
+                    </p>
+                  </div>
+
                   <button
                     onClick={() => openDetail(entry.id)}
                     className="mt-3 text-[13px] font-semibold text-slate-500 hover:text-slate-300 transition-colors inline-flex items-center gap-1.5"
@@ -714,12 +724,6 @@ export function TesterPanel() {
 
                   {open && (
                     <div className="mt-3 pt-3 border-t border-slate-800/70 space-y-3">
-                      {detail?.body && (
-                        <p className="text-[12px] text-slate-400 leading-relaxed whitespace-pre-wrap">
-                          {detail.body}
-                        </p>
-                      )}
-
                       {/* Der Verlauf. Anhängend, nie überschrieben --
                           eine Begründung von vorletzter Woche steht
                           auch nach der dritten Statusänderung noch da. */}
