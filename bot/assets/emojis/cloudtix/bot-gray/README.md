@@ -1,8 +1,9 @@
 # CloudTIX Bot-Emojis: Grau
 
-156 Symbole auf abgerundeten grauen Kacheln.
-Enthält alle ursprünglichen Bot-Symbole sowie Regelwerk, Verhaltensregeln,
-Regeln akzeptieren, FAQ, Datenschutz, Nutzungsbedingungen, Änderungslog und Server-Info.
+240 Symbole auf abgerundeten grauen Kacheln.
+Enthält alle ursprünglichen Bot-Symbole sowie Moderation, Server, Tickets,
+Regelwerk, Medien, Wirtschaft und Statusmeldungen. Deutsche Namen und Suchbegriffe
+stehen im Manifest. Verwandte Aktionen werden durch kleine Statuszeichen unterschieden.
 Außerhalb der Kacheln bleibt der Hintergrund transparent.
 128 × 128 Pixel, maximal 256 KB. Der Ladeindikator bleibt animiert.
 Lucide 0.468.0; vollständige Lizenz in [LICENSE.lucide.txt](LICENSE.lucide.txt).
@@ -61,8 +62,8 @@ Ohne verfügbare Discord-ID greift der Unicode-Fallback. Export:
 | gray_unlock | gray | [Bild](gray_unlock.png) | `UNLOCK` |
 | gray_star | gray | [Bild](gray_star.png) | `STAR`, `STAR_ALT1`, `STAR_ALT2`, `SYSTEM`, `STAR_UNICODE` |
 | gray_cloud | gray | [Bild](gray_cloud.png) | `ZCLOUD` |
-| gray_ban | gray | [Bild](gray_ban.png) | `ZBAN`, `universitybotHAMMER`, `SWORD` |
-| gray_kick | gray | [Bild](gray_kick.png) | `KICK` |
+| gray_ban | red | [Bild](gray_ban.png) | `ZBAN`, `universitybotHAMMER`, `SWORD` |
+| gray_kick | red | [Bild](gray_kick.png) | `KICK` |
 | gray_timeout | gray | [Bild](gray_timeout.png) | `TIMER`, `TIMER_ALT1` |
 | gray_warn | yellow | [Bild](gray_warn.png) | `WARN` |
 | gray_audit_log | gray | [Bild](gray_audit_log.png) | `AUDIT_LOG` |
@@ -153,7 +154,7 @@ Ohne verfügbare Discord-ID greift der Unicode-Fallback. Export:
 | gray_circle | gray | [Bild](gray_circle.png) | `ZCIRCLE`, `ZCIRCLE_ALT1`, `RED_BUTTON`, `REDDOT` |
 | gray_online | gray | [Bild](gray_online.png) | `ONLINE` |
 | gray_offline | gray | [Bild](gray_offline.png) | `OFFLINE` |
-| gray_idle | gray | [Bild](gray_idle.png) | `IDLE` |
+| gray_idle | yellow | [Bild](gray_idle.png) | `IDLE` |
 | gray_dnd | red | [Bild](gray_dnd.png) | `DND` |
 | gray_cast | gray | [Bild](gray_cast.png) | `CAST` |
 | gray_cute | gray | [Bild](gray_cute.png) | `CUTE_CUTE_CUTE`, `BLOBPART`, `LAUGH1`, `LAUGH2`, `LAUGH3`, `UPSIDE_DOWN`, `TONGUE_OUT` |
@@ -182,3 +183,87 @@ Ohne verfügbare Discord-ID greift der Unicode-Fallback. Export:
 | gray_terms | gray | [Bild](gray_terms.png) | `TERMS` |
 | gray_changelog | gray | [Bild](gray_changelog.png) | `CHANGELOG` |
 | gray_server_info | gray | [Bild](gray_server_info.png) | `SERVER_INFO` |
+| gray_exclamation | yellow | [Bild](gray_exclamation.png) | `CATALOG_EXCLAMATION` |
+| gray_question | gray | [Bild](gray_question.png) | `CATALOG_QUESTION` |
+| gray_globe | gray | [Bild](gray_globe.png) | `CATALOG_GLOBE` |
+| gray_globe_languages | gray | [Bild](gray_globe_languages.png) | `CATALOG_GLOBE_LANGUAGES` |
+| gray_member | gray | [Bild](gray_member.png) | `CATALOG_MEMBER` |
+| gray_member_verified | gray | [Bild](gray_member_verified.png) | `CATALOG_MEMBER_VERIFIED` |
+| gray_member_add | gray | [Bild](gray_member_add.png) | `CATALOG_MEMBER_ADD` |
+| gray_member_remove | gray | [Bild](gray_member_remove.png) | `CATALOG_MEMBER_REMOVE` |
+| gray_member_banned | red | [Bild](gray_member_banned.png) | `CATALOG_MEMBER_BANNED` |
+| gray_user_profile | gray | [Bild](gray_user_profile.png) | `CATALOG_USER_PROFILE` |
+| gray_text_channel | gray | [Bild](gray_text_channel.png) | `CATALOG_TEXT_CHANNEL` |
+| gray_voice_channel | gray | [Bild](gray_voice_channel.png) | `CATALOG_VOICE_CHANNEL` |
+| gray_forum_channel | gray | [Bild](gray_forum_channel.png) | `CATALOG_FORUM_CHANNEL` |
+| gray_stage_channel | gray | [Bild](gray_stage_channel.png) | `CATALOG_STAGE_CHANNEL` |
+| gray_category_folder | gray | [Bild](gray_category_folder.png) | `CATALOG_CATEGORY_FOLDER` |
+| gray_thread | gray | [Bild](gray_thread.png) | `CATALOG_THREAD` |
+| gray_unban | gray | [Bild](gray_unban.png) | `CATALOG_UNBAN` |
+| gray_softban | red | [Bild](gray_softban.png) | `CATALOG_SOFTBAN` |
+| gray_tempban | red | [Bild](gray_tempban.png) | `CATALOG_TEMPBAN` |
+| gray_mute_member | gray | [Bild](gray_mute_member.png) | `CATALOG_MUTE_MEMBER` |
+| gray_unmute_member | gray | [Bild](gray_unmute_member.png) | `CATALOG_UNMUTE_MEMBER` |
+| gray_remove_timeout | gray | [Bild](gray_remove_timeout.png) | `CATALOG_REMOVE_TIMEOUT` |
+| gray_warn_remove | gray | [Bild](gray_warn_remove.png) | `CATALOG_WARN_REMOVE` |
+| gray_warn_list | yellow | [Bild](gray_warn_list.png) | `CATALOG_WARN_LIST` |
+| gray_mod_log | gray | [Bild](gray_mod_log.png) | `CATALOG_MOD_LOG` |
+| gray_appeal | gray | [Bild](gray_appeal.png) | `CATALOG_APPEAL` |
+| gray_evidence | gray | [Bild](gray_evidence.png) | `CATALOG_EVIDENCE` |
+| gray_slowmode | gray | [Bild](gray_slowmode.png) | `CATALOG_SLOWMODE` |
+| gray_nsfw | gray | [Bild](gray_nsfw.png) | `CATALOG_NSFW` |
+| gray_anti_spam | gray | [Bild](gray_anti_spam.png) | `CATALOG_ANTI_SPAM` |
+| gray_anti_raid | gray | [Bild](gray_anti_raid.png) | `CATALOG_ANTI_RAID` |
+| gray_purge | gray | [Bild](gray_purge.png) | `CATALOG_PURGE` |
+| gray_server | gray | [Bild](gray_server.png) | `CATALOG_SERVER` |
+| gray_server_settings | gray | [Bild](gray_server_settings.png) | `CATALOG_SERVER_SETTINGS` |
+| gray_server_stats | gray | [Bild](gray_server_stats.png) | `CATALOG_SERVER_STATS` |
+| gray_server_boost | gray | [Bild](gray_server_boost.png) | `CATALOG_SERVER_BOOST` |
+| gray_server_owner | gray | [Bild](gray_server_owner.png) | `CATALOG_SERVER_OWNER` |
+| gray_admin | gray | [Bild](gray_admin.png) | `CATALOG_ADMIN` |
+| gray_moderator | gray | [Bild](gray_moderator.png) | `CATALOG_MODERATOR` |
+| gray_staff | gray | [Bild](gray_staff.png) | `CATALOG_STAFF` |
+| gray_newcomer | gray | [Bild](gray_newcomer.png) | `CATALOG_NEWCOMER` |
+| gray_bot_add | gray | [Bild](gray_bot_add.png) | `CATALOG_BOT_ADD` |
+| gray_server_join | gray | [Bild](gray_server_join.png) | `CATALOG_SERVER_JOIN` |
+| gray_server_leave | gray | [Bild](gray_server_leave.png) | `CATALOG_SERVER_LEAVE` |
+| gray_goodbye | gray | [Bild](gray_goodbye.png) | `CATALOG_GOODBYE` |
+| gray_welcome_wave | gray | [Bild](gray_welcome_wave.png) | `CATALOG_WELCOME_WAVE` |
+| gray_bug_report | gray | [Bild](gray_bug_report.png) | `CATALOG_BUG_REPORT` |
+| gray_suggestion | gray | [Bild](gray_suggestion.png) | `CATALOG_SUGGESTION` |
+| gray_help | gray | [Bild](gray_help.png) | `CATALOG_HELP` |
+| gray_ticket_reopen | gray | [Bild](gray_ticket_reopen.png) | `CATALOG_TICKET_REOPEN` |
+| gray_ticket_transfer | gray | [Bild](gray_ticket_transfer.png) | `CATALOG_TICKET_TRANSFER` |
+| gray_ticket_archive | gray | [Bild](gray_ticket_archive.png) | `CATALOG_TICKET_ARCHIVE` |
+| gray_ticket_priority | yellow | [Bild](gray_ticket_priority.png) | `CATALOG_TICKET_PRIORITY` |
+| gray_ticket_pending | gray | [Bild](gray_ticket_pending.png) | `CATALOG_TICKET_PENDING` |
+| gray_ticket_resolved | gray | [Bild](gray_ticket_resolved.png) | `CATALOG_TICKET_RESOLVED` |
+| gray_ticket_category | gray | [Bild](gray_ticket_category.png) | `CATALOG_TICKET_CATEGORY` |
+| gray_rules_violation | red | [Bild](gray_rules_violation.png) | `CATALOG_RULES_VIOLATION` |
+| gray_rules_update | gray | [Bild](gray_rules_update.png) | `CATALOG_RULES_UPDATE` |
+| gray_rules_pending | yellow | [Bild](gray_rules_pending.png) | `CATALOG_RULES_PENDING` |
+| gray_age_limit | yellow | [Bild](gray_age_limit.png) | `CATALOG_AGE_LIMIT` |
+| gray_agreement | gray | [Bild](gray_agreement.png) | `CATALOG_AGREEMENT` |
+| gray_announcement_rules | gray | [Bild](gray_announcement_rules.png) | `CATALOG_ANNOUNCEMENT_RULES` |
+| gray_wallet | gray | [Bild](gray_wallet.png) | `CATALOG_WALLET` |
+| gray_coins | gray | [Bild](gray_coins.png) | `CATALOG_COINS` |
+| gray_bank | gray | [Bild](gray_bank.png) | `CATALOG_BANK` |
+| gray_shop | gray | [Bild](gray_shop.png) | `CATALOG_SHOP` |
+| gray_cart | gray | [Bild](gray_cart.png) | `CATALOG_CART` |
+| gray_reward | gray | [Bild](gray_reward.png) | `CATALOG_REWARD` |
+| gray_daily | gray | [Bild](gray_daily.png) | `CATALOG_DAILY` |
+| gray_trade | gray | [Bild](gray_trade.png) | `CATALOG_TRADE` |
+| gray_inventory | gray | [Bild](gray_inventory.png) | `CATALOG_INVENTORY` |
+| gray_receipt | gray | [Bild](gray_receipt.png) | `CATALOG_RECEIPT` |
+| gray_party | gray | [Bild](gray_party.png) | `CATALOG_PARTY` |
+| gray_fire | gray | [Bild](gray_fire.png) | `CATALOG_FIRE` |
+| gray_gift_claim | gray | [Bild](gray_gift_claim.png) | `CATALOG_GIFT_CLAIM` |
+| gray_timer_event | gray | [Bild](gray_timer_event.png) | `CATALOG_TIMER_EVENT` |
+| gray_image | gray | [Bild](gray_image.png) | `CATALOG_IMAGE` |
+| gray_camera | gray | [Bild](gray_camera.png) | `CATALOG_CAMERA` |
+| gray_video | gray | [Bild](gray_video.png) | `CATALOG_VIDEO` |
+| gray_streaming | gray | [Bild](gray_streaming.png) | `CATALOG_STREAMING` |
+| gray_maintenance | yellow | [Bild](gray_maintenance.png) | `CATALOG_MAINTENANCE` |
+| gray_outage | red | [Bild](gray_outage.png) | `CATALOG_OUTAGE` |
+| gray_scheduled | gray | [Bild](gray_scheduled.png) | `CATALOG_SCHEDULED` |
+| gray_complete | gray | [Bild](gray_complete.png) | `CATALOG_COMPLETE` |

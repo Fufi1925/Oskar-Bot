@@ -31,6 +31,12 @@ export interface BotEmoji {
   source?: "cloudtix";
   style?: "color" | "gray";
   label?: string;
+  keywords?: string[];
+  category?: string;
+}
+
+function emojiCategory(entry: BotEmoji) {
+  return entry.category || entry.group.replace(/^CloudTIX (Grau|Farbe) · /, "");
 }
 
 /**
@@ -74,6 +80,7 @@ export function EmojiPicker({
   const [query, setQuery] = useState("");
   const [reload, setReload] = useState(0);
   const [style, setStyle] = useState<"color" | "gray">("color");
+  const [category, setCategory] = useState("all");
   useEffect(() => {
     try {
       const saved = localStorage.getItem("cloudtix.emoji-style");
@@ -162,22 +169,37 @@ export function EmojiPicker({
   // sofort geschlossen -- man haette nach jedem Emoji neu oeffnen
   // muessen.
 
+  const styled = useMemo(
+    () =>
+      emojis.filter(
+        (entry) =>
+          (entry.style ??
+            (entry.key.startsWith("CT_GRAY_") ? "gray" : "color")) === style,
+      ),
+    [emojis, style],
+  );
+  const categories = [...new Set(styled.map(emojiCategory))];
   const grouped = useMemo(() => {
-    const needle = query.trim().toLowerCase();
-    const styled = emojis.filter(
+    const normalize = (value: string) =>
+      value
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "");
+    const needle = normalize(query.trim());
+    const shown = styled.filter(
       (entry) =>
-        (entry.style ??
-          (entry.key.startsWith("CT_GRAY_") ? "gray" : "color")) === style,
+        (category === "all" || emojiCategory(entry) === category) &&
+        (!needle ||
+          normalize(
+            [
+              entry.name,
+              entry.key,
+              entry.label,
+              entry.group,
+              ...(entry.keywords || []),
+            ].join(" "),
+          ).includes(needle)),
     );
-    const shown = needle
-      ? styled.filter(
-          (entry) =>
-            entry.name.toLowerCase().includes(needle) ||
-            entry.key.toLowerCase().includes(needle) ||
-            entry.label?.toLowerCase().includes(needle) ||
-            entry.group.toLowerCase().includes(needle),
-        )
-      : styled;
 
     const buckets = new Map<string, BotEmoji[]>();
     for (const entry of shown) {
@@ -186,7 +208,7 @@ export function EmojiPicker({
       buckets.set(entry.group, list);
     }
     return [...buckets.entries()];
-  }, [emojis, query, style]);
+  }, [styled, query, category]);
 
   const cloudtix = emojis.filter(
     (entry) =>
@@ -230,7 +252,8 @@ export function EmojiPicker({
               autoFocus
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Suchen"
+              placeholder="Suchen: !, Welt, Warns …"
+              aria-label="Emoji suchen"
               className="w-full cloudtix-workspace-field bg-[#0e0e12] border border-slate-800 rounded-lg pl-8 pr-2 py-1.5 text-[12px] text-slate-200 placeholder:text-slate-600 focus:outline-none focus:border-slate-700"
             />
           </div>
@@ -276,6 +299,23 @@ export function EmojiPicker({
             </button>
           ))}
         </div>
+
+        <label className="flex items-center gap-2 px-3 py-2 border-b border-slate-800 shrink-0 text-xs text-slate-400">
+          Bereich
+          <select
+            aria-label="Emoji-Bereich"
+            value={category}
+            onChange={(event) => setCategory(event.target.value)}
+            className="min-w-0 flex-1 rounded-lg border border-white/10 bg-[#171717] px-2 py-1.5 text-slate-200"
+          >
+            <option value="all">Alle Bereiche</option>
+            {categories.map((name) => (
+              <option key={name} value={name}>
+                {name}
+              </option>
+            ))}
+          </select>
+        </label>
 
         <div className="flex-1 min-h-0 overflow-y-auto p-2.5">
           {loading && (
@@ -330,7 +370,7 @@ export function EmojiPicker({
                       src={entry.url}
                       alt={`:${entry.name}:`}
                       loading="lazy"
-                      className="h-5 w-5 object-contain"
+                      className="h-6 w-6 object-contain"
                     />
                   </button>
                 ))}

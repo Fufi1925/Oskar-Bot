@@ -92,6 +92,31 @@ button:focus-visible {
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
   gap: 14px;
 }
+.emoji-search {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 20px;
+  color: #a3a3a3;
+  font-size: 13px;
+}
+.emoji-search input {
+  width: 100%;
+  border: 1px solid #333;
+  border-radius: 10px;
+  padding: 13px 16px;
+  background: #151515;
+  color: #f5f5f5;
+  font: inherit;
+}
+.emoji-search input:focus-visible {
+  outline: 2px solid #ddd;
+  outline-offset: 3px;
+}
+#result-count {
+  color: #a3a3a3;
+  font-size: 12px;
+  margin-bottom: 20px;
+}
 .card {
   background: #0e0e0e;
   border: 1px solid #252525;

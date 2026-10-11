@@ -21,6 +21,7 @@ from playwright.sync_api import sync_playwright
 
 from export_cloudtix_emojis import SPECS as BASE_SPECS, VERSION, BASE
 from publish_cloudtix_dashboard_emojis import publish
+from cloudtix_emoji_catalog import NEW_SPECS, LABELS as CATALOG_LABELS, KEYWORDS, MARKS
 
 ROOT = Path(__file__).resolve().parents[1]
 ASSETS = ROOT / "bot/assets/emojis/cloudtix"
@@ -103,14 +104,39 @@ LABELS = {
     "privacy_policy": "Datenschutz", "terms": "Nutzungsbedingungen",
     "changelog": "Änderungslog", "server_info": "Server-Info",
 }
+LABELS = {**CATALOG_LABELS, **LABELS}
+
+PALETTES = {
+    "Security": ("#438de8", "#21487a"),
+    "Moderation": ("#6988e8", "#354987"),
+    "Support": ("#20acc7", "#116579"),
+    "Community": ("#a570e6", "#5b378c"),
+    "Music": ("#dc67a9", "#86305f"),
+    "Badges": ("#e5b84c", "#926819"),
+    "Status": ("#4aad92", "#235e50"),
+    "Server": ("#5b9bdc", "#2e5684"),
+    "Regelwerk": ("#8e83e8", "#4f458f"),
+    "Economy": ("#e7b94a", "#8b651c"),
+    "Media": ("#bd73dc", "#6b3884"),
+    "UI": ("#6b9bdf", "#355583"),
+}
+NEGATIVE = {"cross", "reject", "ticket_close", "lockdown", "dnd", "ban", "kick",
+            "softban", "tempban", "member_banned", "rules_violation", "outage"}
+CAUTION = {"warning", "warn", "anti_nuke", "report", "exclamation", "warn_list",
+           "ticket_priority", "age_limit", "rules_pending", "maintenance", "idle"}
+POSITIVE = {"checkmark", "accept", "verification", "online", "complete", "unban",
+            "member_verified", "rules_accept", "agreement", "ticket_resolved",
+            "welcome", "welcome_wave", "server_join", "unmute_member", "remove_timeout", "warn_remove"}
 
 
 def specs():
     result = []
     for key, vector, category, fallback, aliases in BASE_SPECS:
+        if key == "warn":
+            vector = "shield-alert"
         result.append((key, vector, category, fallback,
                        " ".join(dict.fromkeys((aliases + " " + EXTRA_ALIASES.get(key, "")).split()))))
-    return result + EXTRA_SPECS
+    return result + EXTRA_SPECS + NEW_SPECS
 
 
 def source(vector):
@@ -120,6 +146,10 @@ def source(vector):
     local = ASSETS / "sources" / f"{vector}.svg"
     if local.exists():
         return vector, local.read_bytes()
+    for sibling in ("bot-gray", "bot-color"):
+        cached = ASSETS / sibling / "sources" / f"{vector}.svg"
+        if cached.exists():
+            return vector, cached.read_bytes()
     try:
         with urlopen(f"{BASE}/icons/{vector}.svg", timeout=30) as response:
             data = response.read()
@@ -129,34 +159,45 @@ def source(vector):
     return vector, data
 
 
-def artwork(vector, shade, style="gray", category="UI"):
+def artwork(vector, shade, style="gray", category="UI", label=""):
     root = ET.fromstring(vector)
     for node in root.iter():
         node.tag = node.tag.split("}")[-1]
     geometry = "".join(ET.tostring(child, encoding="unicode") for child in root)
-    top, bottom = {"gray": ("#d4d4d4", "#8c8c8c"),
+    if label == "exclamation":
+        geometry = '<path d="M12 3v11"/><circle cx="12" cy="20" r="1.2" fill="url(#ink)" stroke="none"/>'
+    top, bottom = {"gray": ("#f5f5f5", "#b8b8b8"),
                    "yellow": ("#ffe08a", "#e7a62b"),
                    "red": ("#ff9292", "#e35050")}[shade]
-    background_top, background_bottom = "#464646", "#2d2d2d"
+    background_top, background_bottom = "#424448", "#25272b"
     if style == "color":
-        background_top, background_bottom = {
-            "Security": ("#3b82f6", "#1e40af"),
-            "Support": ("#22d3ee", "#0e7490"),
-            "Community": ("#a855f7", "#6b21a8"),
-            "Music": ("#f472b6", "#be185d"),
-            "Badges": ("#fbbf24", "#b45309"),
-            "Status": ("#34d399", "#047857"),
-            "Regelwerk": ("#818cf8", "#4338ca"),
-        }.get(category, ("#60a5fa", "#1d4ed8"))
+        background_top, background_bottom = PALETTES.get(category, PALETTES["UI"])
         if shade == "yellow":
-            background_top, background_bottom = "#fbbf24", "#b45309"
+            background_top, background_bottom = "#efb640", "#a56714"
         elif shade == "red":
-            background_top, background_bottom = "#fb7185", "#be123c"
+            background_top, background_bottom = "#e86b76", "#972c3b"
+        elif label in POSITIVE:
+            background_top, background_bottom = "#4bbb87", "#23704e"
+        elif label == "offline":
+            background_top, background_bottom = "#79818b", "#424a55"
         top, bottom = "#ffffff", "#e2e8f0"
+    mark = MARKS.get(label)
+    marks = {
+        "check": '<path d="m93 100 5 5 9-10"/>',
+        "cross": '<path d="m94 96 11 11m0-11-11 11"/>',
+        "minus": '<path d="M93 102h14"/>',
+        "plus": '<path d="M93 102h14m-7-7v14"/>',
+        "clock": '<circle cx="100" cy="102" r="7"/><path d="M100 97v5l4 2"/>',
+        "refresh": '<path d="M94 103a6 6 0 1 0 2-6m-2-3v5h5"/>',
+        "alert": '<path d="M100 95v8m0 5v.1"/>',
+        "dot": '<circle cx="100" cy="102" r="3" fill="#ffffff"/>',
+    }
+    badge = (f'<circle cx="100" cy="102" r="15" fill="{background_bottom}" stroke="#ffffff" stroke-opacity=".25"/>'
+             f'<g fill="none" stroke="#ffffff" stroke-width="2.7" stroke-linecap="round" stroke-linejoin="round">{marks[mark]}</g>') if mark else ""
     return f'''<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
   <defs>
     <linearGradient id="sheen" x1="0" y1="0" x2="0" y2="1">
-      <stop stop-color="#ffffff" stop-opacity=".2"/><stop offset=".65" stop-color="#ffffff" stop-opacity="0"/>
+      <stop stop-color="#ffffff" stop-opacity=".15"/><stop offset=".5" stop-color="#ffffff" stop-opacity="0"/>
     </linearGradient>
     <linearGradient id="ink" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="24">
       <stop stop-color="{top}"/><stop offset="1" stop-color="{bottom}"/>
@@ -166,16 +207,17 @@ def artwork(vector, shade, style="gray", category="UI"):
     </linearGradient>
   </defs>
   <rect x="5" y="5" width="118" height="118" rx="36" fill="url(#background)"/>
-  <rect x="6" y="6" width="116" height="116" rx="35" fill="none" stroke="#666666" stroke-opacity=".3"/>
-  {('<rect x="7" y="7" width="114" height="114" rx="34" fill="url(#sheen)"/>') if style == 'color' else ''}
+  <rect x="6" y="6" width="116" height="116" rx="35" fill="none" stroke="#ffffff" stroke-opacity=".18"/>
+  <rect x="7" y="7" width="114" height="114" rx="34" fill="url(#sheen)"/>
   <g id="rotation">
-    <g id="icon" transform="translate(30 30) scale(2.8333333)" fill="none" stroke="url(#ink)"
-       stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">{geometry}</g>
+    <g id="icon" transform="translate(26 26) scale(3.1666667)" fill="none" stroke="url(#ink)"
+       stroke-width="2.15" stroke-linecap="round" stroke-linejoin="round">{geometry}</g>
   </g>
+  {badge}
 </svg>'''
 
 
-def main(style="gray"):
+def main(style="gray", only=None):
     global OUT
     OUT = ASSETS / f"bot-{style}"
     OUT.mkdir(parents=True, exist_ok=True)
@@ -185,6 +227,8 @@ def main(style="gray"):
     keys = [entry[0] for entry in definitions]
     if len(keys) != len(set(keys)):
         raise ValueError("Emoji definitions must have unique keys")
+    if only and only - set(keys):
+        raise ValueError(f"Unknown emoji keys: {sorted(only - set(keys))}")
     aliases = {name for *_, names in definitions for name in names.split()}
     # Fail the export rather than quietly leaving an original constant unstyled.
     original = ast.parse((ROOT / "bot/utils/emoji.py").read_text(encoding="utf-8"))
@@ -202,30 +246,31 @@ def main(style="gray"):
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch(executable_path=shutil.which("chromium"), args=["--no-sandbox"])
         page = browser.new_page(viewport={"width": 128, "height": 128})
-        edited = OUT / "sources/transcript-color.png"
         for label, vector, category, fallback, names in definitions:
-            shade = "yellow" if label in {"warning", "warn", "anti_nuke", "report"} else "red" if label in {"cross", "reject", "ticket_close", "lockdown", "dnd"} else "gray"
-            svg = artwork(vectors[vector], shade, style, category)
+            shade = "yellow" if label in CAUTION else "red" if label in NEGATIVE else "gray"
+            svg = artwork(vectors[vector], shade, style, category, label)
+            edited = OUT / "sources/edited" / f"{label}.png"
             (OUT / "sources" / f"{vector}.svg").write_bytes(vectors[vector])
             key = f"{style}_{label}" if style == "gray" else f"vivid_{label}"
             target = OUT / f"{key}.{'gif' if label == 'loading' else 'png'}"
-            page.set_content('<style>body{margin:0;background:transparent}svg{display:block}</style>' + svg)
-            if label == "loading":
-                with tempfile.TemporaryDirectory(prefix="cloudtix-gray-") as directory:
-                    frames = []
-                    for frame in range(16):
-                        page.locator("#rotation").evaluate("(group, angle) => group.setAttribute('transform', `rotate(${angle} 64 64)`)", frame * 22.5)
-                        path = Path(directory) / f"{frame:02d}.png"
-                        page.screenshot(path=str(path), omit_background=True)
-                        frames.append(str(path))
-                    subprocess.run(["convert", "-delay", "6", "-dispose", "Background", *frames,
-                                    "-alpha", "on", "-channel", "A", "-threshold", "50%", "+channel",
-                                    "-loop", "0", str(target)], check=True)
-            else:
-                page.locator("svg").screenshot(path=str(target), omit_background=True)
-                # The edited transcript is bundled at its final Discord size.
-                if style == "color" and label == "transcript" and edited.exists():
-                    shutil.copyfile(edited, target)
+            if only is None or label in only or not target.exists():
+                page.set_content('<style>body{margin:0;background:transparent}svg{display:block}</style>' + svg)
+                if label == "loading":
+                    with tempfile.TemporaryDirectory(prefix="cloudtix-gray-") as directory:
+                        frames = []
+                        for frame in range(16):
+                            page.locator("#rotation").evaluate("(group, angle) => group.setAttribute('transform', `rotate(${angle} 64 64)`)", frame * 22.5)
+                            path = Path(directory) / f"{frame:02d}.png"
+                            page.screenshot(path=str(path), omit_background=True)
+                            frames.append(str(path))
+                        subprocess.run(["convert", "-delay", "6", "-dispose", "Background", *frames,
+                                        "-alpha", "on", "-channel", "A", "-threshold", "50%", "+channel",
+                                        "-loop", "0", str(target)], check=True)
+                else:
+                    page.locator("svg").screenshot(path=str(target), omit_background=True)
+                    # Generated artwork edits are bundled at their final Discord size.
+                    if edited.exists():
+                        shutil.copyfile(edited, target)
             data = target.read_bytes()
             with Image.open(target) as image:
                 if image.size != (128, 128) or image.convert("RGBA").getchannel("A").getextrema() != (0, 255):
@@ -233,17 +278,19 @@ def main(style="gray"):
             if len(data) > 256 * 1024:
                 raise ValueError(f"Discord file size exceeded: {key}")
             digest = hashlib.sha256(data).hexdigest()
-            entries.append({"key": key, "name": f"ct_{key}_{digest[:6]}", "category": category,
+            # Discord allows at most 32 characters, including the content hash.
+            entries.append({"key": key, "name": f"ct_{key[:22]}_{digest[:6]}", "category": category,
                             "file": f"bot-{style}/{target.name}", "animated": label == "loading",
                             "width": 128, "height": 128, "bytes": len(data), "sha256": digest,
                             "fallback": fallback, "constants": names.split(), "dashboard_visible": True,
                             "provider": "CloudTIX Gray" if style == "gray" else "CloudTIX Vivid",
                             "style": style, "label": LABELS.get(label, label.replace("_", " ")),
+                            "keywords": list(dict.fromkeys([label, *KEYWORDS.get(label, [])])),
                             "color": shade if style == "gray" else background_color(category, shade), "background": style,
                             "replaces": label,
                             "source_url": f"{BASE}/icons/{vector}.svg"})
-            if style == "color" and label == "transcript" and edited.exists():
-                entries[-1]["artwork"] = "Generated color edit of the Lucide transcript symbol"
+            if edited.exists():
+                entries[-1]["artwork"] = "Generated edit of the Lucide symbol"
         browser.close()
     manifest = {"schema_version": 1, "brand": "CloudTIX", "provider": "CloudTIX Gray" if style == "gray" else "CloudTIX Vivid",
                 "license_file": "LICENSE.lucide.txt", "emojis": entries}
@@ -252,8 +299,9 @@ def main(style="gray"):
     readme = f'''# CloudTIX Bot-Emojis: {"Grau" if style == "gray" else "Farbe"}
 
 {len(entries)} Symbole auf abgerundeten {"grauen" if style == "gray" else "farbigen"} Kacheln.
-Enthält alle ursprünglichen Bot-Symbole sowie Regelwerk, Verhaltensregeln,
-Regeln akzeptieren, FAQ, Datenschutz, Nutzungsbedingungen, Änderungslog und Server-Info.
+Enthält alle ursprünglichen Bot-Symbole sowie Moderation, Server, Tickets,
+Regelwerk, Medien, Wirtschaft und Statusmeldungen. Deutsche Namen und Suchbegriffe
+stehen im Manifest. Verwandte Aktionen werden durch kleine Statuszeichen unterschieden.
 Außerhalb der Kacheln bleibt der Hintergrund transparent.
 128 × 128 Pixel, maximal 256 KB. Der Ladeindikator bleibt animiert.
 Lucide {VERSION}; vollständige Lizenz in [LICENSE.lucide.txt](LICENSE.lucide.txt).
@@ -291,6 +339,7 @@ def background_color(category, shade):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--style", choices=("gray", "color", "all"), default="all")
+    parser.add_argument("--only", help="Comma-separated keys to re-render; other existing assets are reused")
     args = parser.parse_args()
     for style in ("gray", "color") if args.style == "all" else (args.style,):
-        main(style)
+        main(style, set(args.only.split(",")) if args.only else None)

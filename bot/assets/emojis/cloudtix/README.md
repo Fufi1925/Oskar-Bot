@@ -1,10 +1,16 @@
 # CloudTIX Application Emojis
 
 Alle ursprünglichen Bot-Symbole stehen in zwei Varianten bereit:
-[156 farbige Kacheln](bot-color/README.md) und [156 graue Kacheln](bot-gray/README.md).
+[240 farbige Kacheln](bot-color/README.md) und [240 graue Kacheln](bot-gray/README.md).
 Die Dashboard-Auswahl und die Vorschauseite bieten „Farbe / Grau“ und speichern
 die Auswahl im Browser. Neu sind Regelwerk, Verhaltensregeln, Regeln akzeptieren,
 Fragen zum Regelwerk, Datenschutz, Nutzungsbedingungen, Änderungslog und Server-Info.
+Die Überarbeitung ergänzt 84 weitere Motive für Moderation, Serververwaltung,
+Tickets, Wirtschaft, Medien und Statusmeldungen. Ausrufezeichen, Welt, einzelne
+Mitglieder, Warnlisten, temporäre Bans und Einsprüche sind direkt durchsuchbar.
+Größere Symbole, gleichmäßige Konturen und höhere Kontraste verbessern die Lesbarkeit.
+Statuszeichen unterscheiden verwandte Aktionen. Alle Symbole haben deutsche Namen;
+die Suche unterstützt auch englische Begriffe und Zeichen wie `!`.
 Die farbige Variante wird zuletzt geladen und liefert die zentralen Bot-Konstanten
 sowie die semantischen `EMOJIS`-Schlüssel. Explizite `gray_*`-Schlüssel bleiben grau;
 `vivid_*` wählt die farbige Variante. Die älteren Sets bleiben separat verfügbar.
@@ -19,7 +25,7 @@ Zusätzlich gibt es [75 farbige Twemoji-Symbole für Bot-Nachrichten](discord-co
 Diese werden ebenfalls automatisch hochgeladen und stehen als `EMOJIS["color_gift"]`
 bzw. `CT_COLOR_GIFT` im Bot bereit. Die Standardkonstanten wie `TICK`, `ERROR`,
 `WARNING` und `TICKET` verwenden das neue farbige Set mit Hinweisfarben.
-Die Dashboard-Auswahl enthält 312 Symbole: je 156 pro Stil.
+Die Dashboard-Auswahl enthält 480 Symbole: je 240 pro Stil.
 
 110 weiße Lucide-Symbole, 128 × 128 Pixel, transparent. Alle Dateien sind deutlich
 unter Discords 256-KB-Grenze; `loading.gif` hat 16 Frames und läuft in einer Schleife.

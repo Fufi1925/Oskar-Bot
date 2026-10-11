@@ -513,6 +513,11 @@ async def emojis(bot: "universitybot" = Depends(get_bot)):
         "UI": "Oberfläche",
         "Badges": "Abzeichen",
         "Status": "Status",
+        "Server": "Server",
+        "Moderation": "Moderation",
+        "Economy": "Wirtschaft",
+        "Media": "Medien",
+        "Regelwerk": "Regelwerk",
     }
     pattern = _re.compile(r"^<(a?):([A-Za-z0-9_]+):(\d+)>$")
     items: list[dict] = []
@@ -534,6 +539,8 @@ async def emojis(bot: "universitybot" = Depends(get_bot)):
             "source": "cloudtix",
             "style": entry.get("style", "gray" if style == "Grau" else "color"),
             "label": entry.get("label", entry["key"]),
+            "keywords": entry.get("keywords", []),
+            "category": category_labels.get(entry["category"], entry["category"]),
         })
 
     groups = list(dict.fromkeys(entry["group"] for entry in items))
