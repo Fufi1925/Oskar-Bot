@@ -19,8 +19,8 @@ BOT_DIR = Path(__file__).resolve().parents[1]
 ASSETS = BOT_DIR / "assets/emojis/cloudtix"
 MANIFEST = json.loads((ASSETS / "emojis.json").read_text(encoding="utf-8"))
 # Later packs take precedence for native bot aliases. The dashboard offers
-# gray symbols; other collections remain available to the bot.
-for relative_manifest in ("discord-color/emojis.json", "discord-utility/emojis.json", "bot-gray/emojis.json"):
+# both gray and colorful symbols; other collections remain available to the bot.
+for relative_manifest in ("discord-color/emojis.json", "discord-utility/emojis.json", "bot-gray/emojis.json", "bot-color/emojis.json"):
     pack_path = ASSETS / relative_manifest
     if pack_path.exists():
         MANIFEST["emojis"].extend(json.loads(pack_path.read_text(encoding="utf-8"))["emojis"])
@@ -63,8 +63,8 @@ def load_collection(application_id=None):
     cached = _cache(application_id)
     collection = {entry["key"]: _code(entry, cached) or entry["fallback"]
                   for entry in MANIFEST["emojis"]}
-    # Semantic keys such as "ticket" use neutral bot artwork; explicit
-    # "utility_ticket" still selects the colorful Discord-only tile.
+    # Semantic keys use the current colorful bot artwork. Explicit "gray_*"
+    # keys retain the neutral variant for dashboard selections.
     for entry in MANIFEST["emojis"]:
         if entry.get("replaces"):
             collection[entry["replaces"]] = collection[entry["key"]]
@@ -167,7 +167,7 @@ async def sync_from_token(token):
         # Upload the current bot style and dashboard pack before older sets,
         # so unused historical artwork cannot consume the startup time budget.
         upload_entries = sorted(MANIFEST["emojis"], key=lambda entry: (
-            0 if entry["file"].startswith("bot-gray/") else
+            0 if entry["file"].startswith("bot-color/") else
             1 if entry.get("dashboard_visible", True) else 2
         ))
         for entry in upload_entries:

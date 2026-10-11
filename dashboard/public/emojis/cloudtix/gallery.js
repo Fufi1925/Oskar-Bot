@@ -3,8 +3,18 @@
   const status = document.getElementById("status");
   const grid = document.getElementById("grid");
   const filters = document.getElementById("filters");
+  const styles = document.getElementById("styles");
   let entries = [];
   let category = "Alle";
+  let style = "color";
+  try {
+    const saved = localStorage.getItem("cloudtix.emoji-style");
+    if (saved === "color" || saved === "gray") style = saved;
+  } catch {
+    /* Storage is optional. */
+  }
+  const entryStyle = (entry) =>
+    entry.style || (entry.key.startsWith("gray_") ? "gray" : "color");
   const element = (tag, text, className) => {
     const node = document.createElement(tag);
     if (text !== undefined) node.textContent = text;
@@ -14,18 +24,19 @@
   function render() {
     grid.replaceChildren();
     entries
+      .filter((entry) => entryStyle(entry) === style)
       .filter((entry) => category === "Alle" || entry.category === category)
       .forEach((entry) => {
         const card = element("article", undefined, "card");
         const preview = element("div", undefined, "preview");
         const image = document.createElement("img");
         image.src = entry.file;
-        image.alt = entry.key;
+        image.alt = entry.label || entry.key;
         image.width = image.height = 128;
         preview.append(image);
         card.append(
           preview,
-          element("h2", entry.key),
+          element("h2", entry.label || entry.key),
           element(
             "p",
             `${entry.category} · ${(entry.bytes / 1024).toFixed(1)} KB${entry.animated ? " · Animiert" : ""}`,
@@ -60,6 +71,9 @@
         card.append(actions);
         grid.append(card);
       });
+    document.getElementById("emoji-count").textContent = String(
+      entries.filter((entry) => entryStyle(entry) === style).length,
+    );
   }
   async function refreshCodes() {
     try {
@@ -87,6 +101,28 @@
     })
     .then((manifest) => {
       entries = manifest.emojis;
+      [
+        ["color", "Farbe"],
+        ["gray", "Grau"],
+      ].forEach(([value, label]) => {
+        const button = element("button", label);
+        button.setAttribute("aria-pressed", String(style === value));
+        button.addEventListener("click", () => {
+          style = value;
+          try {
+            localStorage.setItem("cloudtix.emoji-style", value);
+          } catch {
+            /* Storage is optional. */
+          }
+          styles
+            .querySelectorAll("button")
+            .forEach((item) =>
+              item.setAttribute("aria-pressed", String(item === button)),
+            );
+          render();
+        });
+        styles.append(button);
+      });
       document.getElementById("emoji-count").textContent = String(
         entries.length,
       );

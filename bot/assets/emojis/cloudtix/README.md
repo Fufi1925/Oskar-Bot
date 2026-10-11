@@ -1,13 +1,15 @@
 # CloudTIX Application Emojis
 
-Die ursprünglichen Bot-Symbole verwenden jetzt das [graue Set](bot-gray/README.md):
-silbergraue Symbole auf grauen, abgerundeten Kacheln, gelbe Warnungen und rote
-Fehler. Es wird zuletzt geladen und
-liefert die zentralen Bot-Konstanten sowie die semantischen `EMOJIS`-Schlüssel.
-Im Dashboard stehen ausschließlich die 148 Symbole mit grauem Hintergrund.
-Die bunten Varianten bleiben über `utility_*` verfügbar.
+Alle ursprünglichen Bot-Symbole stehen in zwei Varianten bereit:
+[156 farbige Kacheln](bot-color/README.md) und [156 graue Kacheln](bot-gray/README.md).
+Die Dashboard-Auswahl und die Vorschauseite bieten „Farbe / Grau“ und speichern
+die Auswahl im Browser. Neu sind Regelwerk, Verhaltensregeln, Regeln akzeptieren,
+Fragen zum Regelwerk, Datenschutz, Nutzungsbedingungen, Änderungslog und Server-Info.
+Die farbige Variante wird zuletzt geladen und liefert die zentralen Bot-Konstanten
+sowie die semantischen `EMOJIS`-Schlüssel. Explizite `gray_*`-Schlüssel bleiben grau;
+`vivid_*` wählt die farbige Variante. Die älteren Sets bleiben separat verfügbar.
 
-Das neueste Bot-Set enthält [84 kräftig farbige Utility-Emojis mit abgerundeten
+Ein älteres Bot-Set enthält [84 kräftig farbige Utility-Emojis mit abgerundeten
 Kacheln](discord-utility/README.md), darunter eine grüne Bestätigung und ein
 violettes Unterstützer-Herz. Alle Kacheln haben einen glänzenden Look mit
 Lichtreflexen und dezent leuchtenden Symbolen. Das Set lässt sich im Bot
@@ -16,8 +18,8 @@ ausdrücklich über `utility_*` verwenden und wird im Dashboard nicht angeboten.
 Zusätzlich gibt es [75 farbige Twemoji-Symbole für Bot-Nachrichten](discord-color/README.md).
 Diese werden ebenfalls automatisch hochgeladen und stehen als `EMOJIS["color_gift"]`
 bzw. `CT_COLOR_GIFT` im Bot bereit. Die Standardkonstanten wie `TICK`, `ERROR`,
-`WARNING` und `TICKET` verwenden das graue Set mit Hinweisfarben.
-Die Dashboard-Auswahl enthält ausschließlich 148 graue Symbole.
+`WARNING` und `TICKET` verwenden das neue farbige Set mit Hinweisfarben.
+Die Dashboard-Auswahl enthält 312 Symbole: je 156 pro Stil.
 
 110 weiße Lucide-Symbole, 128 × 128 Pixel, transparent. Alle Dateien sind deutlich
 unter Discords 256-KB-Grenze; `loading.gif` hat 16 Frames und läuft in einer Schleife.
@@ -40,7 +42,7 @@ Import der Cogs, damit bestehende `from utils.emoji import ...`-Imports bereits 
 richtigen Werte bekommen. Bestehende zentrale Konstanten werden entsprechend den
 `constants`-Listen in `emojis.json` automatisch auf das neue Set umgestellt.
 Discord-Abzeichen und andere nicht zugeordnete Symbole bleiben eigene Emojis.
-Im Dashboard werden ausschließlich die 148 grauen Emojis angeboten.
+Im Dashboard kann zwischen Farbe und Grau gewählt werden.
 
 Echte IDs werden atomar unter `$DATA_DIR/jsondb/cloudtix-emojis.json` gespeichert;
 ohne `DATA_DIR` unter `bot/jsondb/cloudtix-emojis.json`. Der Cache ist nicht im Git.

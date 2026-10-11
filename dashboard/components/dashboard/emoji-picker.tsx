@@ -8,7 +8,7 @@
  * gerade steht -- nicht am Ende. Wer mitten im Satz eines braucht,
  * müsste es sonst von Hand dorthin schieben.
  *
- * Der Bot liefert die Symbole auf grauem Hintergrund mit echten
+ * Der Bot liefert farbige und graue Symbole mit echten
  * Discord-Codes. Vorschauen ohne Discord-ID werden angezeigt,
  * können aber erst nach dem Upload eingefügt werden.
  */
@@ -29,6 +29,8 @@ export interface BotEmoji {
   group: string;
   url: string;
   source?: "cloudtix";
+  style?: "color" | "gray";
+  label?: string;
 }
 
 /**
@@ -71,6 +73,23 @@ export function EmojiPicker({
   const [emojis, setEmojis] = useState<BotEmoji[]>([]);
   const [query, setQuery] = useState("");
   const [reload, setReload] = useState(0);
+  const [style, setStyle] = useState<"color" | "gray">("color");
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("cloudtix.emoji-style");
+      if (saved === "color" || saved === "gray") setStyle(saved);
+    } catch {
+      /* Browser storage is optional. */
+    }
+  }, [open]);
+  function chooseStyle(value: "color" | "gray") {
+    setStyle(value);
+    try {
+      localStorage.setItem("cloudtix.emoji-style", value);
+    } catch {
+      /* Keep the selection in memory. */
+    }
+  }
   // Warum das Feld per Portal an `document.body` haengt
   // ---------------------------------------------------
   // Mehrere Bausteine eroeffnen einen eigenen Stapelkontext:
@@ -145,14 +164,20 @@ export function EmojiPicker({
 
   const grouped = useMemo(() => {
     const needle = query.trim().toLowerCase();
+    const styled = emojis.filter(
+      (entry) =>
+        (entry.style ??
+          (entry.key.startsWith("CT_GRAY_") ? "gray" : "color")) === style,
+    );
     const shown = needle
-      ? emojis.filter(
+      ? styled.filter(
           (entry) =>
             entry.name.toLowerCase().includes(needle) ||
             entry.key.toLowerCase().includes(needle) ||
+            entry.label?.toLowerCase().includes(needle) ||
             entry.group.toLowerCase().includes(needle),
         )
-      : emojis;
+      : styled;
 
     const buckets = new Map<string, BotEmoji[]>();
     for (const entry of shown) {
@@ -161,9 +186,14 @@ export function EmojiPicker({
       buckets.set(entry.group, list);
     }
     return [...buckets.entries()];
-  }, [emojis, query]);
+  }, [emojis, query, style]);
 
-  const cloudtix = emojis.filter((entry) => entry.source === "cloudtix");
+  const cloudtix = emojis.filter(
+    (entry) =>
+      entry.source === "cloudtix" &&
+      (entry.style ?? (entry.key.startsWith("CT_GRAY_") ? "gray" : "color")) ===
+        style,
+  );
   const cloudtixReady = cloudtix.filter((entry) => entry.raw).length;
 
   return (
@@ -224,6 +254,29 @@ export function EmojiPicker({
           </button>
         </div>
 
+        <div
+          className="flex gap-2 px-3 py-2 border-b border-slate-800 shrink-0"
+          role="group"
+          aria-label="Emoji-Stil"
+        >
+          {(["color", "gray"] as const).map((value) => (
+            <button
+              key={value}
+              type="button"
+              aria-pressed={style === value}
+              onClick={() => chooseStyle(value)}
+              className={cn(
+                "flex-1 rounded-lg border px-3 py-1.5 text-xs",
+                style === value
+                  ? "border-white/30 bg-white/10 text-white"
+                  : "border-white/10 text-slate-400 hover:text-white",
+              )}
+            >
+              {value === "color" ? "Farbe" : "Grau"}
+            </button>
+          ))}
+        </div>
+
         <div className="flex-1 min-h-0 overflow-y-auto p-2.5">
           {loading && (
             <div className="flex items-center justify-center py-8">
@@ -256,13 +309,13 @@ export function EmojiPicker({
                     disabled={!entry.raw}
                     title={
                       entry.raw
-                        ? `:${entry.name}:`
-                        : `${entry.key} – noch nicht bei Discord verfügbar`
+                        ? `${entry.label || entry.key} · :${entry.name}:`
+                        : `${entry.label || entry.key} – noch nicht bei Discord verfügbar`
                     }
                     aria-label={
                       entry.raw
-                        ? entry.key
-                        : `${entry.key} – noch nicht verfügbar`
+                        ? entry.label || entry.key
+                        : `${entry.label || entry.key} – noch nicht verfügbar`
                     }
                     onClick={() => {
                       if (entry.raw) onPick(entry.raw);

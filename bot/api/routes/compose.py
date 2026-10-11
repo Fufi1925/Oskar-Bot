@@ -532,6 +532,8 @@ async def emojis(bot: "universitybot" = Depends(get_bot)):
             "group": f"CloudTIX {style} · {category_labels.get(entry['category'], entry['category'])}",
             "url": f"/emojis/cloudtix/{entry['file']}",
             "source": "cloudtix",
+            "style": entry.get("style", "gray" if style == "Grau" else "color"),
+            "label": entry.get("label", entry["key"]),
         })
 
     groups = list(dict.fromkeys(entry["group"] for entry in items))

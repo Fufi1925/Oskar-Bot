@@ -11,7 +11,7 @@ PUBLIC = ROOT / "dashboard/public/emojis/cloudtix"
 def publish():
     entries = []
     for relative in ("emojis.json", "discord-color/emojis.json",
-                     "discord-utility/emojis.json", "bot-gray/emojis.json"):
+                     "discord-utility/emojis.json", "bot-gray/emojis.json", "bot-color/emojis.json"):
         path = ASSETS / relative
         if path.exists():
             manifest = json.loads(path.read_text(encoding="utf-8"))

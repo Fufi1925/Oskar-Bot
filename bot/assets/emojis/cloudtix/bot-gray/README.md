@@ -1,28 +1,28 @@
-# Graue CloudTIX Bot-Emojis
+# CloudTIX Bot-Emojis: Grau
 
-148 Symbole auf abgerundeten grauen Kacheln für die ursprünglichen
-Bot-Konstanten: silbergrauer Verlauf, gelbe Warnungen und rote Fehler/Sperren.
+156 Symbole auf abgerundeten grauen Kacheln.
+Enthält alle ursprünglichen Bot-Symbole sowie Regelwerk, Verhaltensregeln,
+Regeln akzeptieren, FAQ, Datenschutz, Nutzungsbedingungen, Änderungslog und Server-Info.
 Außerhalb der Kacheln bleibt der Hintergrund transparent.
 128 × 128 Pixel, maximal 256 KB. Der Ladeindikator bleibt animiert.
 Lucide 0.468.0; vollständige Lizenz in [LICENSE.lucide.txt](LICENSE.lucide.txt).
 
-Das Set wird beim Bot-Start automatisch als Application Emojis hochgeladen
-und zuletzt auf die zentralen Bot-Konstanten angewendet. Auch Badge-Mappings,
-Kompatibilitätsnamen und Kategorien verwenden diese Werte. Im Dashboard stehen
-ausschließlich diese grauen Symbole. Alte IDs werden nicht gelöscht.
+Beide Sets werden beim Bot-Start automatisch als Application Emojis hochgeladen.
+Die zentralen Bot-Konstanten verwenden die farbige Variante. Im Dashboard kann
+zwischen Farbe und Grau gewählt werden. Alte IDs werden nicht gelöscht.
 
 ```python
 from utils.emoji import TICKET, WARNING, ERROR, EMOJIS
 await ctx.send(f"{TICKET} Dein Ticket")
 await ctx.send(f"{WARNING} Bitte beachten")
-# Direkter Zugriff auf das graue Bot-Symbol:
+# Direkter Zugriff auf die graue Variante:
 await ctx.send(EMOJIS["gray_ticket"])
-# Das farbige Utility-Symbol bleibt separat nutzbar:
-await ctx.send(EMOJIS["utility_ticket"])
+# Direkter Zugriff auf die farbige Variante:
+await ctx.send(EMOJIS["vivid_ticket"])
 ```
 
 Ohne verfügbare Discord-ID greift der Unicode-Fallback. Export:
-`python scripts/export_cloudtix_gray_emojis.py`.
+`python scripts/export_cloudtix_gray_emojis.py --style all`.
 
 | Name | Farbe | Vorschau | Bot-Konstanten |
 | --- | --- | --- | --- |
@@ -79,7 +79,7 @@ Ohne verfügbare Discord-ID greift der Unicode-Fallback. Export:
 | gray_ticket_open | gray | [Bild](gray_ticket_open.png) | `TICKET_OPEN` |
 | gray_ticket_close | red | [Bild](gray_ticket_close.png) | `TICKET_CLOSE` |
 | gray_ticket_claim | gray | [Bild](gray_ticket_claim.png) | `TICKET_CLAIM` |
-| gray_transcript | gray | [Bild](gray_transcript.png) | `TRANSCRIPT`, `PAPER`, `REDRULESBOOK` |
+| gray_transcript | gray | [Bild](gray_transcript.png) | `TRANSCRIPT`, `PAPER` |
 | gray_support | gray | [Bild](gray_support.png) | `SUPPORT`, `HANDSHAKE`, `MINGLE` |
 | gray_faq | gray | [Bild](gray_faq.png) | `FAQ` |
 | gray_mail | gray | [Bild](gray_mail.png) | `MAIL` |
@@ -174,3 +174,11 @@ Ohne verfügbare Discord-ID greift der Unicode-Fallback. Export:
 | gray_scissors | gray | [Bild](gray_scissors.png) | `SCISSORS` |
 | gray_shocked | gray | [Bild](gray_shocked.png) | `SHOCKED` |
 | gray_target | gray | [Bild](gray_target.png) | `TARGET` |
+| gray_rules | gray | [Bild](gray_rules.png) | `RULES`, `REGELWERK`, `REDRULESBOOK` |
+| gray_guidelines | gray | [Bild](gray_guidelines.png) | `GUIDELINES` |
+| gray_rules_accept | gray | [Bild](gray_rules_accept.png) | `RULES_ACCEPT` |
+| gray_rules_faq | gray | [Bild](gray_rules_faq.png) | `RULES_FAQ` |
+| gray_privacy_policy | gray | [Bild](gray_privacy_policy.png) | `PRIVACY_POLICY` |
+| gray_terms | gray | [Bild](gray_terms.png) | `TERMS` |
+| gray_changelog | gray | [Bild](gray_changelog.png) | `CHANGELOG` |
+| gray_server_info | gray | [Bild](gray_server_info.png) | `SERVER_INFO` |
