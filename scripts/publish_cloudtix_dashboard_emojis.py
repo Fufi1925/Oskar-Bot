@@ -10,6 +10,10 @@ PUBLIC = ROOT / "dashboard/public/emojis/cloudtix"
 
 def publish():
     entries = []
+    retirement_path = ASSETS / "retirement.json"
+    retirement = json.loads(retirement_path.read_text(encoding="utf-8")) if retirement_path.exists() else {}
+    retired_keys = set(retirement.get("retired_keys", []))
+    retired_names = set(retirement.get("names", []))
     for relative in ("emojis.json", "discord-color/emojis.json",
                      "discord-utility/emojis.json", "bot-gray/emojis.json", "bot-color/emojis.json"):
         path = ASSETS / relative
@@ -17,7 +21,8 @@ def publish():
             manifest = json.loads(path.read_text(encoding="utf-8"))
             for entry in manifest["emojis"]:
                 if entry.get("dashboard_visible", True):
-                    entries.append({**entry, "provider": entry.get("provider", manifest["provider"])})
+                    entries.append({**entry, "provider": entry.get("provider", manifest["provider"]),
+                                    "retired": entry["key"] in retired_keys or entry["name"] in retired_names})
     PUBLIC.mkdir(parents=True, exist_ok=True)
     # Remove previews that have been retired from the dashboard catalog.
     previous_path = PUBLIC / "emojis.json"

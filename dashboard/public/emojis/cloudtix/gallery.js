@@ -75,11 +75,17 @@
         ),
       );
       card.append(
-        element("code", entry.discord_code || `EMOJIS["${entry.key}"]`, "code"),
+        element(
+          "code",
+          entry.retired
+            ? "Bei Discord deaktiviert"
+            : entry.discord_code || `EMOJIS["${entry.key}"]`,
+          "code",
+        ),
       );
       const actions = element("div", undefined, "actions");
       const copy = element("button", "Code kopieren");
-      copy.disabled = !entry.discord_code;
+      copy.disabled = !entry.discord_code || entry.retired;
       copy.addEventListener("click", async () => {
         try {
           await navigator.clipboard.writeText(entry.discord_code);
@@ -111,14 +117,28 @@
       const live = new Map(catalog.emojis.map((entry) => [entry.key, entry]));
       entries = entries.map((entry) => ({
         ...entry,
-        discord_code: live.get(entry.key)?.discord_code || null,
+        discord_code: entry.retired
+          ? null
+          : live.get(entry.key)?.discord_code || null,
       }));
-      status.textContent = `${catalog.ready} / ${entries.length} bei Discord verfügbar`;
+      const retired = entries.every((entry) => entry.retired);
+      status.textContent = retired
+        ? catalog.cleanup?.status === "completed"
+          ? `Löschung bei Discord bestätigt · ${catalog.cleanup.deleted} entfernt`
+          : catalog.cleanup?.status === "blocked"
+            ? "Discord-Löschung blockiert · Bot-Berechtigungen prüfen"
+            : "Uploads deaktiviert · Discord-Löschung vorgemerkt oder läuft"
+        : `${catalog.ready} / ${entries.length} bei Discord verfügbar`;
       render();
-      if (catalog.ready < entries.length) setTimeout(refreshCodes, 30000);
+      if (
+        (retired && catalog.cleanup?.status !== "completed") ||
+        (!retired && catalog.ready < entries.length)
+      )
+        setTimeout(refreshCodes, 30000);
     } catch {
-      status.textContent =
-        "Vorschauen bereit · Bot-Synchronisierung derzeit nicht erreichbar";
+      status.textContent = entries.every((entry) => entry.retired)
+        ? "Uploads deaktiviert · Löschstatus derzeit nicht erreichbar"
+        : "Vorschauen bereit · Bot-Synchronisierung derzeit nicht erreichbar";
       setTimeout(refreshCodes, 30000);
     }
   }

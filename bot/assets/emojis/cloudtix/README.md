@@ -1,5 +1,23 @@
 # CloudTIX Application Emojis
 
+## Löschung am 11. Oktober 2026 angefordert
+
+Die selbst erstellten Application-Emojis vom 10. und 11. Oktober sind deaktiviert.
+`retirement.json` enthält ihre genauen historischen Namen aus 14 Änderungen.
+Der Bot prüft vor jeder Löschung den Namen und das echte Discord-Erstellungsdatum
+zwischen 2026-10-10 00:00 UTC (inklusive) und 2026-10-12 00:00 UTC (exklusive).
+Andere Application-Emojis und Server-Emojis werden nicht gelöscht.
+
+Beim nächsten Start läuft die Bereinigung im Hintergrund mit dem vorhandenen
+Bot-Token. Sie respektiert Rate Limits und bestätigt die Abwesenheit durch eine
+neue Discord-Abfrage. Fortschritt steht in `$DATA_DIR/jsondb/cloudtix-emoji-retirement.json`
+und im öffentlichen Katalog unter `cleanup`. Fehlende Berechtigungen werden als
+`blocked` gemeldet. Es findet kein erneuter Upload dieser Sets statt; die
+Dateien bleiben als Vorschauen und Downloads erhalten. Bot-Nachrichten nutzen
+Unicode-Fallbacks.
+
+## Archivierte Gestaltung
+
 Alle ursprünglichen Bot-Symbole stehen in zwei Varianten bereit:
 [249 farbige Kacheln](bot-color/README.md) und [249 graue Kacheln](bot-gray/README.md).
 Die Dashboard-Auswahl und die Vorschauseite bieten „Farbe / Grau“ und speichern

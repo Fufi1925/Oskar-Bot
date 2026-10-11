@@ -33,6 +33,7 @@ export interface BotEmoji {
   label?: string;
   keywords?: string[];
   category?: string;
+  retired?: boolean;
 }
 
 function emojiCategory(entry: BotEmoji) {
@@ -217,6 +218,7 @@ export function EmojiPicker({
         style,
   );
   const cloudtixReady = cloudtix.filter((entry) => entry.raw).length;
+  const cloudtixRetired = cloudtix.filter((entry) => entry.retired).length;
 
   return (
     <div className={cn("relative", className)} ref={boxRef}>
@@ -346,19 +348,23 @@ export function EmojiPicker({
                   <button
                     key={entry.raw || entry.key}
                     type="button"
-                    disabled={!entry.raw}
+                    disabled={!entry.raw || entry.retired}
                     title={
-                      entry.raw
-                        ? `${entry.label || entry.key} · :${entry.name}:`
-                        : `${entry.label || entry.key} – noch nicht bei Discord verfügbar`
+                      entry.retired
+                        ? `${entry.label || entry.key} – deaktiviert`
+                        : entry.raw
+                          ? `${entry.label || entry.key} · :${entry.name}:`
+                          : `${entry.label || entry.key} – noch nicht bei Discord verfügbar`
                     }
                     aria-label={
-                      entry.raw
-                        ? entry.label || entry.key
-                        : `${entry.label || entry.key} – noch nicht verfügbar`
+                      entry.retired
+                        ? `${entry.label || entry.key} – deaktiviert`
+                        : entry.raw
+                          ? entry.label || entry.key
+                          : `${entry.label || entry.key} – noch nicht verfügbar`
                     }
                     onClick={() => {
-                      if (entry.raw) onPick(entry.raw);
+                      if (entry.raw && !entry.retired) onPick(entry.raw);
                       // Offen lassen: wer eines einsetzt, setzt oft
                       // gleich noch eines. Zum Schließen gibt es das
                       // Kreuz, Escape und den Klick daneben.
@@ -383,7 +389,10 @@ export function EmojiPicker({
           {cloudtix.length > 0 && (
             <span className="block mb-1">
               CloudTIX: {cloudtixReady} / {cloudtix.length} verfügbar.
-              {cloudtixReady < cloudtix.length &&
+              {cloudtixRetired > 0 &&
+                ` ${cloudtixRetired} Emojis sind deaktiviert und werden nicht wieder hochgeladen.`}
+              {cloudtixRetired === 0 &&
+                cloudtixReady < cloudtix.length &&
                 " Fehlende Emojis sind noch nicht bei Discord verfügbar."}
             </span>
           )}

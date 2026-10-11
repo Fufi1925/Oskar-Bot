@@ -541,6 +541,7 @@ async def emojis(bot: "universitybot" = Depends(get_bot)):
             "label": entry.get("label", entry["key"]),
             "keywords": entry.get("keywords", []),
             "category": category_labels.get(entry["category"], entry["category"]),
+            "retired": entry.get("retired", False),
         })
 
     groups = list(dict.fromkeys(entry["group"] for entry in items))

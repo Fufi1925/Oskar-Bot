@@ -584,6 +584,16 @@ async def main():
         # every dashboard action that touches Discord fails with
         # "RuntimeError: Timeout context manager should be used inside a task".
         set_bot_loop(asyncio.get_running_loop())
+        # The authorized emoji cleanup runs independently of gateway login and
+        # resumes through Discord rate limits without holding up health checks.
+        emoji_cleanup = asyncio.create_task(
+            _load_standalone("application_emojis").cleanup_retired_from_token(TOKEN),
+            name="cloudtix-emoji-retirement",
+        )
+        emoji_cleanup.add_done_callback(
+            lambda task: logging.error("CloudTIX emoji cleanup failed (%s)", type(task.exception()).__name__)
+            if not task.cancelled() and task.exception() else None
+        )
 
         # os.system("clear")  # disabled for Railway container
         await client.load_extension("jishaku")
