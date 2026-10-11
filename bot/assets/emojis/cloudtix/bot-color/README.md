@@ -1,12 +1,14 @@
 # CloudTIX Bot-Emojis: Farbe
 
-240 Symbole auf abgerundeten farbigen Kacheln.
+249 Symbole auf abgerundeten farbigen Kacheln.
 Enthält alle ursprünglichen Bot-Symbole sowie Moderation, Server, Tickets,
 Regelwerk, Medien, Wirtschaft und Statusmeldungen. Deutsche Namen und Suchbegriffe
 stehen im Manifest. Verwandte Aktionen werden durch kleine Statuszeichen unterschieden.
 Außerhalb der Kacheln bleibt der Hintergrund transparent.
 128 × 128 Pixel, maximal 256 KB. Der Ladeindikator bleibt animiert.
-Lucide 0.468.0; vollständige Lizenz in [LICENSE.lucide.txt](LICENSE.lucide.txt).
+Ausgefüllte Motive: Font Awesome Free 6.7.2 (CC BY 4.0),
+[Lizenz](LICENSE.fontawesome.txt). Statuszeichen und ältere Quellen:
+[Lucide-Lizenz](LICENSE.lucide.txt). Leuchtende Kacheln im Stil der Referenzbilder.
 
 Beide Sets werden beim Bot-Start automatisch als Application Emojis hochgeladen.
 Die zentralen Bot-Konstanten verwenden die farbige Variante. Im Dashboard kann
@@ -267,3 +269,12 @@ Ohne verfügbare Discord-ID greift der Unicode-Fallback. Export:
 | vivid_outage | red | [Bild](vivid_outage.png) | `CATALOG_OUTAGE` |
 | vivid_scheduled | status | [Bild](vivid_scheduled.png) | `CATALOG_SCHEDULED` |
 | vivid_complete | status | [Bild](vivid_complete.png) | `CATALOG_COMPLETE` |
+| vivid_booster | badges | [Bild](vivid_booster.png) | `CATALOG_BOOSTER` |
+| vivid_paint | media | [Bild](vivid_paint.png) | `CATALOG_PAINT` |
+| vivid_github | media | [Bild](vivid_github.png) | `CATALOG_GITHUB` |
+| vivid_youtube | media | [Bild](vivid_youtube.png) | `CATALOG_YOUTUBE` |
+| vivid_partner | badges | [Bild](vivid_partner.png) | `CATALOG_PARTNER` |
+| vivid_supporter | badges | [Bild](vivid_supporter.png) | `CATALOG_SUPPORTER` |
+| vivid_ambassador | badges | [Bild](vivid_ambassador.png) | `CATALOG_AMBASSADOR` |
+| vivid_rocket | community | [Bild](vivid_rocket.png) | `CATALOG_ROCKET` |
+| vivid_trophy | community | [Bild](vivid_trophy.png) | `CATALOG_TROPHY` |

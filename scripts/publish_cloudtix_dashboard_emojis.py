@@ -33,9 +33,13 @@ def publish():
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(ASSETS / entry["file"], target)
     shutil.copyfile(ASSETS / "LICENSE.lucide.txt", PUBLIC / "LICENSE.lucide.txt")
+    license_files = ["LICENSE.lucide.txt"]
+    if (ASSETS / "LICENSE.fontawesome.txt").exists():
+        shutil.copyfile(ASSETS / "LICENSE.fontawesome.txt", PUBLIC / "LICENSE.fontawesome.txt")
+        license_files.append("LICENSE.fontawesome.txt")
     providers = list(dict.fromkeys(entry["provider"] for entry in entries))
     catalog = {"schema_version": 1, "brand": "CloudTIX", "provider": ", ".join(providers),
-               "license_file": "LICENSE.lucide.txt", "emojis": entries}
+               "license_file": "LICENSE.lucide.txt", "license_files": license_files, "emojis": entries}
     (PUBLIC / "emojis.json").write_text(json.dumps(catalog, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     print(f"Published {len(entries)} dashboard emoji previews.")
 

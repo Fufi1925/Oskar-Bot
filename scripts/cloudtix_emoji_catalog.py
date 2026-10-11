@@ -86,6 +86,15 @@ maintenance|wrench|Status|🔧|Wartung|maintenance reparatur update
 outage|circle-x|Status|❌|Störung|outage down offline fehler
 scheduled|calendar-clock|Status|📅|Geplant|scheduled geplant termin
 complete|circle-check|Status|✅|Abgeschlossen|complete done fertig erledigt
+booster|gem|Badges|💎|Booster|boost booster nitro diamant
+paint|paintbrush|Media|🎨|Design|paint design farbe pinsel malen
+github|github|Media|💻|GitHub|github git code repository
+youtube|youtube|Media|▶️|YouTube|youtube video kanal
+partner|link|Badges|🤝|Partner|partner partnership partnerschaft
+supporter|heart|Badges|💜|Unterstützer|supporter apoiador unterstützer
+ambassador|users|Badges|🌟|Botschafter|ambassador embaixador botschafter
+rocket|rocket|Community|🚀|Rakete|rocket rakete start launch
+trophy|trophy|Community|🏆|Pokal|trophy pokal sieger gewinnen
 """
 
 EXPANDED = [tuple(line.split("|")) for line in ROWS.strip().splitlines()]

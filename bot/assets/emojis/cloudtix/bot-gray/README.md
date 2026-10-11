@@ -1,12 +1,14 @@
 # CloudTIX Bot-Emojis: Grau
 
-240 Symbole auf abgerundeten grauen Kacheln.
+249 Symbole auf abgerundeten grauen Kacheln.
 Enthält alle ursprünglichen Bot-Symbole sowie Moderation, Server, Tickets,
 Regelwerk, Medien, Wirtschaft und Statusmeldungen. Deutsche Namen und Suchbegriffe
 stehen im Manifest. Verwandte Aktionen werden durch kleine Statuszeichen unterschieden.
 Außerhalb der Kacheln bleibt der Hintergrund transparent.
 128 × 128 Pixel, maximal 256 KB. Der Ladeindikator bleibt animiert.
-Lucide 0.468.0; vollständige Lizenz in [LICENSE.lucide.txt](LICENSE.lucide.txt).
+Ausgefüllte Motive: Font Awesome Free 6.7.2 (CC BY 4.0),
+[Lizenz](LICENSE.fontawesome.txt). Statuszeichen und ältere Quellen:
+[Lucide-Lizenz](LICENSE.lucide.txt). Leuchtende Kacheln im Stil der Referenzbilder.
 
 Beide Sets werden beim Bot-Start automatisch als Application Emojis hochgeladen.
 Die zentralen Bot-Konstanten verwenden die farbige Variante. Im Dashboard kann
@@ -267,3 +269,12 @@ Ohne verfügbare Discord-ID greift der Unicode-Fallback. Export:
 | gray_outage | red | [Bild](gray_outage.png) | `CATALOG_OUTAGE` |
 | gray_scheduled | gray | [Bild](gray_scheduled.png) | `CATALOG_SCHEDULED` |
 | gray_complete | gray | [Bild](gray_complete.png) | `CATALOG_COMPLETE` |
+| gray_booster | gray | [Bild](gray_booster.png) | `CATALOG_BOOSTER` |
+| gray_paint | gray | [Bild](gray_paint.png) | `CATALOG_PAINT` |
+| gray_github | gray | [Bild](gray_github.png) | `CATALOG_GITHUB` |
+| gray_youtube | gray | [Bild](gray_youtube.png) | `CATALOG_YOUTUBE` |
+| gray_partner | gray | [Bild](gray_partner.png) | `CATALOG_PARTNER` |
+| gray_supporter | gray | [Bild](gray_supporter.png) | `CATALOG_SUPPORTER` |
+| gray_ambassador | gray | [Bild](gray_ambassador.png) | `CATALOG_AMBASSADOR` |
+| gray_rocket | gray | [Bild](gray_rocket.png) | `CATALOG_ROCKET` |
+| gray_trophy | gray | [Bild](gray_trophy.png) | `CATALOG_TROPHY` |

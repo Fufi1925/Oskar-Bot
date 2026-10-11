@@ -1,14 +1,19 @@
 # CloudTIX Application Emojis
 
 Alle ursprünglichen Bot-Symbole stehen in zwei Varianten bereit:
-[240 farbige Kacheln](bot-color/README.md) und [240 graue Kacheln](bot-gray/README.md).
+[249 farbige Kacheln](bot-color/README.md) und [249 graue Kacheln](bot-gray/README.md).
 Die Dashboard-Auswahl und die Vorschauseite bieten „Farbe / Grau“ und speichern
 die Auswahl im Browser. Neu sind Regelwerk, Verhaltensregeln, Regeln akzeptieren,
 Fragen zum Regelwerk, Datenschutz, Nutzungsbedingungen, Änderungslog und Server-Info.
 Die Überarbeitung ergänzt 84 weitere Motive für Moderation, Serververwaltung,
 Tickets, Wirtschaft, Medien und Statusmeldungen. Ausrufezeichen, Welt, einzelne
 Mitglieder, Warnlisten, temporäre Bans und Einsprüche sind direkt durchsuchbar.
-Größere Symbole, gleichmäßige Konturen und höhere Kontraste verbessern die Lesbarkeit.
+Die neueste Gestaltung folgt den Emoji-Referenzen: ausgefüllte Motive,
+kräftige Neonfarben, weiches Leuchten und leichte Tiefe auf abgerundeten Kacheln.
+Booster und Premium verwenden einen facettierten pinken Diamanten.
+Bot und GitHub verwenden dunkle Kacheln, Werkzeuge Gelb und Pokale Hellgrün.
+GitHub, YouTube, Design, Partner, Unterstützer, Botschafter, Rakete, Booster
+und Pokal sind zusätzlich direkt auswählbar.
 Statuszeichen unterscheiden verwandte Aktionen. Alle Symbole haben deutsche Namen;
 die Suche unterstützt auch englische Begriffe und Zeichen wie `!`.
 Die farbige Variante wird zuletzt geladen und liefert die zentralen Bot-Konstanten
@@ -25,7 +30,13 @@ Zusätzlich gibt es [75 farbige Twemoji-Symbole für Bot-Nachrichten](discord-co
 Diese werden ebenfalls automatisch hochgeladen und stehen als `EMOJIS["color_gift"]`
 bzw. `CT_COLOR_GIFT` im Bot bereit. Die Standardkonstanten wie `TICK`, `ERROR`,
 `WARNING` und `TICKET` verwenden das neue farbige Set mit Hinweisfarben.
-Die Dashboard-Auswahl enthält 480 Symbole: je 240 pro Stil.
+Die Dashboard-Auswahl enthält 498 Symbole: je 249 pro Stil.
+
+Die neuen ausgefüllten Motive stammen aus Font Awesome Free 6.7.2 (CC BY 4.0);
+vollständige Attribution in [LICENSE.fontawesome.txt](LICENSE.fontawesome.txt).
+Angepasste Farben, Kacheln, Licht und Statuszeichen sind im Exporter definiert.
+Der Diamant wurde anhand der Referenzbilder erzeugt. Ältere SVG-Quellen und
+Sammlungen behalten ihre Lucide-Lizenz.
 
 110 weiße Lucide-Symbole, 128 × 128 Pixel, transparent. Alle Dateien sind deutlich
 unter Discords 256-KB-Grenze; `loading.gif` hat 16 Frames und läuft in einer Schleife.

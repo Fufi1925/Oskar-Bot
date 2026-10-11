@@ -1,4 +1,4 @@
-"""Export gray and colorful symbols for CloudTIX bot emoji constants.
+"""Export filled, glowing reference-style CloudTIX emoji tiles.
 
 Production uses committed PNG/GIF files; Chromium is only an export dependency.
 Exports both the gray and colorful versions. The older utility tiles are
@@ -6,6 +6,7 @@ not regenerated here.
 """
 import ast
 import argparse
+import base64
 from concurrent.futures import ThreadPoolExecutor
 import hashlib
 import json
@@ -13,15 +14,14 @@ from pathlib import Path
 import shutil
 import subprocess
 import tempfile
-from urllib.request import urlopen
-from xml.etree import ElementTree as ET
 
 from PIL import Image
 from playwright.sync_api import sync_playwright
 
-from export_cloudtix_emojis import SPECS as BASE_SPECS, VERSION, BASE
+from export_cloudtix_emojis import SPECS as BASE_SPECS
 from publish_cloudtix_dashboard_emojis import publish
 from cloudtix_emoji_catalog import NEW_SPECS, LABELS as CATALOG_LABELS, KEYWORDS, MARKS
+from cloudtix_solid_artwork import artwork, source as filled_source, glyph_url, install_license
 
 ROOT = Path(__file__).resolve().parents[1]
 ASSETS = ROOT / "bot/assets/emojis/cloudtix"
@@ -106,20 +106,6 @@ LABELS = {
 }
 LABELS = {**CATALOG_LABELS, **LABELS}
 
-PALETTES = {
-    "Security": ("#438de8", "#21487a"),
-    "Moderation": ("#6988e8", "#354987"),
-    "Support": ("#20acc7", "#116579"),
-    "Community": ("#a570e6", "#5b378c"),
-    "Music": ("#dc67a9", "#86305f"),
-    "Badges": ("#e5b84c", "#926819"),
-    "Status": ("#4aad92", "#235e50"),
-    "Server": ("#5b9bdc", "#2e5684"),
-    "Regelwerk": ("#8e83e8", "#4f458f"),
-    "Economy": ("#e7b94a", "#8b651c"),
-    "Media": ("#bd73dc", "#6b3884"),
-    "UI": ("#6b9bdf", "#355583"),
-}
 NEGATIVE = {"cross", "reject", "ticket_close", "lockdown", "dnd", "ban", "kick",
             "softban", "tempban", "member_banned", "rules_violation", "outage"}
 CAUTION = {"warning", "warn", "anti_nuke", "report", "exclamation", "warn_list",
@@ -140,81 +126,7 @@ def specs():
 
 
 def source(vector):
-    bundled = OUT / "sources" / f"{vector}.svg"
-    if bundled.exists():
-        return vector, bundled.read_bytes()
-    local = ASSETS / "sources" / f"{vector}.svg"
-    if local.exists():
-        return vector, local.read_bytes()
-    for sibling in ("bot-gray", "bot-color"):
-        cached = ASSETS / sibling / "sources" / f"{vector}.svg"
-        if cached.exists():
-            return vector, cached.read_bytes()
-    try:
-        with urlopen(f"{BASE}/icons/{vector}.svg", timeout=30) as response:
-            data = response.read()
-    except Exception as error:
-        raise RuntimeError(f"Cannot download Lucide {VERSION} glyph: {vector}") from error
-    bundled.write_bytes(data)
-    return vector, data
-
-
-def artwork(vector, shade, style="gray", category="UI", label=""):
-    root = ET.fromstring(vector)
-    for node in root.iter():
-        node.tag = node.tag.split("}")[-1]
-    geometry = "".join(ET.tostring(child, encoding="unicode") for child in root)
-    if label == "exclamation":
-        geometry = '<path d="M12 3v11"/><circle cx="12" cy="20" r="1.2" fill="url(#ink)" stroke="none"/>'
-    top, bottom = {"gray": ("#f5f5f5", "#b8b8b8"),
-                   "yellow": ("#ffe08a", "#e7a62b"),
-                   "red": ("#ff9292", "#e35050")}[shade]
-    background_top, background_bottom = "#424448", "#25272b"
-    if style == "color":
-        background_top, background_bottom = PALETTES.get(category, PALETTES["UI"])
-        if shade == "yellow":
-            background_top, background_bottom = "#efb640", "#a56714"
-        elif shade == "red":
-            background_top, background_bottom = "#e86b76", "#972c3b"
-        elif label in POSITIVE:
-            background_top, background_bottom = "#4bbb87", "#23704e"
-        elif label == "offline":
-            background_top, background_bottom = "#79818b", "#424a55"
-        top, bottom = "#ffffff", "#e2e8f0"
-    mark = MARKS.get(label)
-    marks = {
-        "check": '<path d="m93 100 5 5 9-10"/>',
-        "cross": '<path d="m94 96 11 11m0-11-11 11"/>',
-        "minus": '<path d="M93 102h14"/>',
-        "plus": '<path d="M93 102h14m-7-7v14"/>',
-        "clock": '<circle cx="100" cy="102" r="7"/><path d="M100 97v5l4 2"/>',
-        "refresh": '<path d="M94 103a6 6 0 1 0 2-6m-2-3v5h5"/>',
-        "alert": '<path d="M100 95v8m0 5v.1"/>',
-        "dot": '<circle cx="100" cy="102" r="3" fill="#ffffff"/>',
-    }
-    badge = (f'<circle cx="100" cy="102" r="15" fill="{background_bottom}" stroke="#ffffff" stroke-opacity=".25"/>'
-             f'<g fill="none" stroke="#ffffff" stroke-width="2.7" stroke-linecap="round" stroke-linejoin="round">{marks[mark]}</g>') if mark else ""
-    return f'''<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
-  <defs>
-    <linearGradient id="sheen" x1="0" y1="0" x2="0" y2="1">
-      <stop stop-color="#ffffff" stop-opacity=".15"/><stop offset=".5" stop-color="#ffffff" stop-opacity="0"/>
-    </linearGradient>
-    <linearGradient id="ink" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="24">
-      <stop stop-color="{top}"/><stop offset="1" stop-color="{bottom}"/>
-    </linearGradient>
-    <linearGradient id="background" x1="0" y1="0" x2=".7" y2="1">
-      <stop stop-color="{background_top}"/><stop offset="1" stop-color="{background_bottom}"/>
-    </linearGradient>
-  </defs>
-  <rect x="5" y="5" width="118" height="118" rx="36" fill="url(#background)"/>
-  <rect x="6" y="6" width="116" height="116" rx="35" fill="none" stroke="#ffffff" stroke-opacity=".18"/>
-  <rect x="7" y="7" width="114" height="114" rx="34" fill="url(#sheen)"/>
-  <g id="rotation">
-    <g id="icon" transform="translate(26 26) scale(3.1666667)" fill="none" stroke="url(#ink)"
-       stroke-width="2.15" stroke-linecap="round" stroke-linejoin="round">{geometry}</g>
-  </g>
-  {badge}
-</svg>'''
+    return filled_source(vector, ASSETS)
 
 
 def main(style="gray", only=None):
@@ -223,6 +135,7 @@ def main(style="gray", only=None):
     OUT.mkdir(parents=True, exist_ok=True)
     (OUT / "sources").mkdir(exist_ok=True)
     shutil.copyfile(ASSETS / "LICENSE.lucide.txt", OUT / "LICENSE.lucide.txt")
+    shutil.copyfile(install_license(ASSETS), OUT / "LICENSE.fontawesome.txt")
     definitions = specs()
     keys = [entry[0] for entry in definitions]
     if len(keys) != len(set(keys)):
@@ -248,9 +161,9 @@ def main(style="gray", only=None):
         page = browser.new_page(viewport={"width": 128, "height": 128})
         for label, vector, category, fallback, names in definitions:
             shade = "yellow" if label in CAUTION else "red" if label in NEGATIVE else "gray"
-            svg = artwork(vectors[vector], shade, style, category, label)
+            svg = artwork(vectors[vector], shade, style, category, label, MARKS, POSITIVE)
             edited = OUT / "sources/edited" / f"{label}.png"
-            (OUT / "sources" / f"{vector}.svg").write_bytes(vectors[vector])
+            (OUT / "sources" / f"filled_{vector}.svg").write_bytes(vectors[vector])
             key = f"{style}_{label}" if style == "gray" else f"vivid_{label}"
             target = OUT / f"{key}.{'gif' if label == 'loading' else 'png'}"
             if only is None or label in only or not target.exists():
@@ -267,10 +180,15 @@ def main(style="gray", only=None):
                                         "-alpha", "on", "-channel", "A", "-threshold", "50%", "+channel",
                                         "-loop", "0", str(target)], check=True)
                 else:
-                    page.locator("svg").screenshot(path=str(target), omit_background=True)
+                    page.locator("body > svg").screenshot(path=str(target), omit_background=True)
                     # Generated artwork edits are bundled at their final Discord size.
                     if edited.exists():
-                        shutil.copyfile(edited, target)
+                        encoded = base64.b64encode(edited.read_bytes()).decode("ascii")
+                        page.set_content('<style>body{margin:0;background:transparent}</style>'
+                            '<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128">'
+                            '<defs><clipPath id="tile"><rect x="4" y="4" width="120" height="120" rx="36"/></clipPath></defs>'
+                            f'<image width="128" height="128" href="data:image/png;base64,{encoded}" clip-path="url(#tile)"/></svg>')
+                        page.locator("body > svg").screenshot(path=str(target), omit_background=True)
             data = target.read_bytes()
             with Image.open(target) as image:
                 if image.size != (128, 128) or image.convert("RGBA").getchannel("A").getextrema() != (0, 255):
@@ -288,12 +206,13 @@ def main(style="gray", only=None):
                             "keywords": list(dict.fromkeys([label, *KEYWORDS.get(label, [])])),
                             "color": shade if style == "gray" else background_color(category, shade), "background": style,
                             "replaces": label,
-                            "source_url": f"{BASE}/icons/{vector}.svg"})
+                            "glyph_provider": "Font Awesome Free 6.7.2", "glyph_license_file": "LICENSE.fontawesome.txt",
+                            "visual_style": "filled-glow", "source_url": glyph_url(vector)})
             if edited.exists():
-                entries[-1]["artwork"] = "Generated edit of the Lucide symbol"
+                entries[-1]["artwork"] = "Generated reference-style motif"
         browser.close()
     manifest = {"schema_version": 1, "brand": "CloudTIX", "provider": "CloudTIX Gray" if style == "gray" else "CloudTIX Vivid",
-                "license_file": "LICENSE.lucide.txt", "emojis": entries}
+                "license_file": "LICENSE.fontawesome.txt", "license_files": ["LICENSE.fontawesome.txt", "LICENSE.lucide.txt"], "emojis": entries}
     (OUT / "emojis.json").write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     publish()
     readme = f'''# CloudTIX Bot-Emojis: {"Grau" if style == "gray" else "Farbe"}
@@ -304,7 +223,9 @@ Regelwerk, Medien, Wirtschaft und Statusmeldungen. Deutsche Namen und Suchbegrif
 stehen im Manifest. Verwandte Aktionen werden durch kleine Statuszeichen unterschieden.
 Außerhalb der Kacheln bleibt der Hintergrund transparent.
 128 × 128 Pixel, maximal 256 KB. Der Ladeindikator bleibt animiert.
-Lucide {VERSION}; vollständige Lizenz in [LICENSE.lucide.txt](LICENSE.lucide.txt).
+Ausgefüllte Motive: Font Awesome Free 6.7.2 (CC BY 4.0),
+[Lizenz](LICENSE.fontawesome.txt). Statuszeichen und ältere Quellen:
+[Lucide-Lizenz](LICENSE.lucide.txt). Leuchtende Kacheln im Stil der Referenzbilder.
 
 Beide Sets werden beim Bot-Start automatisch als Application Emojis hochgeladen.
 Die zentralen Bot-Konstanten verwenden die farbige Variante. Im Dashboard kann
